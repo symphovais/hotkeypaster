@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using HotkeyPaster.Services.Windowing;
 
 namespace HotkeyPaster.Services.Transcription
 {
@@ -17,13 +18,13 @@ namespace HotkeyPaster.Services.Transcription
             _textCleaner = textCleaner ?? throw new ArgumentNullException(nameof(textCleaner));
         }
 
-        public async Task<TranscriptionResult> TranscribeAsync(byte[] audioData)
+        public async Task<TranscriptionResult> TranscribeAsync(byte[] audioData, WindowContext? windowContext = null)
         {
             // Use streaming version without progress callback
-            return await TranscribeStreamingAsync(audioData, null);
+            return await TranscribeStreamingAsync(audioData, null, windowContext);
         }
 
-        public async Task<TranscriptionResult> TranscribeStreamingAsync(byte[] audioData, Action<string>? onProgressUpdate)
+        public async Task<TranscriptionResult> TranscribeStreamingAsync(byte[] audioData, Action<string>? onProgressUpdate, WindowContext? windowContext = null)
         {
             // Validate input
             if (audioData == null || audioData.Length == 0)
@@ -37,8 +38,8 @@ namespace HotkeyPaster.Services.Transcription
                 // Step 1: Transcribe audio to raw text
                 string rawTranscription = await _transcriber.TranscribeAsync(audioData);
                 
-                // Step 2: Clean up text (with streaming progress)
-                string cleanedText = await _textCleaner.CleanAsync(rawTranscription, onProgressUpdate);
+                // Step 2: Clean up text (with streaming progress and context)
+                string cleanedText = await _textCleaner.CleanAsync(rawTranscription, onProgressUpdate, windowContext);
                 
                 // Calculate metadata
                 int wordCount = cleanedText.Split(new[] { ' ', '\n', '\r', '\t' }, 

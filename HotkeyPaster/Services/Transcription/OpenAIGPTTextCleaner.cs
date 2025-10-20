@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading.Tasks;
+using HotkeyPaster.Services.Windowing;
 
 namespace HotkeyPaster.Services.Transcription
 {
@@ -16,16 +17,19 @@ namespace HotkeyPaster.Services.Transcription
         private const string ChatUrl = "https://api.openai.com/v1/chat/completions";
         private const string CleanupModel = "gpt-4.1-nano-2025-04-14";
         
-        // Cleanup prompt for GPT-4.1-nano - only fix issues, don't add content
+        // Cleanup prompt for GPT-4.1-nano - context-aware text cleaning
         private const string CleanupPrompt = 
-            "Clean up the following transcribed text. " +
-            "ONLY fix issues - do NOT add new content or information. " +
-            "Remove filler words (um, uh, like, you know, I mean). " +
-            "Remove or replace profanity and inappropriate language. " +
-            "Fix grammar errors and add proper punctuation. " +
-            "Ensure proper capitalization. " +
-            "Make it professional and workplace-appropriate. " +
-            "Keep the original meaning and length - just clean it up.";
+            "You are a text cleaning assistant for a voice-to-text transcription application called HotkeyPaster. " +
+            "The user speaks into their microphone, and the audio is transcribed to text. Your job is to clean up the raw transcription. " +
+            "\n\nRULES:\n" +
+            "1. ONLY fix issues - do NOT add new content or information that wasn't spoken\n" +
+            "2. Remove filler words (um, uh, like, you know, I mean, sort of, kind of)\n" +
+            "3. Fix grammar errors and add proper punctuation\n" +
+            "4. Ensure proper capitalization\n" +
+            "5. Remove or replace profanity and inappropriate language\n" +
+            "6. Keep the original meaning and approximate length\n" +
+            "7. If context about the target application is provided, adjust tone and formality accordingly\n" +
+            "8. Return ONLY the cleaned text, no explanations or meta-commentary";
 
         public OpenAIGPTTextCleaner(string apiKey)
         {
@@ -53,10 +57,21 @@ namespace HotkeyPaster.Services.Transcription
                 new AuthenticationHeaderValue("Bearer", _apiKey);
         }
 
-        public async Task<string> CleanAsync(string rawText, Action<string>? onProgressUpdate = null)
+        public async Task<string> CleanAsync(string rawText, Action<string>? onProgressUpdate = null, WindowContext? windowContext = null)
         {
             if (string.IsNullOrWhiteSpace(rawText))
                 throw new ArgumentException("Raw text cannot be null or empty", nameof(rawText));
+
+            // Build system prompt with optional context
+            var systemPrompt = CleanupPrompt;
+            if (windowContext != null && windowContext.IsValid)
+            {
+                var contextInfo = windowContext.GetContextPrompt();
+                if (!string.IsNullOrEmpty(contextInfo))
+                {
+                    systemPrompt = $"{CleanupPrompt}\n\n{contextInfo}";
+                }
+            }
 
             // Build JSON request for GPT-4.1-nano with streaming
             var requestBody = new
@@ -64,7 +79,7 @@ namespace HotkeyPaster.Services.Transcription
                 model = CleanupModel,
                 messages = new[]
                 {
-                    new { role = "system", content = CleanupPrompt },
+                    new { role = "system", content = systemPrompt },
                     new { role = "user", content = rawText }
                 },
                 temperature = 0.3,

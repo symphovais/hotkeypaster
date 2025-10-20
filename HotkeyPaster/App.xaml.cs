@@ -33,6 +33,7 @@ namespace HotkeyPaster
             var audioService = new AudioRecordingService();
             var hotkeyService = new Win32HotkeyService();
             var trayService = new TrayService();
+            var contextService = new ActiveWindowContextService();
             _settingsService = new SettingsService();
 
             // Load settings and configure transcription service
@@ -61,7 +62,8 @@ namespace HotkeyPaster
                     _logger,
                     audioService,
                     hotkeyService,
-                    _transcriptionService
+                    _transcriptionService,
+                    contextService
                 );
 
                 // Wire hotkey event
@@ -100,12 +102,11 @@ namespace HotkeyPaster
                 Current.Shutdown();
             };
 
-            // Show success notification
+            // Log startup (no notification needed)
             if (_transcriptionService != null)
             {
                 var mode = settings.TranscriptionMode == TranscriptionMode.Local ? "Local" : "Cloud";
-                _notifications.ShowInfo("Hotkey Paster Started",
-                    $"Mode: {mode}. Press Ctrl+Shift+Q to record. Right-click tray icon for settings.");
+                _logger.Log($"Hotkey Paster started in {mode} mode");
             }
         }
 
@@ -170,11 +171,14 @@ namespace HotkeyPaster
             {
                 _transcriptionService = newService;
                 _logger?.Log("Transcription service reloaded with new settings");
-                _notifications?.ShowInfo("Settings Applied", "Transcription settings updated successfully.");
+                // No success notification needed - settings window already provides feedback
             }
             else
             {
-                _notifications?.ShowError("Settings Error", "Failed to apply new settings. Check configuration.");
+                var errorMsg = settings.TranscriptionMode == TranscriptionMode.Local
+                    ? "Failed to load local model. The model file may be corrupted or in the wrong format. Check logs for details."
+                    : "Failed to apply settings. Check your API key and configuration.";
+                _notifications?.ShowError("Settings Error", errorMsg);
             }
         }
     }

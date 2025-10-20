@@ -52,12 +52,13 @@ namespace HotkeyPaster
         private readonly IAudioRecordingService _audio;
         private readonly IHotkeyService _hotkeyService;
         private readonly IAudioTranscriptionService _transcription;
+        private readonly IActiveWindowContextService _contextService;
         private string? _currentRecordingPath;
 
         // The text to paste
         private const string TEXT_TO_PASTE = "Hello from the hotkey paster!";
 
-        public MainWindow(INotificationService notifications, IWindowPositionService positioner, IClipboardPasteService clipboard, ILogger logger, IAudioRecordingService audio, IHotkeyService hotkeyService, IAudioTranscriptionService transcription)
+        public MainWindow(INotificationService notifications, IWindowPositionService positioner, IClipboardPasteService clipboard, ILogger logger, IAudioRecordingService audio, IHotkeyService hotkeyService, IAudioTranscriptionService transcription, IActiveWindowContextService contextService)
         {
             InitializeComponent();
             Logger.Log("MainWindow ctor: InitializeComponent done.");
@@ -68,6 +69,7 @@ namespace HotkeyPaster
             _audio = audio;
             _hotkeyService = hotkeyService;
             _transcription = transcription;
+            _contextService = contextService;
 
             _audio.RecordingStarted += OnRecordingStarted;
             _audio.RecordingStopped += OnRecordingStopped;
@@ -251,7 +253,18 @@ namespace HotkeyPaster
                 byte[] audioData = await File.ReadAllBytesAsync(_currentRecordingPath);
                 Logger.Log($"Read audio file: {audioData.Length} bytes");
 
-                // Transcribe with real-time progress updates
+                // Get window context from the previously focused window
+                var windowContext = _contextService.GetWindowContext(_previousWindow);
+                if (windowContext.IsValid)
+                {
+                    Logger.Log($"Window context captured - Process: '{windowContext.ProcessName}', Title: '{windowContext.WindowTitle}'");
+                }
+                else
+                {
+                    Logger.Log("No valid window context detected");
+                }
+
+                // Transcribe with real-time progress updates and window context
                 var result = await _transcription.TranscribeStreamingAsync(audioData, partialText =>
                 {
                     // Update UI with partial text as it arrives
@@ -261,7 +274,7 @@ namespace HotkeyPaster
                             StringSplitOptions.RemoveEmptyEntries).Length;
                         SubStatus.Text = $"Processing... {wordCount} words";
                     });
-                });
+                }, windowContext);
                 
                 Logger.Log($"Transcription complete: {result.WordCount} words, {result.DurationSeconds:F2}s");
 
@@ -298,10 +311,7 @@ namespace HotkeyPaster
 
                 // Paste transcribed text
                 _clipboard.PasteText(result.Text);
-                Logger.Log("Transcribed text pasted successfully.");
-
-                // Show success notification
-                _notifications.ShowInfo("Transcription Complete", $"Pasted {result.WordCount} words ({result.Language ?? "unknown"})");
+                Logger.Log($"Transcribed text pasted successfully: {result.WordCount} words ({result.Language ?? "unknown"})");
             }
             catch (Exception ex)
             {

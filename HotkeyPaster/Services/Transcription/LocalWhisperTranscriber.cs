@@ -26,6 +26,17 @@ namespace HotkeyPaster.Services.Transcription
                 throw new FileNotFoundException($"Whisper model not found at: {modelPath}", modelPath);
 
             _modelPath = modelPath;
+            
+            // Load model immediately to catch errors early (when settings are saved)
+            // rather than on first transcription attempt
+            try
+            {
+                _whisperFactory = WhisperFactory.FromPath(_modelPath);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to load Whisper model from '{modelPath}'. The file may be corrupted or in the wrong format.", ex);
+            }
         }
 
         public async Task<string> TranscribeAsync(byte[] audioData)
@@ -36,10 +47,10 @@ namespace HotkeyPaster.Services.Transcription
 
             try
             {
-                // Initialize factory if not already done
+                // Factory is already initialized in constructor
                 if (_whisperFactory == null)
                 {
-                    _whisperFactory = WhisperFactory.FromPath(_modelPath);
+                    throw new InvalidOperationException("Whisper factory not initialized");
                 }
 
                 // Create processor with auto language detection

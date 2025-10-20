@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using HotkeyPaster.Services.Windowing;
 
 namespace HotkeyPaster.Services.Transcription
 {
@@ -13,7 +14,8 @@ namespace HotkeyPaster.Services.Transcription
         /// </summary>
         /// <param name="rawText">Raw transcribed text to clean</param>
         /// <param name="onProgressUpdate">Optional callback for streaming progress updates</param>
+        /// <param name="windowContext">Optional context about where the transcription will be pasted</param>
         /// <returns>Cleaned and formatted text</returns>
-        Task<string> CleanAsync(string rawText, Action<string>? onProgressUpdate = null);
+        Task<string> CleanAsync(string rawText, Action<string>? onProgressUpdate = null, WindowContext? windowContext = null);
     }
 }

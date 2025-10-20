@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using HotkeyPaster.Services.Windowing;
 
 namespace HotkeyPaster.Services.Transcription
 {
@@ -12,16 +13,18 @@ namespace HotkeyPaster.Services.Transcription
         /// Transcribes audio data to formatted text.
         /// </summary>
         /// <param name="audioData">Audio data in WAV, MP3, or other supported format</param>
+        /// <param name="windowContext">Optional context about where the transcription will be pasted</param>
         /// <returns>Transcription result with text and metadata</returns>
-        Task<TranscriptionResult> TranscribeAsync(byte[] audioData);
+        Task<TranscriptionResult> TranscribeAsync(byte[] audioData, WindowContext? windowContext = null);
 
         /// <summary>
         /// Transcribes audio data with real-time progress updates.
         /// </summary>
         /// <param name="audioData">Audio data in WAV, MP3, or other supported format</param>
         /// <param name="onProgressUpdate">Callback invoked with partial text as it's being processed</param>
+        /// <param name="windowContext">Optional context about where the transcription will be pasted</param>
         /// <returns>Transcription result with text and metadata</returns>
-        Task<TranscriptionResult> TranscribeStreamingAsync(byte[] audioData, Action<string> onProgressUpdate);
+        Task<TranscriptionResult> TranscribeStreamingAsync(byte[] audioData, Action<string> onProgressUpdate, WindowContext? windowContext = null);
     }
 
     /// <summary>

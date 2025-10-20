@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using HotkeyPaster.Services.Windowing;
 
 namespace HotkeyPaster.Services.Transcription
 {
@@ -9,7 +10,7 @@ namespace HotkeyPaster.Services.Transcription
     /// </summary>
     public class PassThroughTextCleaner : ITextCleaner
     {
-        public Task<string> CleanAsync(string rawText, Action<string>? onProgressUpdate = null)
+        public Task<string> CleanAsync(string rawText, Action<string>? onProgressUpdate = null, WindowContext? windowContext = null)
         {
             if (string.IsNullOrWhiteSpace(rawText))
                 throw new ArgumentException("Raw text cannot be null or empty", nameof(rawText));
