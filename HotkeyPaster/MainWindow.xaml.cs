@@ -210,7 +210,9 @@ namespace HotkeyPaster
             this.Show();
             this.Visibility = Visibility.Visible;
             this.Opacity = 0;
-            PositionWindowAtBottom();
+            
+            // Position on the same screen as the previous window
+            PositionWindowAtBottom(_previousWindow);
             
             // Force to front reliably
             this.Topmost = false;
@@ -247,10 +249,10 @@ namespace HotkeyPaster
             }
         }
 
-        private void PositionWindowAtBottom()
+        private void PositionWindowAtBottom(IntPtr targetWindowHandle = default)
         {
-            _positioner.PositionBottomCenter(this, 20);
-            Logger.Log($"PositionWindowAtBottom via service: Left={this.Left}, Top={this.Top}.");
+            _positioner.PositionBottomCenter(this, 20, targetWindowHandle);
+            Logger.Log($"PositionWindowAtBottom via service: Left={this.Left}, Top={this.Top}, TargetHandle={targetWindowHandle}.");
         }
 
         private async System.Threading.Tasks.Task TranscribeAndPaste()

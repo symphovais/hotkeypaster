@@ -7,18 +7,27 @@ namespace HotkeyPaster.Services.Windowing
 {
     public sealed class WindowPositionService : IWindowPositionService
     {
-        public void PositionBottomCenter(Window window, double bottomMargin = 20)
+        public void PositionBottomCenter(Window window, double bottomMargin = 20, IntPtr targetWindowHandle = default)
         {
             if (window == null) return;
 
-            // Try to get the screen from the window handle; fallback to primary
+            // Try to get the screen from the target window handle (where user is working)
             Screen? screen = null;
             try
             {
-                var handle = new WindowInteropHelper(window).Handle;
-                if (handle != IntPtr.Zero)
+                // First priority: use the target window handle if provided
+                if (targetWindowHandle != IntPtr.Zero)
                 {
-                    screen = Screen.FromHandle(handle);
+                    screen = Screen.FromHandle(targetWindowHandle);
+                }
+                // Second priority: use the window's own handle
+                else
+                {
+                    var handle = new WindowInteropHelper(window).Handle;
+                    if (handle != IntPtr.Zero)
+                    {
+                        screen = Screen.FromHandle(handle);
+                    }
                 }
             }
             catch
@@ -26,6 +35,7 @@ namespace HotkeyPaster.Services.Windowing
                 // ignore
             }
 
+            // Fallback to primary screen
             if (screen == null)
             {
                 screen = Screen.PrimaryScreen ?? (Screen.AllScreens.Length > 0 ? Screen.AllScreens[0] : null);
