@@ -6,6 +6,7 @@ using System.Windows.Interop;
 using System.Diagnostics;
 using System.IO;
 using System.Windows.Media.Animation;
+using HotkeyPaster.Services;
 using HotkeyPaster.Services.Notifications;
 using HotkeyPaster.Services.Windowing;
 using HotkeyPaster.Services.Clipboard;
@@ -74,6 +75,13 @@ namespace HotkeyPaster
             _audio.RecordingStarted += OnRecordingStarted;
             _audio.RecordingStopped += OnRecordingStopped;
 
+            // Subscribe to progress events if the transcription service supports it
+            if (_transcription is IReportProgress progressReporter)
+            {
+                progressReporter.ProgressChanged += OnTranscriptionProgress;
+                Logger.Log("Subscribed to transcription progress events.");
+            }
+
             // Register hotkey
             try
             {
@@ -136,6 +144,15 @@ namespace HotkeyPaster
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
             Logger.Log("Window_Closing: cleanup.");
+        }
+
+        private void OnTranscriptionProgress(object? sender, ProgressEventArgs e)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                SubStatus.Text = e.Message;
+                Logger.Log($"Progress: {e.Message} ({e.PercentComplete}%)");
+            });
         }
 
         private void OnRecordingStarted(object? sender, EventArgs e)

@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using HotkeyPaster.Logging;
 using HotkeyPaster.Services.Audio;
@@ -158,9 +159,7 @@ namespace HotkeyPaster
                 
                 var fileInfo = new FileInfo(modelItem.FilePath);
                 var sizeMB = fileInfo.Length / (1024.0 * 1024.0);
-                ModelInfoText.Text = $"✓ Model loaded: {Path.GetFileName(modelItem.FilePath)} ({sizeMB:F0} MB)";
-                
-                AutoSave();
+                ModelInfoText.Text = $"Selected: {Path.GetFileName(modelItem.FilePath)} ({sizeMB:F0} MB)";
             }
         }
 
@@ -216,17 +215,61 @@ namespace HotkeyPaster
             speedTestWindow.Show();
         }
 
-        private void SaveClose_Click(object sender, RoutedEventArgs e)
+        private async void SaveClose_Click(object sender, RoutedEventArgs e)
         {
+            // Validate local model if in local mode
+            if (_currentSettings.TranscriptionMode == TranscriptionMode.Local)
+            {
+                if (string.IsNullOrEmpty(_currentSettings.LocalModelPath) || !File.Exists(_currentSettings.LocalModelPath))
+                {
+                    MessageBox.Show(
+                        "Please select a valid local model before saving.",
+                        "Model Required",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    return;
+                }
+
+                // Try to load the model to validate it works
+                try
+                {
+                    // Disable UI during loading
+                    SaveCloseButton.IsEnabled = false;
+                    CloseButton.IsEnabled = false;
+                    LocalModelComboBox.IsEnabled = false;
+                    ModelInfoText.Text = "Loading model, please wait...";
+                    
+                    // Load model on background thread to avoid blocking UI
+                    await Task.Run(() =>
+                    {
+                        // This will throw if model is invalid
+                        using var testTranscriber = new LocalWhisperTranscriber(_currentSettings.LocalModelPath);
+                    });
+                    
+                    ModelInfoText.Text = $"✓ Model loaded: {Path.GetFileName(_currentSettings.LocalModelPath)}";
+                }
+                catch (Exception ex)
+                {
+                    // Re-enable UI
+                    SaveCloseButton.IsEnabled = true;
+                    CloseButton.IsEnabled = true;
+                    LocalModelComboBox.IsEnabled = true;
+                    ModelInfoText.Text = "Failed to load model";
+                    
+                    MessageBox.Show(
+                        $"Failed to load the selected model:\n\n{ex.Message}\n\nPlease select a different model or re-download the model file.",
+                        "Model Load Error",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                    return;
+                }
+            }
+            
+            // Save settings
             _settingsService.SaveSettings(_currentSettings);
             SettingsChanged?.Invoke(this, EventArgs.Empty);
             
-            MessageBox.Show(
-                "Settings saved successfully!\n\nChanges will take effect on next transcription.",
-                "Settings Saved",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-            
+            // Close without showing success message
             Close();
         }
 
