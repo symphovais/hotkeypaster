@@ -13,7 +13,7 @@ namespace HotkeyPaster.Services.Transcription
         private readonly HttpClient _httpClient;
         private readonly string _apiKey;
         private const string TranscriptionUrl = "https://api.openai.com/v1/audio/transcriptions";
-        private const string WhisperModel = "whisper-1";
+        private const string WhisperModel = "whisper-1"; // Can also use "gpt-4o-mini-transcribe" when available via REST
 
         public OpenAIWhisperTranscriber(string apiKey)
         {

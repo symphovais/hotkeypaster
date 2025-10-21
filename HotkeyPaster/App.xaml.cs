@@ -131,7 +131,7 @@ namespace HotkeyPaster
                 }
                 else
                 {
-                    // Cloud transcription
+                    // Cloud transcription (optimized Whisper API)
                     if (string.IsNullOrWhiteSpace(settings.OpenAIApiKey))
                     {
                         _logger?.Log("Cloud mode selected but no API key configured");
@@ -141,7 +141,7 @@ namespace HotkeyPaster
                     transcriber = new OpenAIWhisperTranscriber(settings.OpenAIApiKey);
                 }
 
-                // Create text cleaner based on settings
+                // Create text cleaner based on settings (uses optimized parser)
                 if (settings.EnableTextCleaning && !string.IsNullOrWhiteSpace(settings.OpenAIApiKey))
                 {
                     textCleaner = new OpenAIGPTTextCleaner(settings.OpenAIApiKey);
@@ -151,7 +151,8 @@ namespace HotkeyPaster
                     textCleaner = new PassThroughTextCleaner();
                 }
 
-                return new OpenAITranscriptionService(transcriber, textCleaner);
+                // Use optimized transcription service with improved word counting and duration calculation
+                return new OptimizedTranscriptionService(transcriber, textCleaner);
             }
             catch (Exception ex)
             {

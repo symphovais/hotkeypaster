@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build \"C:\\projects\\hotkeypaster\\HotkeyPaster\\HotkeyPaster.csproj\" --verbosity minimal)",
+      "Bash(dotnet new:*)",
+      "Read(//c/projects/hotkeypaster/TranscriptionComparisonTest/**)",
+      "Bash(dotnet build:*)",
+      "Bash(del \"C:\\projects\\hotkeypaster\\HotkeyPaster\\TestTranscriptionOptimization.cs\")",
+      "WebSearch",
+      "WebFetch(domain:platform.openai.com)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
