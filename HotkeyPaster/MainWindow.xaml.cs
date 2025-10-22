@@ -45,6 +45,21 @@ namespace HotkeyPaster
         [DllImport("user32.dll")]
         private static extern bool SetForegroundWindow(IntPtr hWnd);
 
+        [DllImport("user32.dll")]
+        private static extern bool BringWindowToTop(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        [DllImport("user32.dll")]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
+        private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+        private const uint SWP_NOSIZE = 0x0001;
+        private const uint SWP_NOMOVE = 0x0002;
+        private const uint SWP_SHOWWINDOW = 0x0040;
+        private const int SW_SHOW = 5;
+
         private IntPtr _previousWindow;
         private readonly INotificationService _notifications;
         private readonly IWindowPositionService _positioner;
@@ -206,27 +221,30 @@ namespace HotkeyPaster
         {
             // Capture the currently focused window so we can return focus later
             _previousWindow = GetForegroundWindow();
-            
+
             this.Show();
             this.Visibility = Visibility.Visible;
-            this.Opacity = 0;
-            
-            // Position on the same screen as the previous window
+
+            // Position at bottom center of the screen where user is working
             PositionWindowAtBottom(_previousWindow);
-            
-            // Force to front reliably
-            this.Topmost = false;
+
+            // Make window visible immediately (no fade animation)
+            this.Opacity = 1;
+
+            // Get window handle
+            var hwnd = new WindowInteropHelper(this).Handle;
+
+            // Force window to foreground using Win32 APIs
+            ShowWindow(hwnd, SW_SHOW);
+            SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+            BringWindowToTop(hwnd);
+            SetForegroundWindow(hwnd);
+
+            // Also try WPF methods
             this.Activate();
-            this.Topmost = true;
-            
-            // Set focus so keyboard events work
             this.Focus();
-            
-            // Fade in animation
-            var fadeIn = (Storyboard)this.Resources["FadeIn"];
-            fadeIn.Begin(this);
-            
-            Logger.Log("ShowWindow: show+visible, positioned, brought to front.");
+
+            Logger.Log($"ShowWindow: positioned at Left={this.Left}, Top={this.Top}, Width={this.Width}, Height={this.Height}, Opacity={this.Opacity}, Visibility={this.Visibility}, Handle={hwnd}");
 
             // Start recording if not already
             if (!_audio.IsRecording)

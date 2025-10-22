@@ -44,6 +44,16 @@ namespace HotkeyPaster.Services.Windowing
             if (screen != null)
             {
                 var wa = screen.WorkingArea;
+
+                // Validate that the screen position is actually visible/reasonable
+                // If the screen's left coordinate is very negative or position seems invalid,
+                // it might be a disconnected/virtual monitor - use primary screen instead
+                if (wa.Left < -1000 || wa.Top < -1000 || wa.Width <= 0 || wa.Height <= 0)
+                {
+                    screen = Screen.PrimaryScreen ?? Screen.AllScreens[0];
+                    wa = screen.WorkingArea;
+                }
+
                 window.Left = wa.Left + (wa.Width - window.Width) / 2;
                 window.Top = wa.Bottom - window.Height - bottomMargin;
             }
