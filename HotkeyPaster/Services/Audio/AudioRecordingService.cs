@@ -14,6 +14,28 @@ namespace HotkeyPaster.Services.Audio
         private string? _currentFilePath;
 
         public bool IsRecording => _waveIn != null;
+        
+        public string DeviceName
+        {
+            get
+            {
+                try
+                {
+                    // Get the default recording device (device number 0)
+                    int deviceNumber = 0;
+                    if (deviceNumber < WaveInEvent.DeviceCount)
+                    {
+                        var capabilities = WaveInEvent.GetCapabilities(deviceNumber);
+                        return capabilities.ProductName;
+                    }
+                    return "Default Microphone";
+                }
+                catch
+                {
+                    return "Unknown Device";
+                }
+            }
+        }
 
         public void StartRecording(string filePath)
         {

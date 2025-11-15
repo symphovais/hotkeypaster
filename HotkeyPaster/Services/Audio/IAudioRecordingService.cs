@@ -7,6 +7,7 @@ namespace HotkeyPaster.Services.Audio
         void StartRecording(string filePath);
         void StopRecording();
         bool IsRecording { get; }
+        string DeviceName { get; }
         event EventHandler? RecordingStarted;
         event EventHandler? RecordingStopped;
     }
