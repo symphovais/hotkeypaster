@@ -33,7 +33,7 @@ Write-Host "Adding to Windows startup..." -ForegroundColor Yellow
 Set-ItemProperty -Path $startupRegPath -Name $appName -Value $exePath
 
 Write-Host ""
-Write-Host "✓ Installation complete!" -ForegroundColor Green
+Write-Host "Installation complete!" -ForegroundColor Green
 Write-Host ""
 Write-Host "Installation location: $installPath" -ForegroundColor Cyan
 Write-Host "Executable: $exePath" -ForegroundColor Cyan
@@ -41,6 +41,6 @@ Write-Host ""
 Write-Host "The app will now start automatically when you log in to Windows." -ForegroundColor Green
 Write-Host ""
 Write-Host "To start the app now, run:" -ForegroundColor Yellow
-Write-Host "  Start-Process '$exePath'" -ForegroundColor White
+Write-Host "  Start-Process -FilePath $exePath" -ForegroundColor White
 Write-Host ""
 Write-Host "To uninstall, run the uninstall-startup.ps1 script" -ForegroundColor Yellow

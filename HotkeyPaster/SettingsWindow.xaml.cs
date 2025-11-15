@@ -157,6 +157,26 @@ namespace TalkKeys
             LocalModelComboBox.IsEnabled = true;
         }
 
+        private void DownloadModels_Click(object sender, RoutedEventArgs e)
+        {
+            var downloadWindow = new ModelDownloadWindow(_logger);
+            downloadWindow.ShowDialog();
+
+            // Refresh model list if any models were downloaded
+            if (downloadWindow.ModelsDownloaded)
+            {
+                _logger.Log("Models were downloaded, refreshing model list...");
+
+                // Clear and repopulate the model list
+                PopulateLocalModels();
+
+                _logger.Log($"Model list refreshed. Total models: {LocalModelComboBox.Items.Count}");
+
+                // Force UI update
+                LocalModelComboBox.Items.Refresh();
+            }
+        }
+
         private void PipelinePreset_Changed(object sender, RoutedEventArgs e)
         {
             if (_isInitializing) return;
@@ -232,6 +252,100 @@ namespace TalkKeys
                 return;
             }
 
+            // Check if local model is needed for benchmark
+            if (string.IsNullOrEmpty(_currentSettings.LocalModelPath) ||
+                !File.Exists(_currentSettings.LocalModelPath))
+            {
+                // Check if there are any models available but just not selected
+                var modelsDir = WhisperModelManager.GetModelsDirectory();
+                var availableModels = Directory.Exists(modelsDir)
+                    ? Directory.GetFiles(modelsDir, "ggml-*.bin")
+                    : Array.Empty<string>();
+
+                if (availableModels.Length > 0)
+                {
+                    // Models exist but none is selected - prompt to select
+                    var selectResult = MessageBox.Show(
+                        $"You have {availableModels.Length} local model(s) downloaded but none is selected.\n\n" +
+                        "Would you like to select a local model for complete benchmark testing?\n\n" +
+                        "• Click 'Yes' to select a model from the Local Model section\n" +
+                        "• Click 'No' to run cloud-only benchmark\n" +
+                        "• Click 'Cancel' to return to settings",
+                        "Select Local Model",
+                        MessageBoxButton.YesNoCancel,
+                        MessageBoxImage.Question);
+
+                    if (selectResult == MessageBoxResult.Yes)
+                    {
+                        // Switch to the local pipeline tab to make model selection visible
+                        MaximumPrivacyRadio.IsChecked = true;
+
+                        MessageBox.Show(
+                            "Please select a local model from the dropdown above, then run the benchmark again.",
+                            "Select Model",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Information);
+                        return;
+                    }
+                    else if (selectResult == MessageBoxResult.Cancel)
+                    {
+                        return;
+                    }
+                    // If No, continue with cloud-only benchmark
+                }
+                else
+                {
+                    // No models available - offer to download
+                    var downloadResult = MessageBox.Show(
+                        "No local Whisper models are downloaded.\n\n" +
+                        "Would you like to download a local model now?\n\n" +
+                        "• Click 'Yes' to download a model for complete benchmark testing\n" +
+                        "• Click 'No' to run cloud-only benchmark\n" +
+                        "• Click 'Cancel' to return to settings",
+                        "Download Local Model",
+                        MessageBoxButton.YesNoCancel,
+                        MessageBoxImage.Question);
+
+                    if (downloadResult == MessageBoxResult.Yes)
+                    {
+                        // Open download window
+                        var downloadWindow = new ModelDownloadWindow(_logger);
+                        downloadWindow.ShowDialog();
+
+                        // Refresh model list if any models were downloaded
+                        if (downloadWindow.ModelsDownloaded)
+                        {
+                            _logger.Log("Models were downloaded, refreshing model list...");
+                            PopulateLocalModels();
+                            LocalModelComboBox.Items.Refresh();
+                            _logger.Log($"Model list refreshed. Total models: {LocalModelComboBox.Items.Count}");
+                        }
+
+                        // Check again if we have a model now
+                        if (string.IsNullOrEmpty(_currentSettings.LocalModelPath) ||
+                            !File.Exists(_currentSettings.LocalModelPath))
+                        {
+                            var continueResult = MessageBox.Show(
+                                "No local model was selected.\n\n" +
+                                "Continue with cloud-only benchmark?",
+                                "Continue Benchmark?",
+                                MessageBoxButton.YesNo,
+                                MessageBoxImage.Question);
+
+                            if (continueResult == MessageBoxResult.No)
+                            {
+                                return;
+                            }
+                        }
+                    }
+                    else if (downloadResult == MessageBoxResult.Cancel)
+                    {
+                        return;
+                    }
+                    // If No, continue with cloud-only benchmark
+                }
+            }
+
             // Create a new build context with current settings for the benchmark
             var benchmarkContext = new PipelineBuildContext
             {
@@ -242,9 +356,9 @@ namespace TalkKeys
             };
 
             var deathmatchWindow = new PipelineDeathmatchWindow(_audioService, _logger, _pipelineFactory, benchmarkContext);
-            var result = deathmatchWindow.ShowDialog();
+            var dialogResult = deathmatchWindow.ShowDialog();
 
-            if (result == true && deathmatchWindow.BenchmarkResults != null)
+            if (dialogResult == true && deathmatchWindow.BenchmarkResults != null)
             {
                 // Map DeathmatchResult to BenchmarkResult and store
                 _benchmarkResults = deathmatchWindow.BenchmarkResults
@@ -293,20 +407,22 @@ namespace TalkKeys
         {
             if (_benchmarkResults != null && _benchmarkResults.TryGetValue(presetName, out var result))
             {
-                string resultText = "";
+                var parts = new List<string>();
 
-                if (result.IsWinner)
+                // Show accuracy if available
+                if (result.AccuracyPercent.HasValue)
                 {
-                    resultText = "🏆 WINNER";
+                    parts.Add($"{result.AccuracyPercent.Value:F1}% accuracy");
                 }
-                else if (result.AccuracyPercent.HasValue)
+
+                // Show duration if available
+                if (result.DurationMs > 0)
                 {
-                    resultText = $"{result.AccuracyPercent.Value:F1}% accuracy";
+                    parts.Add($"{result.DurationMs:F0}ms");
                 }
-                else
-                {
-                    resultText = $"{result.DurationMs:F0}ms";
-                }
+
+                // Combine both metrics
+                string resultText = parts.Count > 0 ? string.Join(" • ", parts) : "No data";
 
                 resultTextBlock.Text = resultText;
                 resultTextBlock.Visibility = Visibility.Visible;
