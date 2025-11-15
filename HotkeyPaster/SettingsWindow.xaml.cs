@@ -264,85 +264,45 @@ namespace TalkKeys
 
                 if (availableModels.Length > 0)
                 {
-                    // Models exist but none is selected - prompt to select
-                    var selectResult = MessageBox.Show(
-                        $"You have {availableModels.Length} local model(s) downloaded but none is selected.\n\n" +
-                        "Would you like to select a local model for complete benchmark testing?\n\n" +
-                        "• Click 'Yes' to select a model from the Local Model section\n" +
-                        "• Click 'No' to run cloud-only benchmark\n" +
-                        "• Click 'Cancel' to return to settings",
-                        "Select Local Model",
-                        MessageBoxButton.YesNoCancel,
-                        MessageBoxImage.Question);
+                    // Auto-select the first available model
+                    _currentSettings.LocalModelPath = availableModels[0];
+                    _settingsService.SaveSettings(_currentSettings);
+                    PopulateLocalModels();
 
-                    if (selectResult == MessageBoxResult.Yes)
-                    {
-                        // Switch to the local pipeline tab to make model selection visible
-                        MaximumPrivacyRadio.IsChecked = true;
-
-                        MessageBox.Show(
-                            "Please select a local model from the dropdown above, then run the benchmark again.",
-                            "Select Model",
-                            MessageBoxButton.OK,
-                            MessageBoxImage.Information);
-                        return;
-                    }
-                    else if (selectResult == MessageBoxResult.Cancel)
-                    {
-                        return;
-                    }
-                    // If No, continue with cloud-only benchmark
+                    _logger.Log($"Auto-selected local model for benchmark: {Path.GetFileName(availableModels[0])}");
                 }
                 else
                 {
-                    // No models available - offer to download
+                    // No models available - simple prompt
                     var downloadResult = MessageBox.Show(
-                        "No local Whisper models are downloaded.\n\n" +
-                        "Would you like to download a local model now?\n\n" +
-                        "• Click 'Yes' to download a model for complete benchmark testing\n" +
-                        "• Click 'No' to run cloud-only benchmark\n" +
-                        "• Click 'Cancel' to return to settings",
-                        "Download Local Model",
-                        MessageBoxButton.YesNoCancel,
+                        "Local models are needed to benchmark privacy-focused pipelines.\n\n" +
+                        "Download a local model now?",
+                        "Download Local Model?",
+                        MessageBoxButton.YesNo,
                         MessageBoxImage.Question);
 
                     if (downloadResult == MessageBoxResult.Yes)
                     {
-                        // Open download window
                         var downloadWindow = new ModelDownloadWindow(_logger);
                         downloadWindow.ShowDialog();
 
-                        // Refresh model list if any models were downloaded
                         if (downloadWindow.ModelsDownloaded)
                         {
-                            _logger.Log("Models were downloaded, refreshing model list...");
                             PopulateLocalModels();
-                            LocalModelComboBox.Items.Refresh();
-                            _logger.Log($"Model list refreshed. Total models: {LocalModelComboBox.Items.Count}");
-                        }
 
-                        // Check again if we have a model now
-                        if (string.IsNullOrEmpty(_currentSettings.LocalModelPath) ||
-                            !File.Exists(_currentSettings.LocalModelPath))
-                        {
-                            var continueResult = MessageBox.Show(
-                                "No local model was selected.\n\n" +
-                                "Continue with cloud-only benchmark?",
-                                "Continue Benchmark?",
-                                MessageBoxButton.YesNo,
-                                MessageBoxImage.Question);
+                            // Auto-select first downloaded model
+                            var newModels = Directory.Exists(modelsDir)
+                                ? Directory.GetFiles(modelsDir, "ggml-*.bin")
+                                : Array.Empty<string>();
 
-                            if (continueResult == MessageBoxResult.No)
+                            if (newModels.Length > 0)
                             {
-                                return;
+                                _currentSettings.LocalModelPath = newModels[0];
+                                _settingsService.SaveSettings(_currentSettings);
+                                _logger.Log($"Auto-selected downloaded model: {Path.GetFileName(newModels[0])}");
                             }
                         }
                     }
-                    else if (downloadResult == MessageBoxResult.Cancel)
-                    {
-                        return;
-                    }
-                    // If No, continue with cloud-only benchmark
                 }
             }
 
@@ -396,40 +356,56 @@ namespace TalkKeys
             if (_benchmarkResults == null) return;
 
             // Update each pipeline option with its results
-            UpdatePipelineResult(MaximumQualityResult, PipelinePresets.MaximumQuality);
-            UpdatePipelineResult(BalancedQualityResult, PipelinePresets.BalancedQuality);
-            UpdatePipelineResult(FastCloudResult, PipelinePresets.FastCloud);
-            UpdatePipelineResult(MaximumPrivacyResult, PipelinePresets.MaximumPrivacy);
-            UpdatePipelineResult(FastLocalResult, PipelinePresets.FastLocal);
+            UpdatePipelineResult(
+                MaximumQualityResult, MaximumQualityAccuracy, MaximumQualitySpeed,
+                PipelinePresets.MaximumQuality);
+            UpdatePipelineResult(
+                BalancedQualityResult, BalancedQualityAccuracy, BalancedQualitySpeed,
+                PipelinePresets.BalancedQuality);
+            UpdatePipelineResult(
+                FastCloudResult, FastCloudAccuracy, FastCloudSpeed,
+                PipelinePresets.FastCloud);
+            UpdatePipelineResult(
+                MaximumPrivacyResult, MaximumPrivacyAccuracy, MaximumPrivacySpeed,
+                PipelinePresets.MaximumPrivacy);
+            UpdatePipelineResult(
+                FastLocalResult, FastLocalAccuracy, FastLocalSpeed,
+                PipelinePresets.FastLocal);
         }
 
-        private void UpdatePipelineResult(System.Windows.Controls.TextBlock resultTextBlock, string presetName)
+        private void UpdatePipelineResult(
+            System.Windows.Controls.Border resultBorder,
+            System.Windows.Controls.TextBlock accuracyText,
+            System.Windows.Controls.TextBlock speedText,
+            string presetName)
         {
             if (_benchmarkResults != null && _benchmarkResults.TryGetValue(presetName, out var result))
             {
-                var parts = new List<string>();
-
-                // Show accuracy if available
+                // Show accuracy
                 if (result.AccuracyPercent.HasValue)
                 {
-                    parts.Add($"{result.AccuracyPercent.Value:F1}% accuracy");
+                    accuracyText.Text = $"{result.AccuracyPercent.Value:F1}%";
+                }
+                else
+                {
+                    accuracyText.Text = "N/A";
                 }
 
-                // Show duration if available
+                // Show duration
                 if (result.DurationMs > 0)
                 {
-                    parts.Add($"{result.DurationMs:F0}ms");
+                    speedText.Text = $"{result.DurationMs:F0}ms";
+                }
+                else
+                {
+                    speedText.Text = "N/A";
                 }
 
-                // Combine both metrics
-                string resultText = parts.Count > 0 ? string.Join(" • ", parts) : "No data";
-
-                resultTextBlock.Text = resultText;
-                resultTextBlock.Visibility = Visibility.Visible;
+                resultBorder.Visibility = Visibility.Visible;
             }
             else
             {
-                resultTextBlock.Visibility = Visibility.Collapsed;
+                resultBorder.Visibility = Visibility.Collapsed;
             }
         }
 

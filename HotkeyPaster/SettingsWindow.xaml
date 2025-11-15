@@ -237,125 +237,180 @@
                                      GroupName="Pipeline"
                                      Style="{StaticResource RadioButtonStyle}"
                                      Checked="PipelinePreset_Changed">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Text="🏆 Maximum Quality" FontWeight="SemiBold" FontSize="14"/>
-                                    <TextBlock Text="Best accuracy • Noise reduction + Silence removal + Cloud processing"
-                                               Style="{StaticResource DescriptionStyle}"/>
-                                </StackPanel>
-                                <TextBlock x:Name="MaximumQualityResult"
-                                           Grid.Column="1"
-                                           Visibility="Collapsed"
-                                           FontSize="12"
-                                           FontWeight="SemiBold"
-                                           Foreground="#10B981"
-                                           Margin="10,0,0,0"
-                                           VerticalAlignment="Center"/>
-                            </Grid>
+                            <StackPanel>
+                                <Grid>
+                                    <StackPanel>
+                                        <TextBlock Text="🏆 Maximum Quality" FontWeight="SemiBold" FontSize="14"/>
+                                        <TextBlock Text="Best accuracy • Noise reduction + Silence removal + Cloud processing"
+                                                   Style="{StaticResource DescriptionStyle}"/>
+                                    </StackPanel>
+                                </Grid>
+                                <Border x:Name="MaximumQualityResult"
+                                        Visibility="Collapsed"
+                                        Background="#1A2332"
+                                        CornerRadius="6"
+                                        Padding="10,8"
+                                        Margin="0,8,0,0"
+                                        BorderBrush="#2D3748"
+                                        BorderThickness="1">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Accuracy:" Foreground="#9CA3AF" FontSize="11" Margin="0,0,6,0"/>
+                                        <TextBlock Grid.Column="1" x:Name="MaximumQualityAccuracy" FontWeight="Bold" Foreground="#34D399" FontSize="11"/>
+                                        <TextBlock Grid.Column="2" Text="Speed:" Foreground="#9CA3AF" FontSize="11" Margin="12,0,6,0"/>
+                                        <TextBlock Grid.Column="3" x:Name="MaximumQualitySpeed" FontWeight="Bold" Foreground="#60A5FA" FontSize="11"/>
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
                         </RadioButton>
 
                         <RadioButton x:Name="BalancedQualityRadio"
                                      GroupName="Pipeline"
                                      Style="{StaticResource RadioButtonStyle}"
                                      Checked="PipelinePreset_Changed">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Text="⚖️ Balanced Quality" FontWeight="SemiBold" FontSize="14"/>
-                                    <TextBlock Text="Good accuracy • Noise reduction + Cloud processing • Faster than maximum"
-                                               Style="{StaticResource DescriptionStyle}"/>
-                                </StackPanel>
-                                <TextBlock x:Name="BalancedQualityResult"
-                                           Grid.Column="1"
-                                           Visibility="Collapsed"
-                                           FontSize="12"
-                                           FontWeight="SemiBold"
-                                           Foreground="#10B981"
-                                           Margin="10,0,0,0"
-                                           VerticalAlignment="Center"/>
-                            </Grid>
+                            <StackPanel>
+                                <Grid>
+                                    <StackPanel>
+                                        <TextBlock Text="⚖️ Balanced Quality" FontWeight="SemiBold" FontSize="14"/>
+                                        <TextBlock Text="Good accuracy • Noise reduction + Cloud processing • Faster than maximum"
+                                                   Style="{StaticResource DescriptionStyle}"/>
+                                    </StackPanel>
+                                </Grid>
+                                <Border x:Name="BalancedQualityResult"
+                                        Visibility="Collapsed"
+                                        Background="#1A2332"
+                                        CornerRadius="6"
+                                        Padding="10,8"
+                                        Margin="0,8,0,0"
+                                        BorderBrush="#2D3748"
+                                        BorderThickness="1">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Accuracy:" Foreground="#9CA3AF" FontSize="11" Margin="0,0,6,0"/>
+                                        <TextBlock Grid.Column="1" x:Name="BalancedQualityAccuracy" FontWeight="Bold" Foreground="#34D399" FontSize="11"/>
+                                        <TextBlock Grid.Column="2" Text="Speed:" Foreground="#9CA3AF" FontSize="11" Margin="12,0,6,0"/>
+                                        <TextBlock Grid.Column="3" x:Name="BalancedQualitySpeed" FontWeight="Bold" Foreground="#60A5FA" FontSize="11"/>
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
                         </RadioButton>
 
                         <RadioButton x:Name="FastCloudRadio"
                                      GroupName="Pipeline"
                                      Style="{StaticResource RadioButtonStyle}"
                                      Checked="PipelinePreset_Changed">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Text="⚡ Fast Cloud" FontWeight="SemiBold" FontSize="14"/>
-                                    <TextBlock Text="Fastest cloud option • No preprocessing • Best for quiet environments"
-                                               Style="{StaticResource DescriptionStyle}"/>
-                                </StackPanel>
-                                <TextBlock x:Name="FastCloudResult"
-                                           Grid.Column="1"
-                                           Visibility="Collapsed"
-                                           FontSize="12"
-                                           FontWeight="SemiBold"
-                                           Foreground="#10B981"
-                                           Margin="10,0,0,0"
-                                           VerticalAlignment="Center"/>
-                            </Grid>
+                            <StackPanel>
+                                <Grid>
+                                    <StackPanel>
+                                        <TextBlock Text="⚡ Fast Cloud" FontWeight="SemiBold" FontSize="14"/>
+                                        <TextBlock Text="Fastest cloud option • No preprocessing • Best for quiet environments"
+                                                   Style="{StaticResource DescriptionStyle}"/>
+                                    </StackPanel>
+                                </Grid>
+                                <Border x:Name="FastCloudResult"
+                                        Visibility="Collapsed"
+                                        Background="#1A2332"
+                                        CornerRadius="6"
+                                        Padding="10,8"
+                                        Margin="0,8,0,0"
+                                        BorderBrush="#2D3748"
+                                        BorderThickness="1">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Accuracy:" Foreground="#9CA3AF" FontSize="11" Margin="0,0,6,0"/>
+                                        <TextBlock Grid.Column="1" x:Name="FastCloudAccuracy" FontWeight="Bold" Foreground="#34D399" FontSize="11"/>
+                                        <TextBlock Grid.Column="2" Text="Speed:" Foreground="#9CA3AF" FontSize="11" Margin="12,0,6,0"/>
+                                        <TextBlock Grid.Column="3" x:Name="FastCloudSpeed" FontWeight="Bold" Foreground="#60A5FA" FontSize="11"/>
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
                         </RadioButton>
 
                         <RadioButton x:Name="MaximumPrivacyRadio"
                                      GroupName="Pipeline"
                                      Style="{StaticResource RadioButtonStyle}"
                                      Checked="PipelinePreset_Changed">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Text="🔒 Maximum Privacy" FontWeight="SemiBold" FontSize="14"/>
-                                    <TextBlock Text="Best for privacy • Noise reduction + Silence removal + Local processing • Runs entirely on your device"
-                                               Style="{StaticResource DescriptionStyle}"/>
-                                </StackPanel>
-                                <TextBlock x:Name="MaximumPrivacyResult"
-                                           Grid.Column="1"
-                                           Visibility="Collapsed"
-                                           FontSize="12"
-                                           FontWeight="SemiBold"
-                                           Foreground="#10B981"
-                                           Margin="10,0,0,0"
-                                           VerticalAlignment="Center"/>
-                            </Grid>
+                            <StackPanel>
+                                <Grid>
+                                    <StackPanel>
+                                        <TextBlock Text="🔒 Maximum Privacy" FontWeight="SemiBold" FontSize="14"/>
+                                        <TextBlock Text="Best for privacy • Noise reduction + Silence removal + Local processing • Runs entirely on your device"
+                                                   Style="{StaticResource DescriptionStyle}"/>
+                                    </StackPanel>
+                                </Grid>
+                                <Border x:Name="MaximumPrivacyResult"
+                                        Visibility="Collapsed"
+                                        Background="#1A2332"
+                                        CornerRadius="6"
+                                        Padding="10,8"
+                                        Margin="0,8,0,0"
+                                        BorderBrush="#2D3748"
+                                        BorderThickness="1">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Accuracy:" Foreground="#9CA3AF" FontSize="11" Margin="0,0,6,0"/>
+                                        <TextBlock Grid.Column="1" x:Name="MaximumPrivacyAccuracy" FontWeight="Bold" Foreground="#34D399" FontSize="11"/>
+                                        <TextBlock Grid.Column="2" Text="Speed:" Foreground="#9CA3AF" FontSize="11" Margin="12,0,6,0"/>
+                                        <TextBlock Grid.Column="3" x:Name="MaximumPrivacySpeed" FontWeight="Bold" Foreground="#60A5FA" FontSize="11"/>
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
                         </RadioButton>
 
                         <RadioButton x:Name="FastLocalRadio"
                                      GroupName="Pipeline"
                                      Style="{StaticResource RadioButtonStyle}"
                                      Checked="PipelinePreset_Changed">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Text="🚀 Fast Local" FontWeight="SemiBold" FontSize="14"/>
-                                    <TextBlock Text="Fastest offline option • Local processing only • Completely private"
-                                               Style="{StaticResource DescriptionStyle}"/>
-                                </StackPanel>
-                                <TextBlock x:Name="FastLocalResult"
-                                           Grid.Column="1"
-                                           Visibility="Collapsed"
-                                           FontSize="12"
-                                           FontWeight="SemiBold"
-                                           Foreground="#10B981"
-                                           Margin="10,0,0,0"
-                                           VerticalAlignment="Center"/>
-                            </Grid>
+                            <StackPanel>
+                                <Grid>
+                                    <StackPanel>
+                                        <TextBlock Text="🚀 Fast Local" FontWeight="SemiBold" FontSize="14"/>
+                                        <TextBlock Text="Fastest offline option • Local processing only • Completely private"
+                                                   Style="{StaticResource DescriptionStyle}"/>
+                                    </StackPanel>
+                                </Grid>
+                                <Border x:Name="FastLocalResult"
+                                        Visibility="Collapsed"
+                                        Background="#1A2332"
+                                        CornerRadius="6"
+                                        Padding="10,8"
+                                        Margin="0,8,0,0"
+                                        BorderBrush="#2D3748"
+                                        BorderThickness="1">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Accuracy:" Foreground="#9CA3AF" FontSize="11" Margin="0,0,6,0"/>
+                                        <TextBlock Grid.Column="1" x:Name="FastLocalAccuracy" FontWeight="Bold" Foreground="#34D399" FontSize="11"/>
+                                        <TextBlock Grid.Column="2" Text="Speed:" Foreground="#9CA3AF" FontSize="11" Margin="12,0,6,0"/>
+                                        <TextBlock Grid.Column="3" x:Name="FastLocalSpeed" FontWeight="Bold" Foreground="#60A5FA" FontSize="11"/>
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
                         </RadioButton>
 
                         <!-- Local Model Selection (shown for privacy options) -->
