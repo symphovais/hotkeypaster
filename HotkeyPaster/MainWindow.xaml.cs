@@ -194,12 +194,19 @@ namespace TalkKeys
         {
             Dispatcher.Invoke(() =>
             {
+                // Only update UI if this window is visible (i.e., it initiated the recording)
+                if (!this.IsVisible)
+                {
+                    Logger.Log("OnRecordingStarted: Ignoring event (window not visible)");
+                    return;
+                }
+
                 RecordingStatus.Text = "Recording...";
                 SubStatus.Text = $"🎤 {_audio.DeviceName} • Press Space to finish";
                 RecordingIcon.Text = "🎙️";
                 ActionButton.Content = "⏹";
                 ActionButton.IsEnabled = true;
-                
+
                 // Start pulse animation
                 var pulseAnimation = (Storyboard)this.Resources["PulseAnimation"];
                 pulseAnimation.Begin(RecordingPulse);
@@ -210,23 +217,31 @@ namespace TalkKeys
         {
             await Dispatcher.InvokeAsync(async () =>
             {
+                // Only process if this window initiated the recording
+                // Check if window is visible and has a recording path
+                if (!this.IsVisible || string.IsNullOrEmpty(_currentRecordingPath))
+                {
+                    Logger.Log("OnRecordingStopped: Ignoring event (window not visible or no recording path)");
+                    return;
+                }
+
                 // Stop pulse animation
                 var pulseAnimation = (Storyboard)this.Resources["PulseAnimation"];
                 pulseAnimation.Stop(RecordingPulse);
                 RecordingPulse.Opacity = 1;
-                
+
                 // Update UI for transcription
                 RecordingStatus.Text = "Transcribing...";
                 SubStatus.Text = "Processing with AI";
                 RecordingIcon.Text = "⚡";
                 ActionButton.IsEnabled = false;
-                
+
                 // Change pulse color to purple for transcription
                 RecordingPulse.Fill = new System.Windows.Media.RadialGradientBrush(
                     System.Windows.Media.Color.FromRgb(139, 92, 246),
                     System.Windows.Media.Color.FromRgb(124, 58, 237)
                 );
-                
+
                 // Automatically start transcription
                 await TranscribeAndPaste();
             });
