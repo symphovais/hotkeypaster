@@ -127,11 +127,13 @@ namespace HotkeyPaster.Services.Pipeline.Configuration
             var fastCloud = new PipelineConfiguration
             {
                 Name = "FastCloud",
-                Description = "Fast cloud-based transcription using OpenAI Whisper API with GPT cleaning",
+                Description = "Fast cloud-based transcription using OpenAI Whisper API with GPT cleaning (with noise removal and VAD)",
                 Enabled = true,
                 Stages = new List<StageConfiguration>
                 {
                     new() { Type = "AudioValidation", Enabled = true },
+                    new() { Type = "RNNoise", Enabled = true },
+                    new() { Type = "SileroVAD", Enabled = true, Settings = new() { ["Threshold"] = 0.5, ["MinSpeechDurationMs"] = 250, ["MinSilenceDurationMs"] = 100 } },
                     new() { Type = "OpenAIWhisperTranscription", Enabled = true, Settings = new() { ["ApiKey"] = openAiApiKey } },
                     new() { Type = "GPTTextCleaning", Enabled = true, Settings = new() { ["ApiKey"] = openAiApiKey } }
                 }
@@ -145,11 +147,13 @@ namespace HotkeyPaster.Services.Pipeline.Configuration
                 var localPrivacy = new PipelineConfiguration
                 {
                     Name = "LocalPrivacy",
-                    Description = "100% offline transcription using local Whisper model (no API calls)",
+                    Description = "100% offline transcription using local Whisper model (no API calls, with noise removal and VAD)",
                     Enabled = true,
                     Stages = new List<StageConfiguration>
                     {
                         new() { Type = "AudioValidation", Enabled = true },
+                        new() { Type = "RNNoise", Enabled = true },
+                        new() { Type = "SileroVAD", Enabled = true, Settings = new() { ["Threshold"] = 0.5, ["MinSpeechDurationMs"] = 250, ["MinSilenceDurationMs"] = 100 } },
                         new() { Type = "LocalWhisperTranscription", Enabled = true, Settings = new() { ["ModelPath"] = localModelPath } },
                         new() { Type = "PassThroughCleaning", Enabled = true }
                     }
@@ -164,11 +168,13 @@ namespace HotkeyPaster.Services.Pipeline.Configuration
                 var hybrid = new PipelineConfiguration
                 {
                     Name = "Hybrid",
-                    Description = "Local transcription for privacy + cloud cleaning for quality",
+                    Description = "Local transcription for privacy + cloud cleaning for quality (with noise removal and VAD)",
                     Enabled = true,
                     Stages = new List<StageConfiguration>
                     {
                         new() { Type = "AudioValidation", Enabled = true },
+                        new() { Type = "RNNoise", Enabled = true },
+                        new() { Type = "SileroVAD", Enabled = true, Settings = new() { ["Threshold"] = 0.5, ["MinSpeechDurationMs"] = 250, ["MinSilenceDurationMs"] = 100 } },
                         new() { Type = "LocalWhisperTranscription", Enabled = true, Settings = new() { ["ModelPath"] = localModelPath } },
                         new() { Type = "GPTTextCleaning", Enabled = true, Settings = new() { ["ApiKey"] = openAiApiKey } }
                     }

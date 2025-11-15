@@ -129,6 +129,8 @@ namespace HotkeyPaster
 
                 // Register all stage factories
                 factory.RegisterStageFactory(new AudioValidationStageFactory());
+                factory.RegisterStageFactory(new RNNoiseStageFactory());
+                factory.RegisterStageFactory(new SileroVADStageFactory());
                 factory.RegisterStageFactory(new OpenAIWhisperTranscriptionStageFactory());
                 factory.RegisterStageFactory(new LocalWhisperTranscriptionStageFactory());
                 factory.RegisterStageFactory(new GPTTextCleaningStageFactory());
