@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Forms;
@@ -6,6 +7,7 @@ using System.Windows.Interop;
 using System.Diagnostics;
 using System.IO;
 using System.Windows.Media.Animation;
+using Microsoft.Win32;
 using HotkeyPaster.Services;
 using HotkeyPaster.Services.Notifications;
 using HotkeyPaster.Services.Windowing;
@@ -13,7 +15,7 @@ using HotkeyPaster.Services.Clipboard;
 using HotkeyPaster.Logging;
 using HotkeyPaster.Services.Audio;
 using HotkeyPaster.Services.Hotkey;
-using HotkeyPaster.Services.Transcription;
+using HotkeyPaster.Services.Pipeline;
 
 namespace HotkeyPaster
 {
@@ -67,14 +69,14 @@ namespace HotkeyPaster
         private readonly ILogger _logger;
         private readonly IAudioRecordingService _audio;
         private readonly IHotkeyService _hotkeyService;
-        private readonly IAudioTranscriptionService _transcription;
+        private readonly IPipelineService _pipelineService;
         private readonly IActiveWindowContextService _contextService;
         private string? _currentRecordingPath;
 
         // The text to paste
         private const string TEXT_TO_PASTE = "Hello from the hotkey paster!";
 
-        public MainWindow(INotificationService notifications, IWindowPositionService positioner, IClipboardPasteService clipboard, ILogger logger, IAudioRecordingService audio, IHotkeyService hotkeyService, IAudioTranscriptionService transcription, IActiveWindowContextService contextService)
+        public MainWindow(INotificationService notifications, IWindowPositionService positioner, IClipboardPasteService clipboard, ILogger logger, IAudioRecordingService audio, IHotkeyService hotkeyService, IPipelineService pipelineService, IActiveWindowContextService contextService)
         {
             InitializeComponent();
             Logger.Log("MainWindow ctor: InitializeComponent done.");
@@ -84,18 +86,15 @@ namespace HotkeyPaster
             _logger = logger;
             _audio = audio;
             _hotkeyService = hotkeyService;
-            _transcription = transcription;
+            _pipelineService = pipelineService;
             _contextService = contextService;
 
             _audio.RecordingStarted += OnRecordingStarted;
             _audio.RecordingStopped += OnRecordingStopped;
 
-            // Subscribe to progress events if the transcription service supports it
-            if (_transcription is IReportProgress progressReporter)
-            {
-                progressReporter.ProgressChanged += OnTranscriptionProgress;
-                Logger.Log("Subscribed to transcription progress events.");
-            }
+            // Subscribe to display settings changes to handle screen configuration changes
+            SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
+            Logger.Log("Subscribed to display settings change events.");
 
             // Register hotkey
             try
@@ -154,20 +153,41 @@ namespace HotkeyPaster
                 _audio.StopRecording();
                 e.Handled = true;
             }
+            // Escape key closes the window
+            else if (e.Key == System.Windows.Input.Key.Escape)
+            {
+                Logger.Log("Escape key pressed - hiding window");
+                HideWindow();
+                e.Handled = true;
+            }
         }
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
             Logger.Log("Window_Closing: cleanup.");
+            
+            // Unsubscribe from display settings changes
+            SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
         }
 
-        private void OnTranscriptionProgress(object? sender, ProgressEventArgs e)
+        private void OnDisplaySettingsChanged(object? sender, EventArgs e)
         {
-            Dispatcher.Invoke(() =>
+            // Screen configuration changed (monitor added/removed, resolution changed, etc.)
+            Logger.Log("Display settings changed - repositioning window");
+
+            // Reposition window to ensure it's visible on current screen setup
+            Dispatcher.BeginInvoke(new Action(() =>
             {
-                SubStatus.Text = e.Message;
-                Logger.Log($"Progress: {e.Message} ({e.PercentComplete}%)");
-            });
+                try
+                {
+                    PositionWindowAtBottom(_previousWindow);
+                    Logger.Log($"Window repositioned after display change: Left={this.Left}, Top={this.Top}");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log($"Error repositioning window after display change: {ex}");
+                }
+            }));
         }
 
         private void OnRecordingStarted(object? sender, EventArgs e)
@@ -175,7 +195,7 @@ namespace HotkeyPaster
             Dispatcher.Invoke(() =>
             {
                 RecordingStatus.Text = "Recording...";
-                SubStatus.Text = "Press Space to finish";
+                SubStatus.Text = $"🎤 {_audio.DeviceName} • Press Space to finish";
                 RecordingIcon.Text = "🎙️";
                 ActionButton.Content = "⏹";
                 ActionButton.IsEnabled = true;
@@ -219,38 +239,47 @@ namespace HotkeyPaster
 
         public void ShowWindow()
         {
-            // Capture the currently focused window so we can return focus later
-            _previousWindow = GetForegroundWindow();
-
-            this.Show();
-            this.Visibility = Visibility.Visible;
-
-            // Position at bottom center of the screen where user is working
-            PositionWindowAtBottom(_previousWindow);
-
-            // Make window visible immediately (no fade animation)
-            this.Opacity = 1;
-
-            // Get window handle
-            var hwnd = new WindowInteropHelper(this).Handle;
-
-            // Force window to foreground using Win32 APIs
-            ShowWindow(hwnd, SW_SHOW);
-            SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
-            BringWindowToTop(hwnd);
-            SetForegroundWindow(hwnd);
-
-            // Also try WPF methods
-            this.Activate();
-            this.Focus();
-
-            Logger.Log($"ShowWindow: positioned at Left={this.Left}, Top={this.Top}, Width={this.Width}, Height={this.Height}, Opacity={this.Opacity}, Visibility={this.Visibility}, Handle={hwnd}");
-
-            // Start recording if not already
-            if (!_audio.IsRecording)
+            try
             {
-                _currentRecordingPath = Path.Combine(Path.GetTempPath(), $"HotkeyPaster_{DateTime.Now:yyyyMMdd_HHmmss}.wav");
-                _audio.StartRecording(_currentRecordingPath);
+                // Capture the currently focused window so we can return focus later
+                _previousWindow = GetForegroundWindow();
+
+                // Position at bottom center of the screen where user is working BEFORE showing
+                // This ensures the window is positioned correctly even if screen config changed
+                PositionWindowAtBottom(_previousWindow);
+
+                this.Show();
+                this.Visibility = Visibility.Visible;
+
+                // Make window visible immediately (no fade animation)
+                this.Opacity = 1;
+
+                // Get window handle
+                var hwnd = new WindowInteropHelper(this).Handle;
+
+                // Force window to foreground using Win32 APIs
+                ShowWindow(hwnd, SW_SHOW);
+                SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+                BringWindowToTop(hwnd);
+                SetForegroundWindow(hwnd);
+
+                // Also try WPF methods
+                this.Activate();
+                this.Focus();
+
+                Logger.Log($"ShowWindow: positioned at Left={this.Left}, Top={this.Top}, Width={this.Width}, Height={this.Height}, Opacity={this.Opacity}, Visibility={this.Visibility}, Handle={hwnd}");
+
+                // Start recording if not already
+                if (!_audio.IsRecording)
+                {
+                    _currentRecordingPath = Path.Combine(Path.GetTempPath(), $"HotkeyPaster_{DateTime.Now:yyyyMMdd_HHmmss}.wav");
+                    _audio.StartRecording(_currentRecordingPath);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"Error in ShowWindow: {ex}");
+                _notifications.ShowError("Display Error", "Could not show window. Please try again.");
             }
         }
 
@@ -301,30 +330,46 @@ namespace HotkeyPaster
                     Logger.Log("No valid window context detected");
                 }
 
-                // Transcribe with real-time progress updates and window context
-                var result = await _transcription.TranscribeStreamingAsync(audioData, partialText =>
+                // Create progress reporter
+                var progress = new Progress<ProgressEventArgs>(e =>
                 {
-                    // Update UI with partial text as it arrives
                     Dispatcher.Invoke(() =>
                     {
-                        int wordCount = partialText.Split(new[] { ' ', '\n', '\r', '\t' }, 
-                            StringSplitOptions.RemoveEmptyEntries).Length;
-                        SubStatus.Text = $"Processing... {wordCount} words";
+                        SubStatus.Text = e.Message;
+                        Logger.Log($"Pipeline progress: {e.Message} ({e.PercentComplete}%)");
                     });
-                }, windowContext);
-                
-                Logger.Log($"Transcription complete: {result.WordCount} words, {result.DurationSeconds:F2}s");
+                });
+
+                // Execute pipeline with window context
+                var result = await _pipelineService.ExecuteAsync(
+                    audioData,
+                    windowContext,
+                    progress);
+
+                Logger.Log($"Pipeline execution complete: Success={result.IsSuccess}, WordCount={result.WordCount}, Duration={result.Metrics.TotalDurationMs:F2}ms");
+
+                // Log detailed metrics
+                if (result.Metrics.StageMetrics.Any())
+                {
+                    Logger.Log("Pipeline stage metrics:");
+                    foreach (var stageMetric in result.Metrics.StageMetrics)
+                    {
+                        Logger.Log($"  {stageMetric.StageName}: {stageMetric.DurationMs:F2}ms");
+                    }
+                }
 
                 if (!result.IsSuccess || string.IsNullOrWhiteSpace(result.Text))
                 {
-                    _notifications.ShowError("Transcription Failed", "Could not transcribe audio.");
+                    var errorMsg = result.ErrorMessage ?? "Could not transcribe audio.";
+                    _notifications.ShowError("Pipeline Failed", errorMsg);
                     RecordingStatus.Text = "Failed";
-                    SubStatus.Text = "Transcription error";
+                    SubStatus.Text = $"{errorMsg} - Press Esc to close";
                     RecordingIcon.Text = "❌";
                     RecordingPulse.Fill = new System.Windows.Media.RadialGradientBrush(
                         System.Windows.Media.Color.FromRgb(239, 68, 68),
                         System.Windows.Media.Color.FromRgb(220, 38, 38)
                     );
+                    // Don't hide window on error - let user see the error
                     return;
                 }
 
@@ -340,7 +385,7 @@ namespace HotkeyPaster
                 // Wait a moment to show success
                 await System.Threading.Tasks.Task.Delay(600);
 
-                // Hide window
+                // Hide window only on success
                 HideWindow();
 
                 // Small delay to let window hide
@@ -348,19 +393,20 @@ namespace HotkeyPaster
 
                 // Paste transcribed text
                 _clipboard.PasteText(result.Text);
-                Logger.Log($"Transcribed text pasted successfully: {result.WordCount} words ({result.Language ?? "unknown"})");
+                Logger.Log($"Pipeline result pasted successfully: {result.WordCount} words ({result.Language ?? "unknown"})");
             }
             catch (Exception ex)
             {
                 _logger.Log($"Transcription error: {ex}");
                 _notifications.ShowError("Transcription Error", ex.Message);
                 RecordingStatus.Text = "Error";
-                SubStatus.Text = "Failed";
+                SubStatus.Text = "Failed - Press Esc to close";
                 RecordingIcon.Text = "❌";
                 RecordingPulse.Fill = new System.Windows.Media.RadialGradientBrush(
                     System.Windows.Media.Color.FromRgb(239, 68, 68),
                     System.Windows.Media.Color.FromRgb(220, 38, 38)
                 );
+                // Don't hide window on error - let user see the error
             }
         }
 

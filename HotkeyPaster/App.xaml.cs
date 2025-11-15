@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using HotkeyPaster.Logging;
@@ -8,7 +10,9 @@ using HotkeyPaster.Services.Clipboard;
 using HotkeyPaster.Services.Audio;
 using HotkeyPaster.Services.Hotkey;
 using HotkeyPaster.Services.Tray;
-using HotkeyPaster.Services.Transcription;
+using HotkeyPaster.Services.Pipeline;
+using HotkeyPaster.Services.Pipeline.Configuration;
+using HotkeyPaster.Services.Pipeline.Stages;
 using HotkeyPaster.Services.Settings;
 using Whisper.net.Ggml;
 
@@ -16,7 +20,7 @@ namespace HotkeyPaster
 {
     public partial class App : Application
     {
-        private IAudioTranscriptionService? _transcriptionService;
+        private IPipelineService? _pipelineService;
         private SettingsService? _settingsService;
         private ILogger? _logger;
         private INotificationService? _notifications;
@@ -28,7 +32,7 @@ namespace HotkeyPaster
             // Create services
             _logger = new FileLogger();
             _notifications = new ToastNotificationService();
-            var positioner = new WindowPositionService();
+            var positioner = new WindowPositionService(_logger);
             var clipboardService = new ClipboardPasteService();
             var audioService = new AudioRecordingService();
             var hotkeyService = new Win32HotkeyService();
@@ -36,11 +40,11 @@ namespace HotkeyPaster
             var contextService = new ActiveWindowContextService();
             _settingsService = new SettingsService();
 
-            // Load settings and configure transcription service
+            // Load settings and configure pipeline service
             var settings = _settingsService.LoadSettings();
-            _transcriptionService = CreateTranscriptionService(settings);
+            _pipelineService = CreatePipelineService(settings);
 
-            if (_transcriptionService == null)
+            if (_pipelineService == null)
             {
                 _notifications.ShowError("Configuration Required",
                     "Please configure transcription settings. Right-click the tray icon and select Settings.");
@@ -50,10 +54,10 @@ namespace HotkeyPaster
             // Initialize tray
             trayService.InitializeTray();
 
-            // Create MainWindow and inject services (only if transcription service is available)
+            // Create MainWindow and inject services (only if pipeline service is available)
             MainWindow? mainWindow = null;
-            
-            if (_transcriptionService != null)
+
+            if (_pipelineService != null)
             {
                 mainWindow = new MainWindow(
                     _notifications,
@@ -62,7 +66,7 @@ namespace HotkeyPaster
                     _logger,
                     audioService,
                     hotkeyService,
-                    _transcriptionService,
+                    _pipelineService,
                     contextService
                 );
 
@@ -74,13 +78,13 @@ namespace HotkeyPaster
             }
             else
             {
-                // If no transcription service, hotkey opens settings
+                // If no pipeline service, hotkey opens settings
                 hotkeyService.HotkeyPressed += (s, args) =>
                 {
                     var settingsWindow = new SettingsWindow(_settingsService, audioService, _logger);
-                    settingsWindow.SettingsChanged += (sender, eventArgs) => 
+                    settingsWindow.SettingsChanged += (sender, eventArgs) =>
                     {
-                        ReloadTranscriptionService();
+                        ReloadPipelineService();
                         // TODO: Create MainWindow after successful config
                     };
                     settingsWindow.Show();
@@ -91,7 +95,7 @@ namespace HotkeyPaster
             trayService.SettingsRequested += (s, args) =>
             {
                 var settingsWindow = new SettingsWindow(_settingsService, audioService, _logger);
-                settingsWindow.SettingsChanged += (sender, eventArgs) => ReloadTranscriptionService();
+                settingsWindow.SettingsChanged += (sender, eventArgs) => ReloadPipelineService();
                 settingsWindow.Show();
             };
 
@@ -103,82 +107,96 @@ namespace HotkeyPaster
             };
 
             // Log startup (no notification needed)
-            if (_transcriptionService != null)
+            if (_pipelineService != null)
             {
-                var mode = settings.TranscriptionMode == TranscriptionMode.Local ? "Local" : "Cloud";
-                _logger.Log($"Hotkey Paster started in {mode} mode");
+                var pipelineName = _pipelineService.GetDefaultPipelineName() ?? "unknown";
+                _logger.Log($"Hotkey Paster started with pipeline: {pipelineName}");
             }
         }
 
-        private IAudioTranscriptionService? CreateTranscriptionService(AppSettings settings)
+        private IPipelineService? CreatePipelineService(AppSettings settings)
         {
             try
             {
-                ITranscriber transcriber;
-                ITextCleaner textCleaner;
+                // Get configuration directory
+                var appDataDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "HotkeyPaster");
+                var pipelineConfigDir = Path.Combine(appDataDir, "Pipelines");
 
-                // Create transcriber based on mode
-                if (settings.TranscriptionMode == TranscriptionMode.Local)
+                // Create pipeline factory
+                var factory = new PipelineFactory(_logger);
+
+                // Register all stage factories
+                factory.RegisterStageFactory(new AudioValidationStageFactory());
+                factory.RegisterStageFactory(new OpenAIWhisperTranscriptionStageFactory());
+                factory.RegisterStageFactory(new LocalWhisperTranscriptionStageFactory());
+                factory.RegisterStageFactory(new GPTTextCleaningStageFactory());
+                factory.RegisterStageFactory(new PassThroughCleaningStageFactory());
+
+                // Create configuration loader
+                var configLoader = new PipelineConfigurationLoader(pipelineConfigDir, _logger);
+
+                // Ensure default configurations exist
+                configLoader.EnsureDefaultConfigurations(
+                    settings.OpenAIApiKey ?? string.Empty,
+                    settings.LocalModelPath);
+
+                // Create build context
+                var buildContext = new PipelineBuildContext
                 {
-                    // Local transcription
-                    if (string.IsNullOrEmpty(settings.LocalModelPath) || !System.IO.File.Exists(settings.LocalModelPath))
+                    Logger = _logger,
+                    AppSettings = settings,
+                    OpenAIApiKey = settings.OpenAIApiKey,
+                    LocalModelPath = settings.LocalModelPath
+                };
+
+                // Create registry
+                var registry = new PipelineRegistry(factory, configLoader, buildContext, _logger);
+                registry.LoadConfigurations();
+
+                // Set default pipeline based on current settings
+                var availablePipelines = registry.GetAvailablePipelineNames().ToList();
+                if (availablePipelines.Any())
+                {
+                    // Try to set default based on transcription mode
+                    if (settings.TranscriptionMode == TranscriptionMode.Local && availablePipelines.Contains("LocalPrivacy"))
                     {
-                        _logger?.Log("Local mode selected but no valid model path configured");
-                        return null;
+                        registry.SetDefaultPipeline("LocalPrivacy");
                     }
-
-                    transcriber = new LocalWhisperTranscriber(settings.LocalModelPath);
-                }
-                else
-                {
-                    // Cloud transcription (optimized Whisper API)
-                    if (string.IsNullOrWhiteSpace(settings.OpenAIApiKey))
+                    else if (availablePipelines.Contains("FastCloud"))
                     {
-                        _logger?.Log("Cloud mode selected but no API key configured");
-                        return null;
+                        registry.SetDefaultPipeline("FastCloud");
                     }
-
-                    transcriber = new OpenAIWhisperTranscriber(settings.OpenAIApiKey);
+                    // Otherwise use the first available
                 }
 
-                // Create text cleaner based on settings (uses optimized parser)
-                if (settings.EnableTextCleaning && !string.IsNullOrWhiteSpace(settings.OpenAIApiKey))
-                {
-                    textCleaner = new OpenAIGPTTextCleaner(settings.OpenAIApiKey);
-                }
-                else
-                {
-                    textCleaner = new PassThroughTextCleaner();
-                }
-
-                // Use optimized transcription service with improved word counting and duration calculation
-                return new OptimizedTranscriptionService(transcriber, textCleaner);
+                // Create and return pipeline service
+                return new PipelineService(registry, _logger);
             }
             catch (Exception ex)
             {
-                _logger?.Log($"Failed to create transcription service: {ex}");
+                _logger?.Log($"Failed to create pipeline service: {ex}");
                 return null;
             }
         }
 
-        private void ReloadTranscriptionService()
+        private void ReloadPipelineService()
         {
             if (_settingsService == null) return;
 
             var settings = _settingsService.LoadSettings();
-            var newService = CreateTranscriptionService(settings);
+            var newService = CreatePipelineService(settings);
 
             if (newService != null)
             {
-                _transcriptionService = newService;
-                _logger?.Log("Transcription service reloaded with new settings");
+                _pipelineService = newService;
+                _logger?.Log($"Pipeline service reloaded with pipeline: {newService.GetDefaultPipelineName()}");
                 // No success notification needed - settings window already provides feedback
             }
             else
             {
-                var errorMsg = settings.TranscriptionMode == TranscriptionMode.Local
-                    ? "Failed to load local model. The model file may be corrupted or in the wrong format. Check logs for details."
-                    : "Failed to apply settings. Check your API key and configuration.";
+                var errorMsg = "Failed to reload pipeline configurations. Check logs for details.";
                 _notifications?.ShowError("Settings Error", errorMsg);
             }
         }
