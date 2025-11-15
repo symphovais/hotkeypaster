@@ -1,8 +1,8 @@
 using System;
 using System.Threading.Tasks;
-using HotkeyPaster.Services.Windowing;
+using TalkKeys.Services.Windowing;
 
-namespace HotkeyPaster.Services.Transcription
+namespace TalkKeys.Services.Transcription
 {
     /// <summary>
     /// Service for transcribing audio to clean, formatted text.

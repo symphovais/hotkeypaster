@@ -4,11 +4,11 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
-using HotkeyPaster.Services.Pipeline.Configuration;
+using TalkKeys.Services.Pipeline.Configuration;
 using NAudio.Wave;
 using SileroVad;
 
-namespace HotkeyPaster.Services.Pipeline.Stages
+namespace TalkKeys.Services.Pipeline.Stages
 {
     /// <summary>
     /// Applies Silero VAD to detect voice activity and trim silence

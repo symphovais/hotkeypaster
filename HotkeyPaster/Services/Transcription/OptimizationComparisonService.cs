@@ -1,9 +1,9 @@
 using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
-using HotkeyPaster.Services.Windowing;
+using TalkKeys.Services.Windowing;
 
-namespace HotkeyPaster.Services.Transcription
+namespace TalkKeys.Services.Transcription
 {
     /// <summary>
     /// Result of a single transcription test run.

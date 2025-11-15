@@ -4,9 +4,9 @@ using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Interop;
 using System.Windows.Media;
-using HotkeyPaster.Logging;
+using TalkKeys.Logging;
 
-namespace HotkeyPaster.Services.Windowing
+namespace TalkKeys.Services.Windowing
 {
     public sealed class WindowPositionService : IWindowPositionService
     {

@@ -3,7 +3,7 @@ using System.IO;
 using System.Threading.Tasks;
 using Whisper.net.Ggml;
 
-namespace HotkeyPaster.Services.Transcription
+namespace TalkKeys.Services.Transcription
 {
     /// <summary>
     /// Manages Whisper model downloads and storage.
@@ -12,7 +12,7 @@ namespace HotkeyPaster.Services.Transcription
     {
         private static readonly string ModelsDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "HotkeyPaster",
+            "TalkKeys",
             "Models"
         );
 

@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 
-namespace HotkeyPaster.Logging
+namespace TalkKeys.Logging
 {
     public interface ILogger
     {
@@ -10,7 +10,7 @@ namespace HotkeyPaster.Logging
 
     public sealed class FileLogger : ILogger
     {
-        private static readonly string LogDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HotkeyPaster");
+        private static readonly string LogDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TalkKeys");
         private static readonly string LogPath = Path.Combine(LogDir, "logs.txt");
 
         public void Log(string message)

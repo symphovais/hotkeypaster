@@ -1,4 +1,4 @@
-namespace HotkeyPaster.Services.Windowing
+namespace TalkKeys.Services.Windowing
 {
     /// <summary>
     /// Represents the context of the active window where transcription was triggered.

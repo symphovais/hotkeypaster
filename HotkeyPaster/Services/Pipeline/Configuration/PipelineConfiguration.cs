@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace HotkeyPaster.Services.Pipeline.Configuration
+namespace TalkKeys.Services.Pipeline.Configuration
 {
     /// <summary>
     /// Configuration for a pipeline, loaded from JSON

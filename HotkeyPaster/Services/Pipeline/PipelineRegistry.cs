@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using HotkeyPaster.Logging;
-using HotkeyPaster.Services.Pipeline.Configuration;
+using TalkKeys.Logging;
+using TalkKeys.Services.Pipeline.Configuration;
 
-namespace HotkeyPaster.Services.Pipeline
+namespace TalkKeys.Services.Pipeline
 {
     /// <summary>
     /// Registry for managing multiple pipeline configurations

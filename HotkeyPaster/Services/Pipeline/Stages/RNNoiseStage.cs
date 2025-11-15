@@ -1,11 +1,11 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
-using HotkeyPaster.Services.Pipeline.Configuration;
+using TalkKeys.Services.Pipeline.Configuration;
 using NAudio.Wave;
 using RNNoise.NET;
 
-namespace HotkeyPaster.Services.Pipeline.Stages
+namespace TalkKeys.Services.Pipeline.Stages
 {
     /// <summary>
     /// Applies RNNoise noise reduction to audio

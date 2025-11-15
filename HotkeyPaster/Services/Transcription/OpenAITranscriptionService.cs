@@ -1,9 +1,9 @@
 using System;
 using System.Threading.Tasks;
-using HotkeyPaster.Services;
-using HotkeyPaster.Services.Windowing;
+using TalkKeys.Services;
+using TalkKeys.Services.Windowing;
 
-namespace HotkeyPaster.Services.Transcription
+namespace TalkKeys.Services.Transcription
 {
     /// <summary>
     /// Composable audio transcription service that uses injected transcriber and text cleaner.

@@ -1,8 +1,8 @@
 using System;
 using System.Threading.Tasks;
-using HotkeyPaster.Services.Pipeline.Configuration;
+using TalkKeys.Services.Pipeline.Configuration;
 
-namespace HotkeyPaster.Services.Pipeline.Stages
+namespace TalkKeys.Services.Pipeline.Stages
 {
     /// <summary>
     /// Pass-through stage that copies raw transcription to cleaned text without modifications

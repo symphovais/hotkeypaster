@@ -1,6 +1,6 @@
 using System;
 
-namespace HotkeyPaster.Services
+namespace TalkKeys.Services
 {
     /// <summary>
     /// Interface for services that can report progress updates.

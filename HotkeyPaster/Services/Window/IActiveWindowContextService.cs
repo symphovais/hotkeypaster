@@ -1,6 +1,6 @@
 using System;
 
-namespace HotkeyPaster.Services.Windowing
+namespace TalkKeys.Services.Windowing
 {
     /// <summary>
     /// Service for detecting the context of the active window.

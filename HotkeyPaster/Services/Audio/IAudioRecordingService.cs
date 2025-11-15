@@ -1,6 +1,6 @@
 using System;
 
-namespace HotkeyPaster.Services.Audio
+namespace TalkKeys.Services.Audio
 {
     public interface IAudioRecordingService
     {

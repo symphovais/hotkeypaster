@@ -1,11 +1,11 @@
 using System;
 using System.Threading.Tasks;
 using System.Windows;
-using HotkeyPaster.Logging;
-using HotkeyPaster.Services.Audio;
-using HotkeyPaster.Services.Transcription;
+using TalkKeys.Logging;
+using TalkKeys.Services.Audio;
+using TalkKeys.Services.Transcription;
 
-namespace HotkeyPaster
+namespace TalkKeys
 {
     public partial class SpeedTestWindow : Window
     {

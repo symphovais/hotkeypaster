@@ -8,20 +8,20 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows.Media.Animation;
 using Microsoft.Win32;
-using HotkeyPaster.Services;
-using HotkeyPaster.Services.Notifications;
-using HotkeyPaster.Services.Windowing;
-using HotkeyPaster.Services.Clipboard;
-using HotkeyPaster.Logging;
-using HotkeyPaster.Services.Audio;
-using HotkeyPaster.Services.Hotkey;
-using HotkeyPaster.Services.Pipeline;
+using TalkKeys.Services;
+using TalkKeys.Services.Notifications;
+using TalkKeys.Services.Windowing;
+using TalkKeys.Services.Clipboard;
+using TalkKeys.Logging;
+using TalkKeys.Services.Audio;
+using TalkKeys.Services.Hotkey;
+using TalkKeys.Services.Pipeline;
 
-namespace HotkeyPaster
+namespace TalkKeys
 {
     internal static class Logger
     {
-        private static readonly string LogDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HotkeyPaster");
+        private static readonly string LogDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TalkKeys");
         private static readonly string LogPath = Path.Combine(LogDir, "logs.txt");
 
         public static void Log(string message)
@@ -74,7 +74,7 @@ namespace HotkeyPaster
         private string? _currentRecordingPath;
 
         // The text to paste
-        private const string TEXT_TO_PASTE = "Hello from the hotkey paster!";
+        private const string TEXT_TO_PASTE = "Hello from TalkKeys!";
 
         public MainWindow(INotificationService notifications, IWindowPositionService positioner, IClipboardPasteService clipboard, ILogger logger, IAudioRecordingService audio, IHotkeyService hotkeyService, IPipelineService pipelineService, IActiveWindowContextService contextService)
         {
@@ -272,7 +272,7 @@ namespace HotkeyPaster
                 // Start recording if not already
                 if (!_audio.IsRecording)
                 {
-                    _currentRecordingPath = Path.Combine(Path.GetTempPath(), $"HotkeyPaster_{DateTime.Now:yyyyMMdd_HHmmss}.wav");
+                    _currentRecordingPath = Path.Combine(Path.GetTempPath(), $"TalkKeys_{DateTime.Now:yyyyMMdd_HHmmss}.wav");
                     _audio.StartRecording(_currentRecordingPath);
                 }
             }

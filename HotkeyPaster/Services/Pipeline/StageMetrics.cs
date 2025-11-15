@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace HotkeyPaster.Services.Pipeline
+namespace TalkKeys.Services.Pipeline
 {
     /// <summary>
     /// Metrics collected during a single pipeline stage execution

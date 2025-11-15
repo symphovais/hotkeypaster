@@ -1,6 +1,6 @@
-using HotkeyPaster.Services.Pipeline.Configuration;
+using TalkKeys.Services.Pipeline.Configuration;
 
-namespace HotkeyPaster.Services.Pipeline
+namespace TalkKeys.Services.Pipeline
 {
     /// <summary>
     /// Factory interface for creating pipeline stages from configuration

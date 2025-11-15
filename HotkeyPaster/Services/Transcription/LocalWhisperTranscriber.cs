@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Whisper.net;
 using Whisper.net.Ggml;
 
-namespace HotkeyPaster.Services.Transcription
+namespace TalkKeys.Services.Transcription
 {
     /// <summary>
     /// Local Whisper.net implementation of audio transcription.

@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 using Windows.Data.Xml.Dom;
 using Windows.UI.Notifications;
 
-namespace HotkeyPaster.Services.Notifications
+namespace TalkKeys.Services.Notifications
 {
     public sealed class ToastNotificationService : INotificationService
     {
@@ -19,7 +19,7 @@ namespace HotkeyPaster.Services.Notifications
             try
             {
                 // Set a stable AppUserModelID so toasts are attributable on Windows 10/11
-                SetCurrentProcessExplicitAppUserModelID("HotkeyPaster.App");
+                SetCurrentProcessExplicitAppUserModelID("TalkKeys.App");
                 _initialized = true;
             }
             catch

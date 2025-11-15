@@ -2,10 +2,10 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using HotkeyPaster.Logging;
-using HotkeyPaster.Services.Windowing;
+using TalkKeys.Logging;
+using TalkKeys.Services.Windowing;
 
-namespace HotkeyPaster.Services.Pipeline
+namespace TalkKeys.Services.Pipeline
 {
     /// <summary>
     /// Main service for executing pipelines

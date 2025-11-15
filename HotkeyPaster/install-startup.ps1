@@ -1,13 +1,13 @@
-# HotkeyPaster Startup Installation Script
+# TalkKeys Startup Installation Script
 # This script copies the app to a permanent location and adds it to Windows startup
 
 $ErrorActionPreference = "Stop"
 
 # Define installation path
-$installPath = "$env:LOCALAPPDATA\HotkeyPaster"
-$exePath = Join-Path $installPath "HotkeyPaster.exe"
+$installPath = "$env:LOCALAPPDATA\TalkKeys"
+$exePath = Join-Path $installPath "TalkKeys.exe"
 
-Write-Host "Installing HotkeyPaster..." -ForegroundColor Cyan
+Write-Host "Installing TalkKeys..." -ForegroundColor Cyan
 
 # Create installation directory
 if (-not (Test-Path $installPath)) {
@@ -27,7 +27,7 @@ Copy-Item -Path "$publishPath\*" -Destination $installPath -Recurse -Force
 
 # Add to Windows startup (current user)
 $startupRegPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-$appName = "HotkeyPaster"
+$appName = "TalkKeys"
 
 Write-Host "Adding to Windows startup..." -ForegroundColor Yellow
 Set-ItemProperty -Path $startupRegPath -Name $appName -Value $exePath

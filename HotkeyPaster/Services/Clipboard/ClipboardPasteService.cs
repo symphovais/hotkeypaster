@@ -2,7 +2,7 @@ using System;
 using System.Threading;
 using System.Windows.Forms;
 
-namespace HotkeyPaster.Services.Clipboard
+namespace TalkKeys.Services.Clipboard
 {
     public interface IClipboardPasteService
     {

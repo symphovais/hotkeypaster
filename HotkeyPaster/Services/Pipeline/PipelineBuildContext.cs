@@ -1,7 +1,7 @@
-using HotkeyPaster.Logging;
-using HotkeyPaster.Services.Settings;
+using TalkKeys.Logging;
+using TalkKeys.Services.Settings;
 
-namespace HotkeyPaster.Services.Pipeline
+namespace TalkKeys.Services.Pipeline
 {
     /// <summary>
     /// Context for building pipelines, provides access to services and settings

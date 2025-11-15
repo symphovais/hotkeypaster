@@ -5,9 +5,9 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using HotkeyPaster.Services.Windowing;
+using TalkKeys.Services.Windowing;
 
-namespace HotkeyPaster.Services.Transcription
+namespace TalkKeys.Services.Transcription
 {
     /// <summary>
     /// Optimized transcription service using GPT-4o-mini for both audio transcription and text cleaning in a single API call.

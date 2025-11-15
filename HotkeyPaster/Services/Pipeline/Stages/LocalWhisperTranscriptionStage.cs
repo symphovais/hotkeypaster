@@ -1,9 +1,9 @@
 using System;
 using System.Threading.Tasks;
-using HotkeyPaster.Services.Pipeline.Configuration;
-using HotkeyPaster.Services.Transcription;
+using TalkKeys.Services.Pipeline.Configuration;
+using TalkKeys.Services.Transcription;
 
-namespace HotkeyPaster.Services.Pipeline.Stages
+namespace TalkKeys.Services.Pipeline.Stages
 {
     /// <summary>
     /// Transcription stage using local Whisper.net model

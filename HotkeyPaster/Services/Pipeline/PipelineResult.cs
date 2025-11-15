@@ -1,4 +1,4 @@
-namespace HotkeyPaster.Services.Pipeline
+namespace TalkKeys.Services.Pipeline
 {
     /// <summary>
     /// Final result of a complete pipeline execution

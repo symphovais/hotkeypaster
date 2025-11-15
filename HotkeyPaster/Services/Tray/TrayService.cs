@@ -1,7 +1,7 @@
 using System;
 using System.Windows.Forms;
 
-namespace HotkeyPaster.Services.Tray
+namespace TalkKeys.Services.Tray
 {
     public interface ITrayService
     {
@@ -30,13 +30,14 @@ namespace HotkeyPaster.Services.Tray
             {
                 Icon = icon,
                 Visible = true,
-                Text = "Hotkey Paster - Ctrl+Shift+Q"
+                Text = "TalkKeys - Ctrl+Shift+Q"
             };
 
             _notifyIcon.DoubleClick += (s, e) => SettingsRequested?.Invoke(this, EventArgs.Empty);
 
             var contextMenu = new ContextMenuStrip();
             contextMenu.Items.Add("Settings", null, (s, e) => SettingsRequested?.Invoke(this, EventArgs.Empty));
+            contextMenu.Items.Add(new ToolStripSeparator());
             contextMenu.Items.Add("Exit", null, (s, e) => ExitRequested?.Invoke(this, EventArgs.Empty));
             _notifyIcon.ContextMenuStrip = contextMenu;
         }

@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace HotkeyPaster.Services.Windowing
+namespace TalkKeys.Services.Windowing
 {
     /// <summary>
     /// Service for detecting the context of the active window using Windows API.

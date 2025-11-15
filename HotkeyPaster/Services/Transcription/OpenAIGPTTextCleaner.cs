@@ -3,9 +3,9 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading.Tasks;
-using HotkeyPaster.Services.Windowing;
+using TalkKeys.Services.Windowing;
 
-namespace HotkeyPaster.Services.Transcription
+namespace TalkKeys.Services.Transcription
 {
     /// <summary>
     /// OpenAI GPT-based implementation of text cleaning and formatting.
@@ -19,7 +19,7 @@ namespace HotkeyPaster.Services.Transcription
         
         // Cleanup prompt for GPT-4.1-nano - context-aware text cleaning
         private const string CleanupPrompt = 
-            "You are a text cleaning assistant for a voice-to-text transcription application called HotkeyPaster. " +
+            "You are a text cleaning assistant for a voice-to-text transcription application called TalkKeys. " +
             "The user speaks into their microphone, and the audio is transcribed to text. Your job is to clean up the raw transcription. " +
             "\n\nRULES:\n" +
             "1. ONLY fix issues - do NOT add new content or information that wasn't spoken\n" +

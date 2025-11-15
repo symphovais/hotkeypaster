@@ -14,7 +14,7 @@ Removed all success/info toast notifications. Only error notifications are shown
 ### ✅ Removed Success Notifications
 
 1. **App Startup** (`App.xaml.cs`)
-   - **Before**: "Hotkey Paster Started - Mode: Local. Press Ctrl+Shift+Q..."
+   - **Before**: "TalkKeys Started - Mode: Local. Press Ctrl+Shift+Q..."
    - **After**: Silent startup, logged only
    - **Why**: User doesn't need a popup every time the app starts
 
@@ -43,7 +43,7 @@ All error notifications remain to alert users when something goes wrong:
 
 ### Before
 ```
-[App starts] → Toast: "Hotkey Paster Started..."
+[App starts] → Toast: "TalkKeys Started..."
 [User transcribes] → Toast: "Transcription Complete - Pasted 15 words"
 [User changes settings] → Toast: "Settings Applied"
 ```

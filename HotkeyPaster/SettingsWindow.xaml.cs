@@ -1,54 +1,83 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
-using HotkeyPaster.Logging;
-using HotkeyPaster.Services.Audio;
-using HotkeyPaster.Services.Settings;
-using HotkeyPaster.Services.Transcription;
+using TalkKeys.Logging;
+using TalkKeys.Services.Audio;
+using TalkKeys.Services.Pipeline;
+using TalkKeys.Services.Settings;
+using TalkKeys.Services.Transcription;
 
-namespace HotkeyPaster
+namespace TalkKeys
 {
     public partial class SettingsWindow : Window
     {
         private readonly SettingsService _settingsService;
         private readonly IAudioRecordingService _audioService;
         private readonly ILogger _logger;
+        private readonly PipelineFactory _pipelineFactory;
+        private readonly PipelineBuildContext _buildContext;
         private AppSettings _currentSettings;
         private bool _isInitializing = true;
+        private Dictionary<string, BenchmarkResult>? _benchmarkResults;
 
         public event EventHandler? SettingsChanged;
 
         public SettingsWindow(
             SettingsService settingsService,
             IAudioRecordingService audioService,
-            ILogger logger)
+            ILogger logger,
+            PipelineFactory pipelineFactory,
+            PipelineBuildContext buildContext)
         {
             InitializeComponent();
-            
+
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             _audioService = audioService ?? throw new ArgumentNullException(nameof(audioService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            
+            _pipelineFactory = pipelineFactory ?? throw new ArgumentNullException(nameof(pipelineFactory));
+            _buildContext = buildContext ?? throw new ArgumentNullException(nameof(buildContext));
+
             _currentSettings = _settingsService.LoadSettings();
-            
+
             LoadSettings();
             PopulateLocalModels();
-            
+
             _isInitializing = false;
         }
 
         private void LoadSettings()
         {
-            // Load transcription mode
-            if (_currentSettings.TranscriptionMode == TranscriptionMode.Cloud)
+            // Load pipeline preset
+            switch (_currentSettings.SelectedPipeline)
             {
-                CloudModeRadio.IsChecked = true;
-            }
-            else
-            {
-                LocalModeRadio.IsChecked = true;
+                case PipelinePresets.MaximumQuality:
+                    MaximumQualityRadio.IsChecked = true;
+                    LocalModelPanel.Visibility = Visibility.Collapsed;
+                    break;
+                case PipelinePresets.BalancedQuality:
+                    BalancedQualityRadio.IsChecked = true;
+                    LocalModelPanel.Visibility = Visibility.Collapsed;
+                    break;
+                case PipelinePresets.FastCloud:
+                    FastCloudRadio.IsChecked = true;
+                    LocalModelPanel.Visibility = Visibility.Collapsed;
+                    break;
+                case PipelinePresets.MaximumPrivacy:
+                    MaximumPrivacyRadio.IsChecked = true;
+                    LocalModelPanel.Visibility = Visibility.Visible;
+                    break;
+                case PipelinePresets.FastLocal:
+                    FastLocalRadio.IsChecked = true;
+                    LocalModelPanel.Visibility = Visibility.Visible;
+                    break;
+                default:
+                    // Default to BalancedQuality if no valid preset
+                    BalancedQualityRadio.IsChecked = true;
+                    LocalModelPanel.Visibility = Visibility.Collapsed;
+                    break;
             }
 
             // Load API key
@@ -66,9 +95,6 @@ namespace HotkeyPaster
                     _currentSettings.OpenAIApiKey = envKey;
                 }
             }
-
-            // Load text cleaning preference
-            EnableCleaningCheckBox.IsChecked = _currentSettings.EnableTextCleaning;
         }
 
         private void PopulateLocalModels()
@@ -131,18 +157,33 @@ namespace HotkeyPaster
             LocalModelComboBox.IsEnabled = true;
         }
 
-        private void TranscriptionMode_Changed(object sender, RoutedEventArgs e)
+        private void PipelinePreset_Changed(object sender, RoutedEventArgs e)
         {
             if (_isInitializing) return;
 
-            if (CloudModeRadio.IsChecked == true)
+            if (MaximumQualityRadio.IsChecked == true)
             {
-                _currentSettings.TranscriptionMode = TranscriptionMode.Cloud;
+                _currentSettings.SelectedPipeline = PipelinePresets.MaximumQuality;
                 LocalModelPanel.Visibility = Visibility.Collapsed;
             }
-            else if (LocalModeRadio.IsChecked == true)
+            else if (BalancedQualityRadio.IsChecked == true)
             {
-                _currentSettings.TranscriptionMode = TranscriptionMode.Local;
+                _currentSettings.SelectedPipeline = PipelinePresets.BalancedQuality;
+                LocalModelPanel.Visibility = Visibility.Collapsed;
+            }
+            else if (FastCloudRadio.IsChecked == true)
+            {
+                _currentSettings.SelectedPipeline = PipelinePresets.FastCloud;
+                LocalModelPanel.Visibility = Visibility.Collapsed;
+            }
+            else if (MaximumPrivacyRadio.IsChecked == true)
+            {
+                _currentSettings.SelectedPipeline = PipelinePresets.MaximumPrivacy;
+                LocalModelPanel.Visibility = Visibility.Visible;
+            }
+            else if (FastLocalRadio.IsChecked == true)
+            {
+                _currentSettings.SelectedPipeline = PipelinePresets.FastLocal;
                 LocalModelPanel.Visibility = Visibility.Visible;
             }
 
@@ -171,54 +212,118 @@ namespace HotkeyPaster
             AutoSave();
         }
 
-        private void TextCleaning_Changed(object sender, RoutedEventArgs e)
-        {
-            if (_isInitializing) return;
-
-            _currentSettings.EnableTextCleaning = EnableCleaningCheckBox.IsChecked == true;
-            AutoSave();
-        }
-
         private void AutoSave()
         {
             _settingsService.SaveSettings(_currentSettings);
             SettingsChanged?.Invoke(this, EventArgs.Empty);
         }
 
-        private void SpeedTest_Click(object sender, RoutedEventArgs e)
+        private void Deathmatch_Click(object sender, RoutedEventArgs e)
         {
-            // Validate settings before running speed test
+            // Validate that we have an API key for cloud pipelines
             if (string.IsNullOrWhiteSpace(_currentSettings.OpenAIApiKey))
             {
                 MessageBox.Show(
-                    "OpenAI API Key is required to run the speed test.\n\n" +
-                    "Please enter your API key in the settings above.",
+                    "OpenAI API Key is required to run the benchmark.\n\n" +
+                    "Please enter your API key in the settings above before running the benchmark.",
                     "API Key Required",
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
                 return;
             }
 
-            if (_currentSettings.TranscriptionMode == TranscriptionMode.Local &&
-                string.IsNullOrEmpty(_currentSettings.LocalModelPath))
+            // Create a new build context with current settings for the benchmark
+            var benchmarkContext = new PipelineBuildContext
             {
-                MessageBox.Show(
-                    "No local model selected.\n\n" +
-                    "Please select a local model or download one using the download script.",
-                    "Model Required",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
-                return;
-            }
+                OpenAIApiKey = _currentSettings.OpenAIApiKey,
+                LocalModelPath = _currentSettings.LocalModelPath,
+                Logger = _buildContext.Logger,
+                AppSettings = _currentSettings
+            };
 
-            var speedTestWindow = new SpeedTestWindow(_audioService, _logger);
-            speedTestWindow.Show();
+            var deathmatchWindow = new PipelineDeathmatchWindow(_audioService, _logger, _pipelineFactory, benchmarkContext);
+            var result = deathmatchWindow.ShowDialog();
+
+            if (result == true && deathmatchWindow.BenchmarkResults != null)
+            {
+                // Map DeathmatchResult to BenchmarkResult and store
+                _benchmarkResults = deathmatchWindow.BenchmarkResults
+                    .ToDictionary(
+                        kvp => MapPipelineNameToPreset(kvp.Key),
+                        kvp => new BenchmarkResult
+                        {
+                            AccuracyPercent = kvp.Value.AccuracyPercent,
+                            DurationMs = kvp.Value.DurationMs,
+                            IsWinner = kvp.Value.IsWinner
+                        }
+                    );
+
+                UpdateBenchmarkResultsDisplay();
+                _logger.Log($"Benchmark completed. Results stored for {_benchmarkResults.Count} pipelines");
+            }
+        }
+
+        private string MapPipelineNameToPreset(string pipelineName)
+        {
+            // Map benchmark pipeline names to preset constants
+            return pipelineName switch
+            {
+                "RNNoise + VAD (Cloud)" => PipelinePresets.MaximumQuality,
+                "RNNoise Only" => PipelinePresets.BalancedQuality,
+                "Baseline (No Preprocessing)" => PipelinePresets.FastCloud,
+                "RNNoise + VAD (Local)" => PipelinePresets.MaximumPrivacy,
+                "Local (No Preprocessing)" => PipelinePresets.FastLocal,
+                _ => pipelineName
+            };
+        }
+
+        private void UpdateBenchmarkResultsDisplay()
+        {
+            if (_benchmarkResults == null) return;
+
+            // Update each pipeline option with its results
+            UpdatePipelineResult(MaximumQualityResult, PipelinePresets.MaximumQuality);
+            UpdatePipelineResult(BalancedQualityResult, PipelinePresets.BalancedQuality);
+            UpdatePipelineResult(FastCloudResult, PipelinePresets.FastCloud);
+            UpdatePipelineResult(MaximumPrivacyResult, PipelinePresets.MaximumPrivacy);
+            UpdatePipelineResult(FastLocalResult, PipelinePresets.FastLocal);
+        }
+
+        private void UpdatePipelineResult(System.Windows.Controls.TextBlock resultTextBlock, string presetName)
+        {
+            if (_benchmarkResults != null && _benchmarkResults.TryGetValue(presetName, out var result))
+            {
+                string resultText = "";
+
+                if (result.IsWinner)
+                {
+                    resultText = "🏆 WINNER";
+                }
+                else if (result.AccuracyPercent.HasValue)
+                {
+                    resultText = $"{result.AccuracyPercent.Value:F1}% accuracy";
+                }
+                else
+                {
+                    resultText = $"{result.DurationMs:F0}ms";
+                }
+
+                resultTextBlock.Text = resultText;
+                resultTextBlock.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                resultTextBlock.Visibility = Visibility.Collapsed;
+            }
         }
 
         private async void SaveClose_Click(object sender, RoutedEventArgs e)
         {
-            // Validate local model if in local mode
-            if (_currentSettings.TranscriptionMode == TranscriptionMode.Local)
+            // Validate local model if selected pipeline requires it
+            bool requiresLocalModel = _currentSettings.SelectedPipeline == PipelinePresets.MaximumPrivacy ||
+                                     _currentSettings.SelectedPipeline == PipelinePresets.FastLocal;
+
+            if (requiresLocalModel)
             {
                 if (string.IsNullOrEmpty(_currentSettings.LocalModelPath) || !File.Exists(_currentSettings.LocalModelPath))
                 {
@@ -285,5 +390,12 @@ namespace HotkeyPaster
 
             public override string ToString() => DisplayName;
         }
+    }
+
+    public class BenchmarkResult
+    {
+        public double? AccuracyPercent { get; set; }
+        public double DurationMs { get; set; }
+        public bool IsWinner { get; set; }
     }
 }

@@ -3,20 +3,20 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
-using HotkeyPaster.Logging;
-using HotkeyPaster.Services.Notifications;
-using HotkeyPaster.Services.Windowing;
-using HotkeyPaster.Services.Clipboard;
-using HotkeyPaster.Services.Audio;
-using HotkeyPaster.Services.Hotkey;
-using HotkeyPaster.Services.Tray;
-using HotkeyPaster.Services.Pipeline;
-using HotkeyPaster.Services.Pipeline.Configuration;
-using HotkeyPaster.Services.Pipeline.Stages;
-using HotkeyPaster.Services.Settings;
+using TalkKeys.Logging;
+using TalkKeys.Services.Notifications;
+using TalkKeys.Services.Windowing;
+using TalkKeys.Services.Clipboard;
+using TalkKeys.Services.Audio;
+using TalkKeys.Services.Hotkey;
+using TalkKeys.Services.Tray;
+using TalkKeys.Services.Pipeline;
+using TalkKeys.Services.Pipeline.Configuration;
+using TalkKeys.Services.Pipeline.Stages;
+using TalkKeys.Services.Settings;
 using Whisper.net.Ggml;
 
-namespace HotkeyPaster
+namespace TalkKeys
 {
     public partial class App : Application
     {
@@ -24,6 +24,9 @@ namespace HotkeyPaster
         private SettingsService? _settingsService;
         private ILogger? _logger;
         private INotificationService? _notifications;
+        private PipelineFactory? _pipelineFactory;
+        private PipelineBuildContext? _pipelineBuildContext;
+        private IAudioRecordingService? _audioService;
 
         protected override void OnStartup(StartupEventArgs e)
         {
@@ -34,7 +37,7 @@ namespace HotkeyPaster
             _notifications = new ToastNotificationService();
             var positioner = new WindowPositionService(_logger);
             var clipboardService = new ClipboardPasteService();
-            var audioService = new AudioRecordingService();
+            _audioService = new AudioRecordingService();
             var hotkeyService = new Win32HotkeyService();
             var trayService = new TrayService();
             var contextService = new ActiveWindowContextService();
@@ -64,7 +67,7 @@ namespace HotkeyPaster
                     positioner,
                     clipboardService,
                     _logger,
-                    audioService,
+                    _audioService,
                     hotkeyService,
                     _pipelineService,
                     contextService
@@ -81,7 +84,18 @@ namespace HotkeyPaster
                 // If no pipeline service, hotkey opens settings
                 hotkeyService.HotkeyPressed += (s, args) =>
                 {
-                    var settingsWindow = new SettingsWindow(_settingsService, audioService, _logger);
+                    // Create factory and build context for settings window (even if pipeline service failed)
+                    if (_pipelineFactory == null || _pipelineBuildContext == null)
+                    {
+                        _pipelineFactory = new PipelineFactory(_logger);
+                        _pipelineBuildContext = new PipelineBuildContext
+                        {
+                            OpenAIApiKey = settings.OpenAIApiKey,
+                            LocalModelPath = settings.LocalModelPath
+                        };
+                    }
+
+                    var settingsWindow = new SettingsWindow(_settingsService, _audioService, _logger, _pipelineFactory, _pipelineBuildContext);
                     settingsWindow.SettingsChanged += (sender, eventArgs) =>
                     {
                         ReloadPipelineService();
@@ -94,7 +108,19 @@ namespace HotkeyPaster
             // Wire tray events
             trayService.SettingsRequested += (s, args) =>
             {
-                var settingsWindow = new SettingsWindow(_settingsService, audioService, _logger);
+                // Ensure factory and build context exist
+                if (_pipelineFactory == null || _pipelineBuildContext == null)
+                {
+                    var currentSettings = _settingsService.LoadSettings();
+                    _pipelineFactory = new PipelineFactory(_logger);
+                    _pipelineBuildContext = new PipelineBuildContext
+                    {
+                        OpenAIApiKey = currentSettings.OpenAIApiKey,
+                        LocalModelPath = currentSettings.LocalModelPath
+                    };
+                }
+
+                var settingsWindow = new SettingsWindow(_settingsService, _audioService, _logger, _pipelineFactory, _pipelineBuildContext);
                 settingsWindow.SettingsChanged += (sender, eventArgs) => ReloadPipelineService();
                 settingsWindow.Show();
             };
@@ -110,7 +136,7 @@ namespace HotkeyPaster
             if (_pipelineService != null)
             {
                 var pipelineName = _pipelineService.GetDefaultPipelineName() ?? "unknown";
-                _logger.Log($"Hotkey Paster started with pipeline: {pipelineName}");
+                _logger.Log($"TalkKeys started with pipeline: {pipelineName}");
             }
         }
 
@@ -121,11 +147,12 @@ namespace HotkeyPaster
                 // Get configuration directory
                 var appDataDir = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                    "HotkeyPaster");
+                    "TalkKeys");
                 var pipelineConfigDir = Path.Combine(appDataDir, "Pipelines");
 
                 // Create pipeline factory
                 var factory = new PipelineFactory(_logger);
+                _pipelineFactory = factory; // Store for benchmark window
 
                 // Register all stage factories
                 factory.RegisterStageFactory(new AudioValidationStageFactory());
@@ -152,25 +179,37 @@ namespace HotkeyPaster
                     OpenAIApiKey = settings.OpenAIApiKey,
                     LocalModelPath = settings.LocalModelPath
                 };
+                _pipelineBuildContext = buildContext; // Store for benchmark window
 
                 // Create registry
                 var registry = new PipelineRegistry(factory, configLoader, buildContext, _logger);
                 registry.LoadConfigurations();
 
-                // Set default pipeline based on current settings
+                // Set default pipeline based on user's selected preset
                 var availablePipelines = registry.GetAvailablePipelineNames().ToList();
                 if (availablePipelines.Any())
                 {
-                    // Try to set default based on transcription mode
-                    if (settings.TranscriptionMode == TranscriptionMode.Local && availablePipelines.Contains("LocalPrivacy"))
+                    // Map preset names to actual pipeline names
+                    string? pipelineName = settings.SelectedPipeline switch
                     {
-                        registry.SetDefaultPipeline("LocalPrivacy");
-                    }
-                    else if (availablePipelines.Contains("FastCloud"))
+                        PipelinePresets.MaximumQuality => "CloudQuality",        // RNNoise + VAD + Cloud
+                        PipelinePresets.BalancedQuality => "CloudNoiseReduction", // RNNoise + Cloud
+                        PipelinePresets.FastCloud => "FastCloud",                 // Cloud only
+                        PipelinePresets.MaximumPrivacy => "LocalPrivacy",        // RNNoise + VAD + Local
+                        PipelinePresets.FastLocal => "FastLocal",                 // Local only
+                        _ => "CloudQuality" // Default to maximum quality
+                    };
+
+                    // Set the selected pipeline if it exists, otherwise use first available
+                    if (availablePipelines.Contains(pipelineName))
                     {
-                        registry.SetDefaultPipeline("FastCloud");
+                        registry.SetDefaultPipeline(pipelineName);
                     }
-                    // Otherwise use the first available
+                    else if (availablePipelines.Any())
+                    {
+                        // Fallback to first available if preferred doesn't exist
+                        registry.SetDefaultPipeline(availablePipelines.First());
+                    }
                 }
 
                 // Create and return pipeline service

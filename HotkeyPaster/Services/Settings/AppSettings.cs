@@ -2,26 +2,34 @@ using System;
 using System.IO;
 using System.Text.Json;
 
-namespace HotkeyPaster.Services.Settings
+namespace TalkKeys.Services.Settings
 {
     /// <summary>
     /// Application settings that can be persisted.
     /// </summary>
     public class AppSettings
     {
-        public TranscriptionMode TranscriptionMode { get; set; } = TranscriptionMode.Cloud;
+        // Pipeline Selection
+        public string SelectedPipeline { get; set; } = "MaximumQuality"; // Default to best quality
+
+        // API & Model Configuration
         public string? LocalModelPath { get; set; }
-        public bool EnableTextCleaning { get; set; } = true;
         public string? OpenAIApiKey { get; set; }
+
+        // Text Processing
+        public bool EnableTextCleaning { get; set; } = true;
     }
 
     /// <summary>
-    /// Transcription mode selection.
+    /// Available pipeline presets.
     /// </summary>
-    public enum TranscriptionMode
+    public static class PipelinePresets
     {
-        Cloud,
-        Local
+        public const string MaximumQuality = "MaximumQuality";      // RNNoise + VAD + Cloud
+        public const string BalancedQuality = "BalancedQuality";    // RNNoise only + Cloud
+        public const string FastCloud = "FastCloud";                // Cloud only
+        public const string MaximumPrivacy = "MaximumPrivacy";      // RNNoise + VAD + Local
+        public const string FastLocal = "FastLocal";                // Local only
     }
 
     /// <summary>
@@ -31,7 +39,7 @@ namespace HotkeyPaster.Services.Settings
     {
         private static readonly string SettingsDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "HotkeyPaster"
+            "TalkKeys"
         );
         private static readonly string SettingsPath = Path.Combine(SettingsDir, "settings.json");
 

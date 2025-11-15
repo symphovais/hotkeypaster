@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
 
-namespace HotkeyPaster.Services.Hotkey
+namespace TalkKeys.Services.Hotkey
 {
     public sealed class Win32HotkeyService : IHotkeyService, IDisposable
     {

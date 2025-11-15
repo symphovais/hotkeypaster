@@ -1,6 +1,6 @@
 using System;
 
-namespace HotkeyPaster.Services.Hotkey
+namespace TalkKeys.Services.Hotkey
 {
     public interface IHotkeyService
     {

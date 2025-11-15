@@ -1,6 +1,6 @@
 using System.Threading.Tasks;
 
-namespace HotkeyPaster.Services.Pipeline
+namespace TalkKeys.Services.Pipeline
 {
     /// <summary>
     /// Base interface for all pipeline stages.

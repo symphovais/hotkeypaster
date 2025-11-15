@@ -1,4 +1,4 @@
-namespace HotkeyPaster.Services.Notifications
+namespace TalkKeys.Services.Notifications
 {
     public interface INotificationService
     {

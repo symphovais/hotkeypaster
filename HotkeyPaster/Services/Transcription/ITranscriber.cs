@@ -1,6 +1,6 @@
 using System.Threading.Tasks;
 
-namespace HotkeyPaster.Services.Transcription
+namespace TalkKeys.Services.Transcription
 {
     /// <summary>
     /// Interface for transcribing audio data to raw text.

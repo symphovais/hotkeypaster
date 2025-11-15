@@ -1,20 +1,20 @@
-# HotkeyPaster Startup Uninstallation Script
+# TalkKeys Startup Uninstallation Script
 # This script removes the app from Windows startup and deletes installation files
 
 $ErrorActionPreference = "Stop"
 
 # Define installation path
-$installPath = "$env:LOCALAPPDATA\HotkeyPaster"
+$installPath = "$env:LOCALAPPDATA\TalkKeys"
 $startupRegPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-$appName = "HotkeyPaster"
+$appName = "TalkKeys"
 
-Write-Host "Uninstalling HotkeyPaster..." -ForegroundColor Cyan
+Write-Host "Uninstalling TalkKeys..." -ForegroundColor Cyan
 
 # Stop running process if exists
-$process = Get-Process -Name "HotkeyPaster" -ErrorAction SilentlyContinue
+$process = Get-Process -Name "TalkKeys" -ErrorAction SilentlyContinue
 if ($process) {
-    Write-Host "Stopping running HotkeyPaster process..." -ForegroundColor Yellow
-    Stop-Process -Name "HotkeyPaster" -Force
+    Write-Host "Stopping running TalkKeys process..." -ForegroundColor Yellow
+    Stop-Process -Name "TalkKeys" -Force
     Start-Sleep -Seconds 1
 }
 

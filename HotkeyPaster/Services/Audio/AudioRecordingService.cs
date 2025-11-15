@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using NAudio.Wave;
 
-namespace HotkeyPaster.Services.Audio
+namespace TalkKeys.Services.Audio
 {
     public sealed class AudioRecordingService : IAudioRecordingService, IDisposable
     {

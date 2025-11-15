@@ -1,7 +1,7 @@
 using System;
 using System.Windows;
 
-namespace HotkeyPaster.Services.Windowing
+namespace TalkKeys.Services.Windowing
 {
     public interface IWindowPositionService
     {

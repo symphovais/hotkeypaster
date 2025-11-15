@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
-using HotkeyPaster.Logging;
+using TalkKeys.Logging;
 
-namespace HotkeyPaster.Services.Pipeline.Configuration
+namespace TalkKeys.Services.Pipeline.Configuration
 {
     /// <summary>
     /// Loads pipeline configurations from JSON files

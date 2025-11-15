@@ -1,8 +1,8 @@
 using System;
 using System.Threading.Tasks;
-using HotkeyPaster.Services.Pipeline.Configuration;
+using TalkKeys.Services.Pipeline.Configuration;
 
-namespace HotkeyPaster.Services.Pipeline.Stages
+namespace TalkKeys.Services.Pipeline.Stages
 {
     /// <summary>
     /// Validates audio data and extracts metadata
