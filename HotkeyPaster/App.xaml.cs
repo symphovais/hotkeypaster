@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using TalkKeys.Logging;
@@ -20,6 +21,9 @@ namespace TalkKeys
 {
     public partial class App : Application
     {
+        private const string MutexName = "Global\\TalkKeys_SingleInstance_Mutex";
+        private Mutex? _instanceMutex;
+
         private IPipelineService? _pipelineService;
         private SettingsService? _settingsService;
         private ILogger? _logger;
@@ -31,6 +35,26 @@ namespace TalkKeys
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
+
+            // Check for existing instance
+            bool createdNew;
+            _instanceMutex = new Mutex(true, MutexName, out createdNew);
+
+            if (!createdNew)
+            {
+                // Another instance is already running
+                MessageBox.Show(
+                    "TalkKeys is already running.\n\nCheck the system tray for the TalkKeys icon.",
+                    "TalkKeys Already Running",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+
+                // Release mutex and shutdown
+                _instanceMutex.Dispose();
+                _instanceMutex = null;
+                Current.Shutdown();
+                return;
+            }
 
             // Create services
             _logger = new FileLogger();
@@ -240,6 +264,16 @@ namespace TalkKeys
                 var errorMsg = "Failed to reload pipeline configurations. Check logs for details.";
                 _notifications?.ShowError("Settings Error", errorMsg);
             }
+        }
+
+        protected override void OnExit(ExitEventArgs e)
+        {
+            // Release the mutex when the application exits
+            _instanceMutex?.ReleaseMutex();
+            _instanceMutex?.Dispose();
+            _instanceMutex = null;
+
+            base.OnExit(e);
         }
     }
 }
