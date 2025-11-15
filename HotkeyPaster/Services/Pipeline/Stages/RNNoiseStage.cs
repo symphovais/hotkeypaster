@@ -50,7 +50,7 @@ namespace HotkeyPaster.Services.Pipeline.Stages
                 context.Progress?.Report(new ProgressEventArgs("Applying noise reduction", 15));
 
                 // Process audio with RNNoise
-                byte[] processedAudio = await Task.Run(() => ProcessAudioWithRNNoise(audioData));
+                var (processedAudio, noiseReductionDb, rmsOriginal, rmsProcessed) = await Task.Run(() => ProcessAudioWithRNNoise(audioData));
 
                 // Calculate noise reduction metrics
                 var originalSize = audioData.Length;
@@ -63,10 +63,13 @@ namespace HotkeyPaster.Services.Pipeline.Stages
                 metrics.EndTime = DateTime.UtcNow;
                 metrics.AddMetric("OriginalSizeBytes", originalSize);
                 metrics.AddMetric("ProcessedSizeBytes", processedSize);
-                metrics.AddMetric("NoiseReductionApplied", true);
+                metrics.AddMetric("NoiseReductionDB", noiseReductionDb);
+                metrics.AddMetric("RMSOriginal", rmsOriginal);
+                metrics.AddMetric("RMSProcessed", rmsProcessed);
+                metrics.AddMetric("SignalChangePercent", ((rmsOriginal - rmsProcessed) / rmsOriginal) * 100.0);
 
                 // Report progress
-                context.Progress?.Report(new ProgressEventArgs("Noise reduction complete", 20));
+                context.Progress?.Report(new ProgressEventArgs($"Noise reduced by {noiseReductionDb:F1} dB", 20));
 
                 return StageResult.Success(metrics);
             }
@@ -78,7 +81,7 @@ namespace HotkeyPaster.Services.Pipeline.Stages
             }
         }
 
-        private byte[] ProcessAudioWithRNNoise(byte[] wavData)
+        private (byte[] processedAudio, double noiseReductionDb, double rmsOriginal, double rmsProcessed) ProcessAudioWithRNNoise(byte[] wavData)
         {
             using var inputStream = new MemoryStream(wavData);
             using var reader = new WaveFileReader(inputStream);
@@ -108,12 +111,22 @@ namespace HotkeyPaster.Services.Pipeline.Stages
             var sampleProvider = reader.ToSampleProvider();
             samplesRead = sampleProvider.Read(samples, 0, samples.Length);
 
+            // Calculate RMS of original signal
+            double rmsOriginal = CalculateRMS(samples, samplesRead);
+
             // RNNoise's Denoise method processes the buffer in-place
             // We can pass the entire buffer at once
             Array.Copy(samples, denoisedSamples, samplesRead);
 
             // Denoise the entire buffer (it processes in-place)
             denoiser.Denoise(denoisedSamples.AsSpan(0, samplesRead));
+
+            // Calculate RMS of processed signal
+            double rmsProcessed = CalculateRMS(denoisedSamples, samplesRead);
+
+            // Calculate noise reduction in dB
+            // This shows how much the signal was attenuated (difference in noise floor)
+            double noiseReductionDb = 20 * Math.Log10(rmsOriginal / (rmsProcessed + 1e-10));
 
             // Convert back to WAV format
             using var outputStream = new MemoryStream();
@@ -123,7 +136,17 @@ namespace HotkeyPaster.Services.Pipeline.Stages
             writer.WriteSamples(denoisedSamples, 0, samplesRead);
             writer.Flush();
 
-            return outputStream.ToArray();
+            return (outputStream.ToArray(), noiseReductionDb, rmsOriginal, rmsProcessed);
+        }
+
+        private static double CalculateRMS(float[] samples, int count)
+        {
+            double sum = 0.0;
+            for (int i = 0; i < count; i++)
+            {
+                sum += samples[i] * samples[i];
+            }
+            return Math.Sqrt(sum / count);
         }
     }
 

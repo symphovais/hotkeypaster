@@ -73,7 +73,10 @@ namespace HotkeyPaster.Services.Pipeline.Stages
                 // Calculate trimming metrics
                 var originalSize = audioData.Length;
                 var trimmedSize = trimmedAudio.Length;
-                var trimmedPercentage = (1.0 - (double)trimmedSize / originalSize) * 100.0;
+                var sizeReductionBytes = originalSize - trimmedSize;
+                var sizeReductionPercentage = (1.0 - (double)trimmedSize / originalSize) * 100.0;
+                var durationReductionSeconds = originalDuration - trimmedDuration;
+                var durationReductionPercentage = (1.0 - trimmedDuration / originalDuration) * 100.0;
 
                 // Update context with trimmed audio
                 context.SetData("AudioData", trimmedAudio);
@@ -83,14 +86,18 @@ namespace HotkeyPaster.Services.Pipeline.Stages
                 metrics.EndTime = DateTime.UtcNow;
                 metrics.AddMetric("OriginalSizeBytes", originalSize);
                 metrics.AddMetric("TrimmedSizeBytes", trimmedSize);
+                metrics.AddMetric("SizeReductionBytes", sizeReductionBytes);
+                metrics.AddMetric("SizeReductionPercentage", sizeReductionPercentage);
                 metrics.AddMetric("OriginalDurationSeconds", originalDuration);
                 metrics.AddMetric("TrimmedDurationSeconds", trimmedDuration);
-                metrics.AddMetric("TrimmedPercentage", trimmedPercentage);
+                metrics.AddMetric("DurationReductionSeconds", durationReductionSeconds);
+                metrics.AddMetric("DurationReductionPercentage", durationReductionPercentage);
+                metrics.AddMetric("SilenceRemovedSeconds", durationReductionSeconds);
                 metrics.AddMetric("SpeechSegmentsDetected", speechSegments);
                 metrics.AddMetric("VADThreshold", _threshold);
 
                 // Report progress
-                context.Progress?.Report(new ProgressEventArgs($"VAD trimming complete ({trimmedPercentage:F1}% removed)", 30));
+                context.Progress?.Report(new ProgressEventArgs($"Trimmed {durationReductionSeconds:F1}s silence ({durationReductionPercentage:F1}% removed)", 30));
 
                 return StageResult.Success(metrics);
             }

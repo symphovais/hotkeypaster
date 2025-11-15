@@ -355,6 +355,30 @@ namespace HotkeyPaster
                     foreach (var stageMetric in result.Metrics.StageMetrics)
                     {
                         Logger.Log($"  {stageMetric.StageName}: {stageMetric.DurationMs:F2}ms");
+
+                        // Log RNNoise metrics
+                        if (stageMetric.CustomMetrics.TryGetValue("NoiseReductionDB", out var noiseDb))
+                        {
+                            Logger.Log($"    → Noise reduced: {noiseDb:F2} dB");
+                        }
+                        if (stageMetric.CustomMetrics.TryGetValue("SignalChangePercent", out var signalChange))
+                        {
+                            Logger.Log($"    → Signal change: {signalChange:F1}%");
+                        }
+
+                        // Log VAD metrics
+                        if (stageMetric.CustomMetrics.TryGetValue("SilenceRemovedSeconds", out var silenceRemoved))
+                        {
+                            Logger.Log($"    → Silence removed: {silenceRemoved:F2}s");
+                        }
+                        if (stageMetric.CustomMetrics.TryGetValue("DurationReductionPercentage", out var durationReduction))
+                        {
+                            Logger.Log($"    → Duration reduced: {durationReduction:F1}%");
+                        }
+                        if (stageMetric.CustomMetrics.TryGetValue("SpeechSegmentsDetected", out var segments))
+                        {
+                            Logger.Log($"    → Speech segments: {segments}");
+                        }
                     }
                 }
 
