@@ -14,6 +14,12 @@ if (-not (Test-Path $installPath)) {
     New-Item -ItemType Directory -Path $installPath -Force | Out-Null
     Write-Host "Created installation directory: $installPath" -ForegroundColor Green
 }
+else {
+    # Clean up old executable and PDB files (in case of rename)
+    Write-Host "Cleaning up old files..." -ForegroundColor Yellow
+    Get-ChildItem -Path $installPath -Filter "*.exe" | Remove-Item -Force -ErrorAction SilentlyContinue
+    Get-ChildItem -Path $installPath -Filter "*.pdb" | Remove-Item -Force -ErrorAction SilentlyContinue
+}
 
 # Copy published files to installation directory
 $publishPath = Join-Path $PSScriptRoot "publish"
