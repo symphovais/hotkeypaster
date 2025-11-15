@@ -116,6 +116,9 @@ $RECYCLE.BIN/
 # Mac desktop service store files
 .DS_Store
 
+# Claude Code configuration (user-specific)
+.claude/
+
 # Publish directories
 publish/
 **/publish/
