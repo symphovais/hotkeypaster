@@ -6,204 +6,7 @@
         Width="800"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResize"
-        Background="#1A1A1A">
-
-    <Window.Resources>
-        <!-- Card Style -->
-        <Style x:Key="CardStyle" TargetType="Border">
-            <Setter Property="Background" Value="#242424"/>
-            <Setter Property="CornerRadius" Value="12"/>
-            <Setter Property="Padding" Value="25"/>
-            <Setter Property="Margin" Value="0,0,0,20"/>
-            <Setter Property="BorderBrush" Value="#333333"/>
-            <Setter Property="BorderThickness" Value="1"/>
-        </Style>
-
-        <!-- Section Title Style -->
-        <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="18"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="Foreground" Value="#E5E7EB"/>
-            <Setter Property="Margin" Value="0,0,0,15"/>
-        </Style>
-
-        <!-- Label Style -->
-        <Style x:Key="LabelStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Foreground" Value="#D1D5DB"/>
-            <Setter Property="Margin" Value="0,0,0,8"/>
-        </Style>
-
-        <!-- Description Style -->
-        <Style x:Key="DescriptionStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Foreground" Value="#9CA3AF"/>
-            <Setter Property="TextWrapping" Value="Wrap"/>
-            <Setter Property="Margin" Value="0,5,0,0"/>
-        </Style>
-
-        <!-- Radio Button Style -->
-        <Style x:Key="RadioButtonStyle" TargetType="RadioButton">
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="Foreground" Value="#D1D5DB"/>
-            <Setter Property="Margin" Value="0,0,0,15"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-
-        <!-- CheckBox Style -->
-        <Style x:Key="CheckBoxStyle" TargetType="CheckBox">
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="Foreground" Value="#D1D5DB"/>
-            <Setter Property="Margin" Value="0,0,0,10"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-
-        <!-- ComboBox Style -->
-        <Style x:Key="ComboBoxStyle" TargetType="ComboBox">
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="Padding" Value="10,8"/>
-            <Setter Property="Margin" Value="0,0,0,10"/>
-            <Setter Property="Background" Value="#1A1A1A"/>
-            <Setter Property="Foreground" Value="#E5E7EB"/>
-            <Setter Property="BorderBrush" Value="#444444"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ComboBox">
-                        <Grid>
-                            <ToggleButton Name="ToggleButton"
-                                          Grid.Column="2"
-                                          Focusable="false"
-                                          IsChecked="{Binding Path=IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
-                                          ClickMode="Press"
-                                          Background="{TemplateBinding Background}"
-                                          BorderBrush="{TemplateBinding BorderBrush}"
-                                          BorderThickness="1"/>
-                            <ContentPresenter Name="ContentSite"
-                                              IsHitTestVisible="False"
-                                              Content="{TemplateBinding SelectionBoxItem}"
-                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
-                                              ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
-                                              Margin="10,8"
-                                              VerticalAlignment="Center"
-                                              HorizontalAlignment="Left"
-                                              TextBlock.Foreground="#E5E7EB"/>
-                            <Popup Name="Popup"
-                                   Placement="Bottom"
-                                   IsOpen="{TemplateBinding IsDropDownOpen}"
-                                   AllowsTransparency="True"
-                                   Focusable="False"
-                                   PopupAnimation="Slide">
-                                <Grid Name="DropDown"
-                                      SnapsToDevicePixels="True"
-                                      MinWidth="{TemplateBinding ActualWidth}"
-                                      MaxHeight="{TemplateBinding MaxDropDownHeight}">
-                                    <Border Background="White"
-                                            BorderThickness="1"
-                                            BorderBrush="#CCCCCC">
-                                        <ScrollViewer Margin="0" SnapsToDevicePixels="True">
-                                            <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
-                                        </ScrollViewer>
-                                    </Border>
-                                </Grid>
-                            </Popup>
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-            <Setter Property="ItemContainerStyle">
-                <Setter.Value>
-                    <Style TargetType="ComboBoxItem">
-                        <Setter Property="Padding" Value="10,8"/>
-                        <Setter Property="Template">
-                            <Setter.Value>
-                                <ControlTemplate TargetType="ComboBoxItem">
-                                    <Border Name="Border"
-                                            Background="White"
-                                            BorderThickness="0"
-                                            Padding="{TemplateBinding Padding}">
-                                        <ContentPresenter>
-                                            <ContentPresenter.Resources>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Foreground" Value="#1A1A1A"/>
-                                                </Style>
-                                            </ContentPresenter.Resources>
-                                        </ContentPresenter>
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsHighlighted" Value="True">
-                                            <Setter TargetName="Border" Property="Background" Value="#4F46E5"/>
-                                            <Setter Property="Foreground" Value="White"/>
-                                        </Trigger>
-                                        <Trigger Property="IsSelected" Value="True">
-                                            <Setter TargetName="Border" Property="Background" Value="#6366F1"/>
-                                            <Setter Property="Foreground" Value="White"/>
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Setter.Value>
-                        </Setter>
-                    </Style>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- TextBox Style -->
-        <Style x:Key="TextBoxStyle" TargetType="TextBox">
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="Padding" Value="10,8"/>
-            <Setter Property="Margin" Value="0,0,0,10"/>
-            <Setter Property="Background" Value="#1A1A1A"/>
-            <Setter Property="Foreground" Value="#E5E7EB"/>
-            <Setter Property="BorderBrush" Value="#444444"/>
-            <Setter Property="BorderThickness" Value="1"/>
-        </Style>
-
-        <!-- Button Style -->
-        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="#4F46E5"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Padding" Value="24,12"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" 
-                                CornerRadius="6" 
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#6366F1"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <Style x:Key="SecondaryButtonStyle" TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}">
-            <Setter Property="Background" Value="#6B7280"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#9CA3AF"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <Style x:Key="AccentButtonStyle" TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}">
-            <Setter Property="Background" Value="#10B981"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#34D399"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-    </Window.Resources>
+        Background="{StaticResource BackgroundPrimary}">
 
     <Grid Margin="25">
         <Grid.RowDefinitions>
@@ -214,10 +17,10 @@
 
         <!-- Header -->
         <StackPanel Grid.Row="0" Margin="0,0,0,20">
-            <TextBlock Text="⚙️ Settings" FontSize="28" FontWeight="Bold" Foreground="#E5E7EB"/>
+            <TextBlock Text="⚙️ Settings" Style="{StaticResource DisplayText}"/>
             <TextBlock Text="Configure transcription and application preferences"
-                       FontSize="14"
-                       Foreground="#9CA3AF" 
+                       Style="{StaticResource BodyText}"
+                       Foreground="{StaticResource TextTertiary}"
                        Margin="0,5,0,0"/>
         </StackPanel>
 
@@ -226,11 +29,12 @@
             <StackPanel>
                 
                 <!-- Pipeline Configuration Section -->
-                <Border Style="{StaticResource CardStyle}">
+                <Border Style="{StaticResource Card}">
                     <StackPanel>
-                        <TextBlock Text="🎯 Pipeline Configuration" Style="{StaticResource SectionTitleStyle}"/>
+                        <TextBlock Text="🎯 Pipeline Configuration" Style="{StaticResource TitleText}"/>
                         <TextBlock Text="Choose the processing pipeline that works best for your needs:"
-                                   Style="{StaticResource DescriptionStyle}"
+                                   Style="{StaticResource CaptionText}"
+                                   Foreground="{StaticResource TextTertiary}"
                                    Margin="0,0,0,12"/>
 
                         <RadioButton x:Name="MaximumQualityRadio"
@@ -240,18 +44,19 @@
                             <StackPanel>
                                 <Grid>
                                     <StackPanel>
-                                        <TextBlock Text="🏆 Maximum Quality" FontWeight="SemiBold" FontSize="14"/>
+                                        <TextBlock Text="🏆 Maximum Quality" Style="{StaticResource BodyText}" FontWeight="SemiBold"/>
                                         <TextBlock Text="Best accuracy • Noise reduction + Silence removal + Cloud processing"
-                                                   Style="{StaticResource DescriptionStyle}"/>
+                                                   Style="{StaticResource CaptionText}"
+                                                   Foreground="{StaticResource TextTertiary}"/>
                                     </StackPanel>
                                 </Grid>
                                 <Border x:Name="MaximumQualityResult"
                                         Visibility="Collapsed"
-                                        Background="#1A2332"
+                                        Background="{StaticResource BackgroundElevated}"
                                         CornerRadius="6"
                                         Padding="10,8"
                                         Margin="0,8,0,0"
-                                        BorderBrush="#2D3748"
+                                        BorderBrush="{StaticResource BorderSubtle}"
                                         BorderThickness="1">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -260,10 +65,10 @@
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Accuracy:" Foreground="#9CA3AF" FontSize="11" Margin="0,0,6,0"/>
-                                        <TextBlock Grid.Column="1" x:Name="MaximumQualityAccuracy" FontWeight="Bold" Foreground="#34D399" FontSize="11"/>
-                                        <TextBlock Grid.Column="2" Text="Speed:" Foreground="#9CA3AF" FontSize="11" Margin="12,0,6,0"/>
-                                        <TextBlock Grid.Column="3" x:Name="MaximumQualitySpeed" FontWeight="Bold" Foreground="#60A5FA" FontSize="11"/>
+                                        <TextBlock Grid.Column="0" Text="Accuracy:" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="0,0,6,0"/>
+                                        <TextBlock Grid.Column="1" x:Name="MaximumQualityAccuracy" FontWeight="Bold" Foreground="{StaticResource AccentSuccess}" FontSize="11"/>
+                                        <TextBlock Grid.Column="2" Text="Speed:" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="12,0,6,0"/>
+                                        <TextBlock Grid.Column="3" x:Name="MaximumQualitySpeed" FontWeight="Bold" Foreground="{StaticResource AccentInfo}" FontSize="11"/>
                                     </Grid>
                                 </Border>
                             </StackPanel>
@@ -278,16 +83,16 @@
                                     <StackPanel>
                                         <TextBlock Text="⚖️ Balanced Quality" FontWeight="SemiBold" FontSize="14"/>
                                         <TextBlock Text="Good accuracy • Noise reduction + Cloud processing • Faster than maximum"
-                                                   Style="{StaticResource DescriptionStyle}"/>
+                                                   Style="{StaticResource CaptionText}" Foreground="{StaticResource TextTertiary}"/>
                                     </StackPanel>
                                 </Grid>
                                 <Border x:Name="BalancedQualityResult"
                                         Visibility="Collapsed"
-                                        Background="#1A2332"
+                                        Background="{StaticResource BackgroundElevated}"
                                         CornerRadius="6"
                                         Padding="10,8"
                                         Margin="0,8,0,0"
-                                        BorderBrush="#2D3748"
+                                        BorderBrush="{StaticResource BorderSubtle}"
                                         BorderThickness="1">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -296,10 +101,10 @@
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Accuracy:" Foreground="#9CA3AF" FontSize="11" Margin="0,0,6,0"/>
-                                        <TextBlock Grid.Column="1" x:Name="BalancedQualityAccuracy" FontWeight="Bold" Foreground="#34D399" FontSize="11"/>
-                                        <TextBlock Grid.Column="2" Text="Speed:" Foreground="#9CA3AF" FontSize="11" Margin="12,0,6,0"/>
-                                        <TextBlock Grid.Column="3" x:Name="BalancedQualitySpeed" FontWeight="Bold" Foreground="#60A5FA" FontSize="11"/>
+                                        <TextBlock Grid.Column="0" Text="Accuracy:" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="0,0,6,0"/>
+                                        <TextBlock Grid.Column="1" x:Name="BalancedQualityAccuracy" FontWeight="Bold" Foreground="{StaticResource AccentSuccess}" FontSize="11"/>
+                                        <TextBlock Grid.Column="2" Text="Speed:" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="12,0,6,0"/>
+                                        <TextBlock Grid.Column="3" x:Name="BalancedQualitySpeed" FontWeight="Bold" Foreground="{StaticResource AccentInfo}" FontSize="11"/>
                                     </Grid>
                                 </Border>
                             </StackPanel>
@@ -314,16 +119,16 @@
                                     <StackPanel>
                                         <TextBlock Text="⚡ Fast Cloud" FontWeight="SemiBold" FontSize="14"/>
                                         <TextBlock Text="Fastest cloud option • No preprocessing • Best for quiet environments"
-                                                   Style="{StaticResource DescriptionStyle}"/>
+                                                   Style="{StaticResource CaptionText}" Foreground="{StaticResource TextTertiary}"/>
                                     </StackPanel>
                                 </Grid>
                                 <Border x:Name="FastCloudResult"
                                         Visibility="Collapsed"
-                                        Background="#1A2332"
+                                        Background="{StaticResource BackgroundElevated}"
                                         CornerRadius="6"
                                         Padding="10,8"
                                         Margin="0,8,0,0"
-                                        BorderBrush="#2D3748"
+                                        BorderBrush="{StaticResource BorderSubtle}"
                                         BorderThickness="1">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -332,10 +137,10 @@
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Accuracy:" Foreground="#9CA3AF" FontSize="11" Margin="0,0,6,0"/>
-                                        <TextBlock Grid.Column="1" x:Name="FastCloudAccuracy" FontWeight="Bold" Foreground="#34D399" FontSize="11"/>
-                                        <TextBlock Grid.Column="2" Text="Speed:" Foreground="#9CA3AF" FontSize="11" Margin="12,0,6,0"/>
-                                        <TextBlock Grid.Column="3" x:Name="FastCloudSpeed" FontWeight="Bold" Foreground="#60A5FA" FontSize="11"/>
+                                        <TextBlock Grid.Column="0" Text="Accuracy:" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="0,0,6,0"/>
+                                        <TextBlock Grid.Column="1" x:Name="FastCloudAccuracy" FontWeight="Bold" Foreground="{StaticResource AccentSuccess}" FontSize="11"/>
+                                        <TextBlock Grid.Column="2" Text="Speed:" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="12,0,6,0"/>
+                                        <TextBlock Grid.Column="3" x:Name="FastCloudSpeed" FontWeight="Bold" Foreground="{StaticResource AccentInfo}" FontSize="11"/>
                                     </Grid>
                                 </Border>
                             </StackPanel>
@@ -350,16 +155,16 @@
                                     <StackPanel>
                                         <TextBlock Text="🔒 Maximum Privacy" FontWeight="SemiBold" FontSize="14"/>
                                         <TextBlock Text="Best for privacy • Noise reduction + Silence removal + Local processing • Runs entirely on your device"
-                                                   Style="{StaticResource DescriptionStyle}"/>
+                                                   Style="{StaticResource CaptionText}" Foreground="{StaticResource TextTertiary}"/>
                                     </StackPanel>
                                 </Grid>
                                 <Border x:Name="MaximumPrivacyResult"
                                         Visibility="Collapsed"
-                                        Background="#1A2332"
+                                        Background="{StaticResource BackgroundElevated}"
                                         CornerRadius="6"
                                         Padding="10,8"
                                         Margin="0,8,0,0"
-                                        BorderBrush="#2D3748"
+                                        BorderBrush="{StaticResource BorderSubtle}"
                                         BorderThickness="1">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -368,10 +173,10 @@
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Accuracy:" Foreground="#9CA3AF" FontSize="11" Margin="0,0,6,0"/>
-                                        <TextBlock Grid.Column="1" x:Name="MaximumPrivacyAccuracy" FontWeight="Bold" Foreground="#34D399" FontSize="11"/>
-                                        <TextBlock Grid.Column="2" Text="Speed:" Foreground="#9CA3AF" FontSize="11" Margin="12,0,6,0"/>
-                                        <TextBlock Grid.Column="3" x:Name="MaximumPrivacySpeed" FontWeight="Bold" Foreground="#60A5FA" FontSize="11"/>
+                                        <TextBlock Grid.Column="0" Text="Accuracy:" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="0,0,6,0"/>
+                                        <TextBlock Grid.Column="1" x:Name="MaximumPrivacyAccuracy" FontWeight="Bold" Foreground="{StaticResource AccentSuccess}" FontSize="11"/>
+                                        <TextBlock Grid.Column="2" Text="Speed:" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="12,0,6,0"/>
+                                        <TextBlock Grid.Column="3" x:Name="MaximumPrivacySpeed" FontWeight="Bold" Foreground="{StaticResource AccentInfo}" FontSize="11"/>
                                     </Grid>
                                 </Border>
                             </StackPanel>
@@ -386,16 +191,16 @@
                                     <StackPanel>
                                         <TextBlock Text="🚀 Fast Local" FontWeight="SemiBold" FontSize="14"/>
                                         <TextBlock Text="Fastest offline option • Local processing only • Completely private"
-                                                   Style="{StaticResource DescriptionStyle}"/>
+                                                   Style="{StaticResource CaptionText}" Foreground="{StaticResource TextTertiary}"/>
                                     </StackPanel>
                                 </Grid>
                                 <Border x:Name="FastLocalResult"
                                         Visibility="Collapsed"
-                                        Background="#1A2332"
+                                        Background="{StaticResource BackgroundElevated}"
                                         CornerRadius="6"
                                         Padding="10,8"
                                         Margin="0,8,0,0"
-                                        BorderBrush="#2D3748"
+                                        BorderBrush="{StaticResource BorderSubtle}"
                                         BorderThickness="1">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -404,10 +209,10 @@
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Accuracy:" Foreground="#9CA3AF" FontSize="11" Margin="0,0,6,0"/>
-                                        <TextBlock Grid.Column="1" x:Name="FastLocalAccuracy" FontWeight="Bold" Foreground="#34D399" FontSize="11"/>
-                                        <TextBlock Grid.Column="2" Text="Speed:" Foreground="#9CA3AF" FontSize="11" Margin="12,0,6,0"/>
-                                        <TextBlock Grid.Column="3" x:Name="FastLocalSpeed" FontWeight="Bold" Foreground="#60A5FA" FontSize="11"/>
+                                        <TextBlock Grid.Column="0" Text="Accuracy:" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="0,0,6,0"/>
+                                        <TextBlock Grid.Column="1" x:Name="FastLocalAccuracy" FontWeight="Bold" Foreground="{StaticResource AccentSuccess}" FontSize="11"/>
+                                        <TextBlock Grid.Column="2" Text="Speed:" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="12,0,6,0"/>
+                                        <TextBlock Grid.Column="3" x:Name="FastLocalSpeed" FontWeight="Bold" Foreground="{StaticResource AccentInfo}" FontSize="11"/>
                                     </Grid>
                                 </Border>
                             </StackPanel>
@@ -415,49 +220,49 @@
 
                         <!-- Local Model Selection (shown for privacy options) -->
                         <StackPanel x:Name="LocalModelPanel" Visibility="Collapsed" Margin="0,10,0,0">
-                            <TextBlock Text="Select Local Model:" Style="{StaticResource LabelStyle}"/>
+                            <TextBlock Text="Select Local Model:" Style="{StaticResource LabelText}"/>
                             <ComboBox x:Name="LocalModelComboBox"
                                       Style="{StaticResource ComboBoxStyle}"
                                       SelectionChanged="LocalModel_Changed"/>
                             <TextBlock x:Name="ModelInfoText"
-                                       Style="{StaticResource DescriptionStyle}"
-                                       Foreground="#34D399"/>
+                                       Style="{StaticResource CaptionText}"
+                                       Foreground="{StaticResource AccentSuccess}"/>
 
                             <!-- Download Models Button -->
                             <Button x:Name="DownloadModelsButton"
                                     Content="📥 Download More Models"
                                     Click="DownloadModels_Click"
-                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Style="{StaticResource ButtonSecondary}"
                                     HorizontalAlignment="Stretch"
                                     Margin="0,15,0,0"/>
                         </StackPanel>
 
                         <Button x:Name="DeathmatchButton"
                                 Content="🧪 Pipeline Benchmark - Test &amp; Compare All"
-                                Style="{StaticResource PrimaryButtonStyle}"
+                                Style="{StaticResource ButtonPrimary}"
                                 Click="Deathmatch_Click"
                                 Margin="0,15,0,0"
                                 HorizontalAlignment="Stretch"/>
 
                         <TextBlock Text="💡 Run the benchmark to test all configurations and find the best one for your needs!"
-                                   Style="{StaticResource DescriptionStyle}"
-                                   Foreground="#34D399"
+                                   Style="{StaticResource CaptionText}"
+                                   Foreground="{StaticResource AccentSuccess}"
                                    FontStyle="Italic"
                                    Margin="0,8,0,0"/>
                     </StackPanel>
                 </Border>
 
                 <!-- API Configuration Section -->
-                <Border Style="{StaticResource CardStyle}">
+                <Border Style="{StaticResource Card}">
                     <StackPanel>
-                        <TextBlock Text="🔑 API Configuration" Style="{StaticResource SectionTitleStyle}"/>
+                        <TextBlock Text="🔑 API Configuration" Style="{StaticResource TitleText}"/>
 
-                        <TextBlock Text="OpenAI API Key:" Style="{StaticResource LabelStyle}"/>
+                        <TextBlock Text="OpenAI API Key:" Style="{StaticResource LabelText}"/>
                         <TextBox x:Name="ApiKeyTextBox"
                                  Style="{StaticResource TextBoxStyle}"
                                  TextChanged="ApiKey_Changed"/>
                         <TextBlock Text="Required for Cloud pipelines. Get your key from platform.openai.com"
-                                   Style="{StaticResource DescriptionStyle}"/>
+                                   Style="{StaticResource CaptionText}" Foreground="{StaticResource TextTertiary}"/>
                     </StackPanel>
                 </Border>
 
@@ -468,12 +273,12 @@
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
             <Button x:Name="SaveCloseButton"
                     Content="Save &amp; Close" 
-                    Style="{StaticResource PrimaryButtonStyle}"
+                    Style="{StaticResource ButtonPrimary}"
                     Click="SaveClose_Click"
                     Margin="0,0,10,0"/>
             <Button x:Name="CloseButton"
                     Content="Close" 
-                    Style="{StaticResource SecondaryButtonStyle}"
+                    Style="{StaticResource ButtonSecondary}"
                     Click="Close_Click"/>
         </StackPanel>
     </Grid>
