@@ -19,8 +19,39 @@
                 <!-- Header -->
                 <TextBlock Style="{StaticResource DisplayText}" Text="Design System" Margin="0,0,0,8"/>
                 <TextBlock Style="{StaticResource CaptionText}"
-                          Text="A comprehensive showcase of all TalkKeys UI components"
+                          Text="Modern dark UI inspired by premium dashboards"
                           Margin="0,0,0,24"/>
+
+                <!-- Stat Cards Demo -->
+                <Border Style="{StaticResource Card}" Margin="0,0,0,20">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource TitleText}" Text="Stat Cards" Margin="0,0,0,16"/>
+
+                        <UniformGrid Columns="2" HorizontalAlignment="Stretch">
+                            <!-- Stat Card 1 -->
+                            <Border Style="{StaticResource StatCard}" Margin="0,0,8,0">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource StatLabel}" Text="Total Uses" Margin="0,0,0,8"/>
+                                    <TextBlock Style="{StaticResource StatNumber}" Text="721K"/>
+                                    <Border Style="{StaticResource TrendBadge}" Margin="0,8,0,0">
+                                        <TextBlock Style="{StaticResource TrendText}" Text="↑ 11.01%"/>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Stat Card 2 -->
+                            <Border Style="{StaticResource StatCard}" Margin="8,0,0,0">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource StatLabel}" Text="Accuracy" Margin="0,0,0,8"/>
+                                    <TextBlock Style="{StaticResource StatNumber}" Text="95.6%"/>
+                                    <Border Style="{StaticResource TrendBadge}" Margin="0,8,0,0">
+                                        <TextBlock Style="{StaticResource TrendText}" Text="↑ 2.4%"/>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+                        </UniformGrid>
+                    </StackPanel>
+                </Border>
 
                 <!-- Colors Section -->
                 <Border Style="{StaticResource Card}" Margin="0,0,0,20">
@@ -176,6 +207,86 @@
                         <RadioButton Style="{StaticResource RadioButtonStyle}" GroupName="Demo" Content="Option A" IsChecked="True" Margin="0,0,0,8"/>
                         <RadioButton Style="{StaticResource RadioButtonStyle}" GroupName="Demo" Content="Option B" Margin="0,0,0,8"/>
                         <RadioButton Style="{StaticResource RadioButtonStyle}" GroupName="Demo" Content="Option C"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- List Items -->
+                <Border Style="{StaticResource Card}" Margin="0,0,0,20">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource TitleText}" Text="List Items" Margin="0,0,0,16"/>
+
+                        <!-- List Item 1 -->
+                        <Border Style="{StaticResource ListItem}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Border Grid.Column="0" Style="{StaticResource Thumbnail}" Margin="0,0,12,0">
+                                    <TextBlock Text="🎯" FontSize="24" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                </Border>
+
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource BodyText}" Text="Pipeline Benchmark" FontWeight="SemiBold"/>
+                                    <TextBlock Style="{StaticResource SubtitleText}" Text="95.5% accuracy"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                    <TextBlock Style="{StaticResource ValueText}" Text="1,250ms"/>
+                                    <Border Style="{StaticResource TrendBadge}" HorizontalAlignment="Right" Margin="0,4,0,0">
+                                        <TextBlock Style="{StaticResource TrendText}" Text="↑ 4.8%" FontSize="9"/>
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- List Item 2 -->
+                        <Border Style="{StaticResource ListItem}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Border Grid.Column="0" Style="{StaticResource Thumbnail}" Margin="0,0,12,0">
+                                    <TextBlock Text="🎤" FontSize="24" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                </Border>
+
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource BodyText}" Text="Voice Transcriptions" FontWeight="SemiBold"/>
+                                    <TextBlock Style="{StaticResource SubtitleText}" Text="Total processed"/>
+                                </StackPanel>
+
+                                <TextBlock Grid.Column="2" Style="{StaticResource ValueText}" Text="721K" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- List Item 3 -->
+                        <Border Style="{StaticResource ListItem}" Margin="0,0,0,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Border Grid.Column="0" Style="{StaticResource Thumbnail}" Margin="0,0,12,0">
+                                    <TextBlock Text="⚡" FontSize="24" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                </Border>
+
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource BodyText}" Text="Local Model" FontWeight="SemiBold"/>
+                                    <TextBlock Style="{StaticResource SubtitleText}" Text="Whisper Base"/>
+                                </StackPanel>
+
+                                <Border Grid.Column="2" Style="{StaticResource Badge}" VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource BadgeText}" Text="Active"/>
+                                </Border>
+                            </Grid>
+                        </Border>
                     </StackPanel>
                 </Border>
 

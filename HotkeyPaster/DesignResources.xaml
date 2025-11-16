@@ -23,11 +23,16 @@
     <SolidColorBrush x:Key="TextMuted" Color="#6B7280"/>
     <SolidColorBrush x:Key="TextDisabled" Color="#4B5563"/>
 
-    <!-- Accent Colors - Primary (Indigo) -->
-    <SolidColorBrush x:Key="AccentPrimary" Color="#4F46E5"/>
-    <SolidColorBrush x:Key="AccentPrimaryHover" Color="#6366F1"/>
-    <SolidColorBrush x:Key="AccentPrimaryPressed" Color="#4338CA"/>
-    <SolidColorBrush x:Key="AccentPrimaryLight" Color="#818CF8"/>
+    <!-- Accent Colors - Primary (Orange/Coral) -->
+    <SolidColorBrush x:Key="AccentPrimary" Color="#FF6B47"/>
+    <SolidColorBrush x:Key="AccentPrimaryHover" Color="#FF8566"/>
+    <SolidColorBrush x:Key="AccentPrimaryPressed" Color="#E5522D"/>
+    <SolidColorBrush x:Key="AccentPrimaryLight" Color="#FFA088"/>
+
+    <!-- Alternative Accent - Indigo (for variety) -->
+    <SolidColorBrush x:Key="AccentIndigo" Color="#4F46E5"/>
+    <SolidColorBrush x:Key="AccentIndigoHover" Color="#6366F1"/>
+    <SolidColorBrush x:Key="AccentIndigoPressed" Color="#4338CA"/>
 
     <!-- Accent Colors - Success (Green) -->
     <SolidColorBrush x:Key="AccentSuccess" Color="#10B981"/>
@@ -51,14 +56,20 @@
 
     <!-- Gradient Brushes -->
     <LinearGradientBrush x:Key="GradientAccent" StartPoint="0,0" EndPoint="1,1">
-        <GradientStop Color="#6366F1" Offset="0"/>
-        <GradientStop Color="#8B5CF6" Offset="0.5"/>
-        <GradientStop Color="#EC4899" Offset="1"/>
+        <GradientStop Color="#FF6B47" Offset="0"/>
+        <GradientStop Color="#FF8566" Offset="0.5"/>
+        <GradientStop Color="#FFA088" Offset="1"/>
     </LinearGradientBrush>
 
     <LinearGradientBrush x:Key="GradientSuccess" StartPoint="0,0" EndPoint="1,1">
         <GradientStop Color="#10B981" Offset="0"/>
         <GradientStop Color="#34D399" Offset="1"/>
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="GradientMulti" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#10B981" Offset="0"/>
+        <GradientStop Color="#FF6B47" Offset="0.5"/>
+        <GradientStop Color="#F59E0B" Offset="1"/>
     </LinearGradientBrush>
 
     <!-- Surface Colors (for overlays, dialogs) -->
@@ -138,20 +149,26 @@
     <DropShadowEffect x:Key="GlowAccent"
                       BlurRadius="24"
                       ShadowDepth="0"
-                      Opacity="0.5"
-                      Color="#6366F1"/>
+                      Opacity="0.6"
+                      Color="#FF6B47"/>
 
     <DropShadowEffect x:Key="GlowSuccess"
                       BlurRadius="24"
                       ShadowDepth="0"
-                      Opacity="0.4"
+                      Opacity="0.5"
                       Color="#10B981"/>
 
     <DropShadowEffect x:Key="GlowError"
                       BlurRadius="24"
                       ShadowDepth="0"
-                      Opacity="0.4"
+                      Opacity="0.5"
                       Color="#EF4444"/>
+
+    <DropShadowEffect x:Key="GlowIndigo"
+                      BlurRadius="24"
+                      ShadowDepth="0"
+                      Opacity="0.5"
+                      Color="#6366F1"/>
 
     <!-- ============================================ -->
     <!-- DURATIONS & EASING -->
