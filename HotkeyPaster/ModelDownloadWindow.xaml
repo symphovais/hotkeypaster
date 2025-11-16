@@ -41,7 +41,7 @@
                             <Button x:Name="DownloadModelButton"
                                     Content="Download Selected Model"
                                     Click="DownloadModel_Click"
-                                    Style="{StaticResource ButtonPrimary}"
+                                    Style="{StaticResource PrimaryButton}"
                                     HorizontalAlignment="Stretch"/>
                         </StackPanel>
                     </Border>
@@ -103,7 +103,7 @@
                 <Button x:Name="CloseButton"
                         Content="Close"
                         Click="Close_Click"
-                        Style="{StaticResource ButtonSecondary}"
+                        Style="{StaticResource SecondaryButton}"
                         Grid.Column="1"
                         MinWidth="100"/>
             </Grid>

@@ -232,14 +232,14 @@
                             <Button x:Name="DownloadModelsButton"
                                     Content="📥 Download More Models"
                                     Click="DownloadModels_Click"
-                                    Style="{StaticResource ButtonSecondary}"
+                                    Style="{StaticResource SecondaryButton}"
                                     HorizontalAlignment="Stretch"
                                     Margin="0,15,0,0"/>
                         </StackPanel>
 
                         <Button x:Name="DeathmatchButton"
                                 Content="🧪 Pipeline Benchmark - Test &amp; Compare All"
-                                Style="{StaticResource ButtonPrimary}"
+                                Style="{StaticResource PrimaryButton}"
                                 Click="Deathmatch_Click"
                                 Margin="0,15,0,0"
                                 HorizontalAlignment="Stretch"/>
@@ -273,12 +273,12 @@
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
             <Button x:Name="SaveCloseButton"
                     Content="Save &amp; Close" 
-                    Style="{StaticResource ButtonPrimary}"
+                    Style="{StaticResource PrimaryButton}"
                     Click="SaveClose_Click"
                     Margin="0,0,10,0"/>
             <Button x:Name="CloseButton"
                     Content="Close" 
-                    Style="{StaticResource ButtonSecondary}"
+                    Style="{StaticResource SecondaryButton}"
                     Click="Close_Click"/>
         </StackPanel>
     </Grid>
