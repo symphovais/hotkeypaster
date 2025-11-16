@@ -8,6 +8,8 @@
             <ResourceDictionary.MergedDictionaries>
                 <!-- Design Tokens (Colors, Typography, Spacing, etc.) -->
                 <ResourceDictionary Source="DesignResources.xaml"/>
+                <!-- Component Styles (Buttons, Inputs, Containers, etc.) -->
+                <ResourceDictionary Source="ComponentStyles.xaml"/>
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

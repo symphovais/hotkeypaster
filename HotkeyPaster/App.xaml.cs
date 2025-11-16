@@ -149,6 +149,12 @@ namespace TalkKeys
                 settingsWindow.Show();
             };
 
+            trayService.ShowcaseRequested += (s, args) =>
+            {
+                var showcaseWindow = new ComponentShowcaseWindow();
+                showcaseWindow.Show();
+            };
+
             trayService.ExitRequested += (s, args) =>
             {
                 hotkeyService.UnregisterHotkey();
