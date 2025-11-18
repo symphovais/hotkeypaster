@@ -98,20 +98,18 @@ namespace TalkKeys
             SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
             Logger.Log("Subscribed to display settings change events.");
 
-            // Register hotkey
+            // Set window handle for hotkey service
             try
             {
                 var helper = new WindowInteropHelper(this);
                 helper.EnsureHandle();
                 Logger.Log($"Window handle created: {helper.Handle}");
                 _hotkeyService.SetWindowHandle(helper.Handle);
-                _hotkeyService.RegisterHotkey();
-                Logger.Log("Hotkey registered successfully.");
+                Logger.Log("Window handle set for hotkey service.");
             }
             catch (Exception ex)
             {
-                Logger.Log($"Hotkey registration failed: {ex}");
-                _notifications.ShowError("Hotkey Registration Failed", $"Could not register Ctrl+Shift+Q: {ex.Message}");
+                Logger.Log($"Window handle setup failed: {ex}");
             }
             
             // Start hidden; only show on hotkey or tray action

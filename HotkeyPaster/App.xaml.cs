@@ -107,11 +107,35 @@ namespace TalkKeys
                     contextService
                 );
 
-                // Wire hotkey event
+                // Register hotkeys
+                try
+                {
+                    _hotkeyService.RegisterHotkey("clipboard", System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.Shift, System.Windows.Forms.Keys.Q);
+                    _logger.Log("Registered Clipboard hotkey: Ctrl+Shift+Q");
+
+                    _hotkeyService.RegisterHotkey("diary", System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.Shift, System.Windows.Forms.Keys.D);
+                    _logger.Log("Registered Diary hotkey: Ctrl+Shift+D");
+                }
+                catch (Exception ex)
+                {
+                    _logger.Log($"Hotkey registration failed: {ex}");
+                    _notifications.ShowError("Hotkey Registration Failed", $"Could not register hotkeys: {ex.Message}");
+                }
+
+                // Wire hotkey event - route to appropriate mode handler based on hotkey ID
                 _hotkeyService.HotkeyPressed += (s, args) =>
                 {
-                    var clipboardHandler = new ClipboardModeHandler(clipboardService, _logger);
-                    mainWindow.ShowWindow(clipboardHandler);
+                    if (args.HotkeyId == "clipboard")
+                    {
+                        var clipboardHandler = new ClipboardModeHandler(clipboardService, _logger);
+                        mainWindow.ShowWindow(clipboardHandler);
+                    }
+                    else if (args.HotkeyId == "diary")
+                    {
+                        // TODO: Will create DiaryModeHandler in Phase 3
+                        _logger.Log("Diary hotkey pressed - handler not yet implemented");
+                        _notifications.ShowInfo("Diary Mode", "Diary mode coming soon!");
+                    }
                 };
             }
             else
@@ -154,7 +178,7 @@ namespace TalkKeys
 
             _trayService.ExitRequested += (s, args) =>
             {
-                _hotkeyService.UnregisterHotkey();
+                _hotkeyService.UnregisterAllHotkeys();
                 _trayService.DisposeTray();
                 Current.Shutdown();
             };
