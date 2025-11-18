@@ -26,19 +26,18 @@ namespace TalkKeys.Services.RecordingMode
 
         public string GetRecordingIcon() => "🎙️";
 
-        public async Task HandleTranscriptionAsync(PipelineResult result)
+        public Task HandleTranscriptionAsync(PipelineResult result)
         {
             if (result == null || string.IsNullOrWhiteSpace(result.Text))
             {
                 throw new InvalidOperationException("No transcription text available to paste");
             }
 
-            // Paste to clipboard - this is synchronous but fast
-            await Task.Run(() =>
-            {
-                _clipboardService.PasteText(result.Text);
-                _logger.Log($"Clipboard mode: Pasted {result.WordCount} words");
-            });
+            // Paste to clipboard - must run on UI thread (STA mode required)
+            _clipboardService.PasteText(result.Text);
+            _logger.Log($"Clipboard mode: Pasted {result.WordCount} words");
+
+            return Task.CompletedTask;
         }
 
         public string GetSuccessMessage(PipelineResult result)
