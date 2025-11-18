@@ -16,6 +16,7 @@ using TalkKeys.Services.Pipeline.Configuration;
 using TalkKeys.Services.Pipeline.Stages;
 using TalkKeys.Services.Settings;
 using TalkKeys.Services.RecordingMode;
+using TalkKeys.Services.Diary;
 using Whisper.net.Ggml;
 
 namespace TalkKeys
@@ -76,6 +77,7 @@ namespace TalkKeys
             _trayService = new TrayService();
             var contextService = new ActiveWindowContextService();
             _settingsService = new SettingsService();
+            var diaryService = new DiaryService(_logger);
 
             // Load settings and configure pipeline service
             var settings = _settingsService.LoadSettings();
@@ -132,9 +134,8 @@ namespace TalkKeys
                     }
                     else if (args.HotkeyId == "diary")
                     {
-                        // TODO: Will create DiaryModeHandler in Phase 3
-                        _logger.Log("Diary hotkey pressed - handler not yet implemented");
-                        _notifications.ShowInfo("Diary Mode", "Diary mode coming soon!");
+                        var diaryHandler = new DiaryModeHandler(diaryService, _logger);
+                        mainWindow.ShowWindow(diaryHandler);
                     }
                 };
             }
