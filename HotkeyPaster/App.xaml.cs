@@ -72,7 +72,7 @@ namespace TalkKeys
             RegisterGlobalExceptionHandlers();
             var positioner = new WindowPositionService(_logger);
             var clipboardService = new ClipboardPasteService();
-            _audioService = new AudioRecordingService();
+            _audioService = new AudioRecordingService(_logger);
             _hotkeyService = new Win32HotkeyService();
             _trayService = new TrayService();
             var contextService = new ActiveWindowContextService();
