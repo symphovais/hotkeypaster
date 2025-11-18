@@ -7,6 +7,8 @@ namespace TalkKeys.Services.Tray
     {
         event EventHandler? SettingsRequested;
         event EventHandler? ExitRequested;
+        event EventHandler? ViewDiaryRequested;
+        event EventHandler? NewDiaryEntryRequested;
         void InitializeTray();
         void DisposeTray();
     }
@@ -15,6 +17,8 @@ namespace TalkKeys.Services.Tray
     {
         public event EventHandler? SettingsRequested;
         public event EventHandler? ExitRequested;
+        public event EventHandler? ViewDiaryRequested;
+        public event EventHandler? NewDiaryEntryRequested;
 
         private NotifyIcon? _notifyIcon;
 
@@ -30,15 +34,23 @@ namespace TalkKeys.Services.Tray
             {
                 Icon = icon,
                 Visible = true,
-                Text = "TalkKeys - Ctrl+Shift+Q"
+                Text = "TalkKeys - Ctrl+Shift+Q (Clipboard) | Ctrl+Shift+D (Diary)"
             };
 
             _notifyIcon.DoubleClick += (s, e) => SettingsRequested?.Invoke(this, EventArgs.Empty);
 
             var contextMenu = new ContextMenuStrip();
+
+            // Diary section
+            contextMenu.Items.Add("📔 View Diary", null, (s, e) => ViewDiaryRequested?.Invoke(this, EventArgs.Empty));
+            contextMenu.Items.Add("📝 New Diary Entry (Ctrl+Shift+D)", null, (s, e) => NewDiaryEntryRequested?.Invoke(this, EventArgs.Empty));
+            contextMenu.Items.Add(new ToolStripSeparator());
+
+            // Settings and Exit
             contextMenu.Items.Add("Settings", null, (s, e) => SettingsRequested?.Invoke(this, EventArgs.Empty));
             contextMenu.Items.Add(new ToolStripSeparator());
             contextMenu.Items.Add("Exit", null, (s, e) => ExitRequested?.Invoke(this, EventArgs.Empty));
+
             _notifyIcon.ContextMenuStrip = contextMenu;
         }
 

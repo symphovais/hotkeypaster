@@ -177,6 +177,26 @@ namespace TalkKeys
                 settingsWindow.Show();
             };
 
+            _trayService.ViewDiaryRequested += (s, args) =>
+            {
+                var diaryViewerWindow = new DiaryViewerWindow(diaryService);
+                diaryViewerWindow.Show();
+            };
+
+            _trayService.NewDiaryEntryRequested += (s, args) =>
+            {
+                if (mainWindow != null)
+                {
+                    var diaryHandler = new DiaryModeHandler(diaryService, _logger);
+                    mainWindow.ShowWindow(diaryHandler);
+                }
+                else
+                {
+                    _notifications.ShowError("Configuration Required",
+                        "Please configure transcription settings first. Right-click the tray icon and select Settings.");
+                }
+            };
+
             _trayService.ExitRequested += (s, args) =>
             {
                 _hotkeyService.UnregisterAllHotkeys();
