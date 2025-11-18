@@ -16,6 +16,7 @@ using TalkKeys.Logging;
 using TalkKeys.Services.Audio;
 using TalkKeys.Services.Hotkey;
 using TalkKeys.Services.Pipeline;
+using TalkKeys.Services.RecordingMode;
 
 namespace TalkKeys
 {
@@ -72,6 +73,7 @@ namespace TalkKeys
         private readonly IPipelineService _pipelineService;
         private readonly IActiveWindowContextService _contextService;
         private string? _currentRecordingPath;
+        private IRecordingModeHandler? _currentModeHandler;
 
         // The text to paste
         private const string TEXT_TO_PASTE = "Hello from TalkKeys!";
@@ -195,15 +197,15 @@ namespace TalkKeys
             Dispatcher.Invoke(() =>
             {
                 // Only update UI if this window is visible (i.e., it initiated the recording)
-                if (!this.IsVisible)
+                if (!this.IsVisible || _currentModeHandler == null)
                 {
-                    Logger.Log("OnRecordingStarted: Ignoring event (window not visible)");
+                    Logger.Log("OnRecordingStarted: Ignoring event (window not visible or no mode handler)");
                     return;
                 }
 
-                RecordingStatus.Text = "Recording...";
-                SubStatus.Text = $"🎤 {_audio.DeviceName} • Press Space to finish";
-                RecordingIcon.Text = "🎙️";
+                RecordingStatus.Text = _currentModeHandler.GetModeTitle();
+                SubStatus.Text = $"🎤 {_audio.DeviceName} • {_currentModeHandler.GetInstructionText()}";
+                RecordingIcon.Text = _currentModeHandler.GetRecordingIcon();
                 ActionButton.Content = "⏹";
                 ActionButton.IsEnabled = true;
 
@@ -252,10 +254,16 @@ namespace TalkKeys
             _audio.StopRecording();
         }
 
-        public void ShowWindow()
+        public void ShowWindow(IRecordingModeHandler modeHandler)
         {
+            if (modeHandler == null)
+                throw new ArgumentNullException(nameof(modeHandler));
+
             try
             {
+                // Set the current mode handler
+                _currentModeHandler = modeHandler;
+
                 // Capture the currently focused window so we can return focus later
                 _previousWindow = GetForegroundWindow();
 
@@ -282,7 +290,7 @@ namespace TalkKeys
                 this.Activate();
                 this.Focus();
 
-                Logger.Log($"ShowWindow: positioned at Left={this.Left}, Top={this.Top}, Width={this.Width}, Height={this.Height}, Opacity={this.Opacity}, Visibility={this.Visibility}, Handle={hwnd}");
+                Logger.Log($"ShowWindow: mode={modeHandler.GetType().Name}, positioned at Left={this.Left}, Top={this.Top}, Width={this.Width}, Height={this.Height}, Opacity={this.Opacity}, Visibility={this.Visibility}, Handle={hwnd}");
 
                 // Start recording if not already
                 if (!_audio.IsRecording)
@@ -415,7 +423,7 @@ namespace TalkKeys
 
                 // Show success state briefly
                 RecordingStatus.Text = "Complete!";
-                SubStatus.Text = $"{result.WordCount} words";
+                SubStatus.Text = _currentModeHandler?.GetSuccessMessage(result) ?? $"{result.WordCount} words";
                 RecordingIcon.Text = "✓";
                 RecordingPulse.Fill = new System.Windows.Media.RadialGradientBrush(
                     System.Windows.Media.Color.FromRgb(34, 197, 94),
@@ -431,9 +439,16 @@ namespace TalkKeys
                 // Small delay to let window hide
                 await System.Threading.Tasks.Task.Delay(100);
 
-                // Paste transcribed text
-                _clipboard.PasteText(result.Text);
-                Logger.Log($"Pipeline result pasted successfully: {result.WordCount} words ({result.Language ?? "unknown"})");
+                // Handle transcription using mode handler
+                if (_currentModeHandler != null)
+                {
+                    await _currentModeHandler.HandleTranscriptionAsync(result);
+                    Logger.Log($"Mode handler processed result: {result.WordCount} words ({result.Language ?? "unknown"})");
+                }
+                else
+                {
+                    Logger.Log("Warning: No mode handler available to process transcription result");
+                }
             }
             catch (Exception ex)
             {

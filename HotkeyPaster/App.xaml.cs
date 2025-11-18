@@ -15,6 +15,7 @@ using TalkKeys.Services.Pipeline;
 using TalkKeys.Services.Pipeline.Configuration;
 using TalkKeys.Services.Pipeline.Stages;
 using TalkKeys.Services.Settings;
+using TalkKeys.Services.RecordingMode;
 using Whisper.net.Ggml;
 
 namespace TalkKeys
@@ -109,7 +110,8 @@ namespace TalkKeys
                 // Wire hotkey event
                 _hotkeyService.HotkeyPressed += (s, args) =>
                 {
-                    mainWindow.ShowWindow();
+                    var clipboardHandler = new ClipboardModeHandler(clipboardService, _logger);
+                    mainWindow.ShowWindow(clipboardHandler);
                 };
             }
             else
