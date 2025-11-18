@@ -259,8 +259,16 @@
 
                         <TextBlock Text="OpenAI API Key:" Style="{StaticResource LabelText}"/>
                         <TextBox x:Name="ApiKeyTextBox"
-                                 Style="{StaticResource TextBoxStyle}"
-                                 TextChanged="ApiKey_Changed"/>
+                                 TextChanged="ApiKey_Changed"
+                                 Height="36"
+                                 Padding="10,8"
+                                 FontSize="13"
+                                 FontFamily="Segoe UI"
+                                 Background="{StaticResource BackgroundSecondary}"
+                                 Foreground="{StaticResource TextPrimary}"
+                                 BorderBrush="{StaticResource BorderInput}"
+                                 BorderThickness="1"
+                                 CaretBrush="{StaticResource AccentPrimary}"/>
                         <TextBlock Text="Required for Cloud pipelines. Get your key from platform.openai.com"
                                    Style="{StaticResource CaptionText}" Foreground="{StaticResource TextTertiary}"/>
                     </StackPanel>

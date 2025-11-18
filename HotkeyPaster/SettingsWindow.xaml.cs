@@ -19,6 +19,7 @@ namespace TalkKeys
         private readonly ILogger _logger;
         private readonly PipelineFactory _pipelineFactory;
         private readonly PipelineBuildContext _buildContext;
+        private readonly PipelineBuildContextFactory _buildContextFactory;
         private AppSettings _currentSettings;
         private bool _isInitializing = true;
         private Dictionary<string, BenchmarkResult>? _benchmarkResults;
@@ -30,7 +31,8 @@ namespace TalkKeys
             IAudioRecordingService audioService,
             ILogger logger,
             PipelineFactory pipelineFactory,
-            PipelineBuildContext buildContext)
+            PipelineBuildContext buildContext,
+            PipelineBuildContextFactory buildContextFactory)
         {
             InitializeComponent();
 
@@ -39,6 +41,7 @@ namespace TalkKeys
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _pipelineFactory = pipelineFactory ?? throw new ArgumentNullException(nameof(pipelineFactory));
             _buildContext = buildContext ?? throw new ArgumentNullException(nameof(buildContext));
+            _buildContextFactory = buildContextFactory ?? throw new ArgumentNullException(nameof(buildContextFactory));
 
             _currentSettings = _settingsService.LoadSettings();
 
@@ -80,20 +83,25 @@ namespace TalkKeys
                     break;
             }
 
-            // Load API key
+            // Load API key from settings file or build context
+            string? apiKeyToDisplay = null;
+
+            // 1. Check settings file first
             if (!string.IsNullOrEmpty(_currentSettings.OpenAIApiKey))
             {
-                ApiKeyTextBox.Text = _currentSettings.OpenAIApiKey;
+                apiKeyToDisplay = _currentSettings.OpenAIApiKey;
             }
-            else
+            // 2. Check build context (the API key actually being used by the system)
+            else if (!string.IsNullOrEmpty(_buildContext?.OpenAIApiKey))
             {
-                // Try to load from environment variable
-                var envKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
-                if (!string.IsNullOrEmpty(envKey))
-                {
-                    ApiKeyTextBox.Text = envKey;
-                    _currentSettings.OpenAIApiKey = envKey;
-                }
+                apiKeyToDisplay = _buildContext.OpenAIApiKey;
+                _currentSettings.OpenAIApiKey = _buildContext.OpenAIApiKey;
+            }
+
+            // Set the textbox if we found an API key
+            if (!string.IsNullOrEmpty(apiKeyToDisplay))
+            {
+                ApiKeyTextBox.Text = apiKeyToDisplay;
             }
         }
 
@@ -226,15 +234,20 @@ namespace TalkKeys
 
         private void ApiKey_Changed(object sender, System.Windows.Controls.TextChangedEventArgs e)
         {
+            _logger.Log($"[Settings] ApiKey_Changed fired. IsInitializing={_isInitializing}");
             if (_isInitializing) return;
 
-            _currentSettings.OpenAIApiKey = ApiKeyTextBox.Text;
+            var newKey = ApiKeyTextBox.Text;
+            _logger.Log($"[Settings] Saving API key change (length: {newKey?.Length ?? 0})");
+            _currentSettings.OpenAIApiKey = newKey;
             AutoSave();
         }
 
         private void AutoSave()
         {
+            _logger.Log($"[Settings] AutoSave called. API Key length: {_currentSettings.OpenAIApiKey?.Length ?? 0}");
             _settingsService.SaveSettings(_currentSettings);
+            _logger.Log("[Settings] Settings saved to disk");
             SettingsChanged?.Invoke(this, EventArgs.Empty);
         }
 
@@ -307,13 +320,7 @@ namespace TalkKeys
             }
 
             // Create a new build context with current settings for the benchmark
-            var benchmarkContext = new PipelineBuildContext
-            {
-                OpenAIApiKey = _currentSettings.OpenAIApiKey,
-                LocalModelPath = _currentSettings.LocalModelPath,
-                Logger = _buildContext.Logger,
-                AppSettings = _currentSettings
-            };
+            var benchmarkContext = _buildContextFactory.Create(_currentSettings);
 
             var deathmatchWindow = new PipelineDeathmatchWindow(_audioService, _logger, _pipelineFactory, benchmarkContext);
             var dialogResult = deathmatchWindow.ShowDialog();

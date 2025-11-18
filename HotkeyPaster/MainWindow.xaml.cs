@@ -328,6 +328,7 @@ namespace TalkKeys
                 return;
             }
 
+            string? tempFileToCleanup = _currentRecordingPath;
             try
             {
                 // Read audio file
@@ -446,6 +447,22 @@ namespace TalkKeys
                     System.Windows.Media.Color.FromRgb(220, 38, 38)
                 );
                 // Don't hide window on error - let user see the error
+            }
+            finally
+            {
+                // Clean up temporary recording file
+                if (!string.IsNullOrEmpty(tempFileToCleanup) && File.Exists(tempFileToCleanup))
+                {
+                    try
+                    {
+                        File.Delete(tempFileToCleanup);
+                        Logger.Log($"Cleaned up temp recording file: {tempFileToCleanup}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log($"Failed to delete temp file {tempFileToCleanup}: {ex.Message}");
+                    }
+                }
             }
         }
 

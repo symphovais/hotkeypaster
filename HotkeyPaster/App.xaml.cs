@@ -30,7 +30,11 @@ namespace TalkKeys
         private INotificationService? _notifications;
         private PipelineFactory? _pipelineFactory;
         private PipelineBuildContext? _pipelineBuildContext;
+        private PipelineBuildContextFactory? _buildContextFactory;
         private IAudioRecordingService? _audioService;
+        private IHotkeyService? _hotkeyService;
+        private ITrayService? _trayService;
+        private bool _mutexOwned = false;
 
         protected override void OnStartup(StartupEventArgs e)
         {
@@ -39,6 +43,7 @@ namespace TalkKeys
             // Check for existing instance
             bool createdNew;
             _instanceMutex = new Mutex(true, MutexName, out createdNew);
+            _mutexOwned = createdNew;
 
             if (!createdNew)
             {
@@ -49,7 +54,7 @@ namespace TalkKeys
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
 
-                // Release mutex and shutdown
+                // Dispose mutex (we don't own it, so don't release)
                 _instanceMutex.Dispose();
                 _instanceMutex = null;
                 Current.Shutdown();
@@ -58,12 +63,16 @@ namespace TalkKeys
 
             // Create services
             _logger = new FileLogger();
+            _buildContextFactory = new PipelineBuildContextFactory(_logger);
             _notifications = new ToastNotificationService();
+
+            // Register global exception handlers
+            RegisterGlobalExceptionHandlers();
             var positioner = new WindowPositionService(_logger);
             var clipboardService = new ClipboardPasteService();
             _audioService = new AudioRecordingService();
-            var hotkeyService = new Win32HotkeyService();
-            var trayService = new TrayService();
+            _hotkeyService = new Win32HotkeyService();
+            _trayService = new TrayService();
             var contextService = new ActiveWindowContextService();
             _settingsService = new SettingsService();
 
@@ -79,7 +88,7 @@ namespace TalkKeys
             }
 
             // Initialize tray
-            trayService.InitializeTray();
+            _trayService.InitializeTray();
 
             // Create MainWindow and inject services (only if pipeline service is available)
             MainWindow? mainWindow = null;
@@ -92,13 +101,13 @@ namespace TalkKeys
                     clipboardService,
                     _logger,
                     _audioService,
-                    hotkeyService,
+                    _hotkeyService,
                     _pipelineService,
                     contextService
                 );
 
                 // Wire hotkey event
-                hotkeyService.HotkeyPressed += (s, args) =>
+                _hotkeyService.HotkeyPressed += (s, args) =>
                 {
                     mainWindow.ShowWindow();
                 };
@@ -106,20 +115,16 @@ namespace TalkKeys
             else
             {
                 // If no pipeline service, hotkey opens settings
-                hotkeyService.HotkeyPressed += (s, args) =>
+                _hotkeyService.HotkeyPressed += (s, args) =>
                 {
                     // Create factory and build context for settings window (even if pipeline service failed)
                     if (_pipelineFactory == null || _pipelineBuildContext == null)
                     {
                         _pipelineFactory = new PipelineFactory(_logger);
-                        _pipelineBuildContext = new PipelineBuildContext
-                        {
-                            OpenAIApiKey = settings.OpenAIApiKey,
-                            LocalModelPath = settings.LocalModelPath
-                        };
+                        _pipelineBuildContext = _buildContextFactory!.Create(settings);
                     }
 
-                    var settingsWindow = new SettingsWindow(_settingsService, _audioService, _logger, _pipelineFactory, _pipelineBuildContext);
+                    var settingsWindow = new SettingsWindow(_settingsService, _audioService, _logger, _pipelineFactory, _pipelineBuildContext, _buildContextFactory!);
                     settingsWindow.SettingsChanged += (sender, eventArgs) =>
                     {
                         ReloadPipelineService();
@@ -130,35 +135,25 @@ namespace TalkKeys
             }
 
             // Wire tray events
-            trayService.SettingsRequested += (s, args) =>
+            _trayService.SettingsRequested += (s, args) =>
             {
                 // Ensure factory and build context exist
                 if (_pipelineFactory == null || _pipelineBuildContext == null)
                 {
                     var currentSettings = _settingsService.LoadSettings();
                     _pipelineFactory = new PipelineFactory(_logger);
-                    _pipelineBuildContext = new PipelineBuildContext
-                    {
-                        OpenAIApiKey = currentSettings.OpenAIApiKey,
-                        LocalModelPath = currentSettings.LocalModelPath
-                    };
+                    _pipelineBuildContext = _buildContextFactory!.Create(currentSettings);
                 }
 
-                var settingsWindow = new SettingsWindow(_settingsService, _audioService, _logger, _pipelineFactory, _pipelineBuildContext);
+                var settingsWindow = new SettingsWindow(_settingsService, _audioService, _logger, _pipelineFactory, _pipelineBuildContext, _buildContextFactory!);
                 settingsWindow.SettingsChanged += (sender, eventArgs) => ReloadPipelineService();
                 settingsWindow.Show();
             };
 
-            trayService.ShowcaseRequested += (s, args) =>
+            _trayService.ExitRequested += (s, args) =>
             {
-                var showcaseWindow = new ComponentShowcaseWindow();
-                showcaseWindow.Show();
-            };
-
-            trayService.ExitRequested += (s, args) =>
-            {
-                hotkeyService.UnregisterHotkey();
-                trayService.DisposeTray();
+                _hotkeyService.UnregisterHotkey();
+                _trayService.DisposeTray();
                 Current.Shutdown();
             };
 
@@ -201,14 +196,8 @@ namespace TalkKeys
                     settings.OpenAIApiKey ?? string.Empty,
                     settings.LocalModelPath);
 
-                // Create build context
-                var buildContext = new PipelineBuildContext
-                {
-                    Logger = _logger,
-                    AppSettings = settings,
-                    OpenAIApiKey = settings.OpenAIApiKey,
-                    LocalModelPath = settings.LocalModelPath
-                };
+                // Create build context using factory
+                var buildContext = _buildContextFactory!.Create(settings);
                 _pipelineBuildContext = buildContext; // Store for benchmark window
 
                 // Create registry
@@ -274,12 +263,83 @@ namespace TalkKeys
 
         protected override void OnExit(ExitEventArgs e)
         {
-            // Release the mutex when the application exits
-            _instanceMutex?.ReleaseMutex();
-            _instanceMutex?.Dispose();
-            _instanceMutex = null;
+            try
+            {
+                // Dispose services
+                (_hotkeyService as IDisposable)?.Dispose();
+                (_trayService as IDisposable)?.Dispose();
+                (_audioService as IDisposable)?.Dispose();
+                (_pipelineService as IDisposable)?.Dispose();
+
+                // Release mutex only if we own it
+                if (_mutexOwned && _instanceMutex != null)
+                {
+                    _instanceMutex.ReleaseMutex();
+                }
+                _instanceMutex?.Dispose();
+                _instanceMutex = null;
+            }
+            catch (Exception ex)
+            {
+                _logger?.Log($"Error during application exit: {ex.Message}");
+            }
 
             base.OnExit(e);
+        }
+
+        private void RegisterGlobalExceptionHandlers()
+        {
+            // WPF UI thread exceptions
+            DispatcherUnhandledException += App_DispatcherUnhandledException;
+
+            // Task exceptions (async/await)
+            TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
+
+            // Non-UI thread exceptions
+            AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
+        }
+
+        private void App_DispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
+        {
+            _logger?.Log($"[CRITICAL] Unhandled UI exception: {e.Exception}");
+            _logger?.Log($"Stack trace: {e.Exception.StackTrace}");
+
+            _notifications?.ShowError("Application Error",
+                $"An unexpected error occurred:\n\n{e.Exception.Message}\n\nThe application will continue running, but some features may not work correctly.");
+
+            // Mark as handled to prevent crash
+            e.Handled = true;
+        }
+
+        private void TaskScheduler_UnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+        {
+            _logger?.Log($"[CRITICAL] Unobserved task exception: {e.Exception}");
+
+            foreach (var ex in e.Exception.InnerExceptions)
+            {
+                _logger?.Log($"  Inner exception: {ex.Message}");
+                _logger?.Log($"  Stack trace: {ex.StackTrace}");
+            }
+
+            // Mark as observed to prevent crash
+            e.SetObserved();
+        }
+
+        private void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
+        {
+            var exception = e.ExceptionObject as Exception;
+            _logger?.Log($"[CRITICAL] Unhandled domain exception: {exception?.Message ?? "Unknown"}");
+            _logger?.Log($"Stack trace: {exception?.StackTrace ?? "N/A"}");
+            _logger?.Log($"Is terminating: {e.IsTerminating}");
+
+            if (e.IsTerminating)
+            {
+                MessageBox.Show(
+                    $"A fatal error occurred and the application must close:\n\n{exception?.Message ?? "Unknown error"}",
+                    "Fatal Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
         }
     }
 }

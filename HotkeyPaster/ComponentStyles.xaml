@@ -174,7 +174,7 @@
         <Setter Property="FontSize" Value="{StaticResource FontSizeBody}"/>
         <Setter Property="Height" Value="{StaticResource InputHeight}"/>
         <Setter Property="Padding" Value="{StaticResource InputPadding}"/>
-        <Setter Property="Background" Value="{StaticResource BackgroundPrimary}"/>
+        <Setter Property="Background" Value="{StaticResource BackgroundSecondary}"/>
         <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
         <Setter Property="BorderBrush" Value="{StaticResource BorderInput}"/>
         <Setter Property="BorderThickness" Value="1"/>
@@ -186,10 +186,14 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{StaticResource CornerRadiusSmall}">
+                            CornerRadius="{StaticResource CornerRadiusSmall}"
+                            TextElement.Foreground="{TemplateBinding Foreground}">
                         <ScrollViewer x:Name="PART_ContentHost"
                                     Margin="{TemplateBinding Padding}"
-                                    VerticalAlignment="Center"/>
+                                    VerticalAlignment="Center"
+                                    Focusable="False"
+                                    HorizontalScrollBarVisibility="Hidden"
+                                    VerticalScrollBarVisibility="Hidden"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -214,7 +218,7 @@
         <Setter Property="FontSize" Value="{StaticResource FontSizeBody}"/>
         <Setter Property="Height" Value="{StaticResource InputHeight}"/>
         <Setter Property="Padding" Value="{StaticResource InputPadding}"/>
-        <Setter Property="Background" Value="{StaticResource BackgroundPrimary}"/>
+        <Setter Property="Background" Value="{StaticResource BackgroundSecondary}"/>
         <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
         <Setter Property="BorderBrush" Value="{StaticResource BorderInput}"/>
         <Setter Property="BorderThickness" Value="1"/>
@@ -254,7 +258,7 @@
         <Setter Property="FontSize" Value="{StaticResource FontSizeBody}"/>
         <Setter Property="Height" Value="{StaticResource InputHeight}"/>
         <Setter Property="Padding" Value="{StaticResource InputPadding}"/>
-        <Setter Property="Background" Value="{StaticResource BackgroundPrimary}"/>
+        <Setter Property="Background" Value="{StaticResource BackgroundSecondary}"/>
         <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
         <Setter Property="BorderBrush" Value="{StaticResource BorderInput}"/>
         <Setter Property="BorderThickness" Value="1"/>
