@@ -27,7 +27,7 @@
         </Storyboard>
     </Window.Resources>
     
-    <Border CornerRadius="12" Background="{StaticResource BackgroundPrimary}" BorderThickness="1" Margin="8">
+    <Border CornerRadius="12" Background="{StaticResource BackgroundPrimary}" BorderThickness="1" Margin="8" Opacity="0.7">
         <Border.BorderBrush>
             <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
                 <GradientStop Color="#FF6B47" Offset="0"/>
