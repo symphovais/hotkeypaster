@@ -27,16 +27,19 @@
         </Storyboard>
     </Window.Resources>
     
-    <Border CornerRadius="12" Background="{StaticResource BackgroundPrimary}" BorderThickness="1" Margin="8" Opacity="0.7">
+    <Border CornerRadius="12" BorderThickness="1.5" Margin="8" Opacity="0.95">
+        <Border.Background>
+            <SolidColorBrush Color="#F5F5F5" Opacity="0.85"/>
+        </Border.Background>
         <Border.BorderBrush>
             <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                <GradientStop Color="#FF6B47" Offset="0"/>
-                <GradientStop Color="#FF8566" Offset="0.5"/>
-                <GradientStop Color="#FFA088" Offset="1"/>
+                <GradientStop Color="#E0E0E0" Offset="0"/>
+                <GradientStop Color="#C0C0C0" Offset="0.5"/>
+                <GradientStop Color="#D0D0D0" Offset="1"/>
             </LinearGradientBrush>
         </Border.BorderBrush>
         <Border.Effect>
-            <DropShadowEffect BlurRadius="24" ShadowDepth="0" Opacity="0.6" Color="#FF6B47"/>
+            <DropShadowEffect BlurRadius="32" ShadowDepth="4" Opacity="0.3" Color="#000000"/>
         </Border.Effect>
         
         <Grid>
@@ -53,19 +56,19 @@
                 </Grid.ColumnDefinitions>
                 
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Ellipse Width="6" Height="6" Fill="{StaticResource AccentPrimary}" Margin="0,0,6,0"/>
+                    <Ellipse Width="6" Height="6" Fill="#FF6B47" Margin="0,0,6,0"/>
                     <TextBlock Text="Voice Transcription"
-                               Foreground="{StaticResource TextPrimary}"
+                               Foreground="#424242"
                                FontSize="11"
                                FontWeight="Medium"
-                               Opacity="0.7"/>
+                               Opacity="0.8"/>
                 </StackPanel>
-                
+
                 <Button Grid.Column="1"
                         Content="✕"
                         Click="CloseButton_Click"
                         Background="Transparent"
-                        Foreground="{StaticResource TextTertiary}"
+                        Foreground="#757575"
                         FontSize="14"
                         FontWeight="Light"
                         BorderThickness="0"
@@ -89,8 +92,8 @@
                             </Setter>
                             <Style.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter Property="Background" Value="{StaticResource BackgroundTertiary}"/>
-                                    <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+                                    <Setter Property="Background" Value="#E0E0E0"/>
+                                    <Setter Property="Foreground" Value="#212121"/>
                                 </Trigger>
                             </Style.Triggers>
                         </Style>
@@ -107,7 +110,7 @@
                 
                 <!-- Compact Recording Indicator -->
                 <Grid Grid.Column="0" Height="36" Width="36" Margin="0,0,10,0" VerticalAlignment="Center">
-                    <Ellipse Fill="{StaticResource BackgroundElevated}" Width="36" Height="36"/>
+                    <Ellipse Fill="#E8E8E8" Width="36" Height="36"/>
                     <Ellipse x:Name="RecordingPulse" Width="28" Height="28">
                         <Ellipse.Fill>
                             <RadialGradientBrush>
@@ -127,14 +130,14 @@
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock x:Name="RecordingStatus"
                                Text="Recording..."
-                               Foreground="{StaticResource TextPrimary}"
+                               Foreground="#212121"
                                FontSize="14"
                                FontWeight="SemiBold"
                                Margin="0,0,0,2"/>
 
                     <TextBlock x:Name="SubStatus"
                                Text="Speak clearly"
-                               Foreground="{StaticResource TextTertiary}"
+                               Foreground="#616161"
                                FontSize="11"
                                TextTrimming="CharacterEllipsis"/>
                 </StackPanel>
