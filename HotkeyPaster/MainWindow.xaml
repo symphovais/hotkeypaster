@@ -148,15 +148,15 @@
                     Grid.Row="1"
                     Content="⏹"
                     Click="StopRecordingButton_Click"
-                    Width="32"
-                    Height="32"
-                    FontSize="16"
+                    Width="24"
+                    Height="24"
+                    FontSize="12"
                     BorderThickness="0"
                     Cursor="Hand"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Center"
                     Margin="0,0,12,0"
-                    Opacity="0.7">
+                    Opacity="0.6">
                 <Button.Style>
                     <Style TargetType="Button">
                         <Setter Property="Background">
