@@ -34,7 +34,7 @@ namespace TalkKeys.Services.Tray
             {
                 Icon = icon,
                 Visible = true,
-                Text = "TalkKeys - Ctrl+Shift+Q (Clipboard) | Ctrl+Shift+D (Diary)"
+                Text = "TalkKeys - Ctrl+Alt+Q (Clipboard) | Ctrl+Alt+D (Diary)"
             };
 
             _notifyIcon.DoubleClick += (s, e) => SettingsRequested?.Invoke(this, EventArgs.Empty);
@@ -43,7 +43,7 @@ namespace TalkKeys.Services.Tray
 
             // Diary section
             contextMenu.Items.Add("📔 View Diary", null, (s, e) => ViewDiaryRequested?.Invoke(this, EventArgs.Empty));
-            contextMenu.Items.Add("📝 New Diary Entry (Ctrl+Shift+D)", null, (s, e) => NewDiaryEntryRequested?.Invoke(this, EventArgs.Empty));
+            contextMenu.Items.Add("📝 New Diary Entry (Ctrl+Alt+D)", null, (s, e) => NewDiaryEntryRequested?.Invoke(this, EventArgs.Empty));
             contextMenu.Items.Add(new ToolStripSeparator());
 
             // Settings and Exit

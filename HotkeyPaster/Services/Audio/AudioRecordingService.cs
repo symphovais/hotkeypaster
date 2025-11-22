@@ -10,12 +10,15 @@ namespace TalkKeys.Services.Audio
     {
         public event EventHandler? RecordingStarted;
         public event EventHandler? RecordingStopped;
+        public event EventHandler? NoAudioDetected;
 
         private readonly ILogger? _logger;
         private WaveInEvent? _waveIn;
         private WaveFileWriter? _writer;
         private string? _currentFilePath;
         private DateTime _recordingStartTime;
+        private bool _hasNonZeroSample;
+        private int _totalBytesRecorded;
 
         public AudioRecordingService(ILogger? logger = null)
         {
@@ -52,6 +55,8 @@ namespace TalkKeys.Services.Audio
 
             _currentFilePath = filePath;
             _recordingStartTime = DateTime.Now;
+            _hasNonZeroSample = false;
+            _totalBytesRecorded = 0;
             _waveIn = new WaveInEvent
             {
                 WaveFormat = new WaveFormat(16000, 16, 1) // 16kHz, 16-bit, mono (required for Whisper.net)
@@ -86,6 +91,25 @@ namespace TalkKeys.Services.Audio
 
         private void OnDataAvailable(object? sender, WaveInEventArgs e)
         {
+            if (e.BytesRecorded > 0)
+            {
+                _totalBytesRecorded += e.BytesRecorded;
+
+                if (!_hasNonZeroSample)
+                {
+                    for (int index = 0; index + 1 < e.BytesRecorded; index += 2)
+                    {
+                        short sample = BitConverter.ToInt16(e.Buffer, index);
+                        const int silenceThreshold = 500;
+                        if (sample > silenceThreshold || sample < -silenceThreshold)
+                        {
+                            _hasNonZeroSample = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
             _writer?.Write(e.Buffer, 0, e.BytesRecorded);
         }
 
@@ -95,6 +119,19 @@ namespace TalkKeys.Services.Audio
             _writer = null;
             _waveIn?.Dispose();
             _waveIn = null;
+
+            bool noAudio = !_hasNonZeroSample || _totalBytesRecorded <= 0;
+
+            if (noAudio || e.Exception != null)
+            {
+                var reason = e.Exception != null
+                    ? $"Recording stopped due to device error: {e.Exception.Message}"
+                    : "Recording completed but no non-zero audio samples were detected";
+                _logger?.Log(reason);
+                Debug.WriteLine($"[AudioRecording] {reason}");
+                NoAudioDetected?.Invoke(this, EventArgs.Empty);
+            }
+
             RecordingStopped?.Invoke(this, EventArgs.Empty);
         }
 

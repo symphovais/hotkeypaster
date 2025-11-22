@@ -74,6 +74,7 @@ namespace TalkKeys
         private readonly IActiveWindowContextService _contextService;
         private string? _currentRecordingPath;
         private IRecordingModeHandler? _currentModeHandler;
+        private bool _lastRecordingHadNoAudio;
 
         // The text to paste
         private const string TEXT_TO_PASTE = "Hello from TalkKeys!";
@@ -93,6 +94,7 @@ namespace TalkKeys
 
             _audio.RecordingStarted += OnRecordingStarted;
             _audio.RecordingStopped += OnRecordingStopped;
+            _audio.NoAudioDetected += OnNoAudioDetected;
 
             // Subscribe to display settings changes to handle screen configuration changes
             SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
@@ -201,6 +203,10 @@ namespace TalkKeys
                     return;
                 }
 
+                // Play system beep to alert user that recording started
+                // This prevents accidental triggers from going unnoticed
+                System.Media.SystemSounds.Beep.Play();
+
                 RecordingStatus.Text = _currentModeHandler.GetModeTitle();
                 SubStatus.Text = $"🎤 {_audio.DeviceName} • {_currentModeHandler.GetInstructionText()}";
                 RecordingIcon.Text = _currentModeHandler.GetRecordingIcon();
@@ -217,6 +223,13 @@ namespace TalkKeys
         {
             await Dispatcher.InvokeAsync(async () =>
             {
+                if (_lastRecordingHadNoAudio)
+                {
+                    _lastRecordingHadNoAudio = false;
+                    Logger.Log("OnRecordingStopped: Skipping transcription due to no audio detected");
+                    return;
+                }
+
                 // Only process if this window initiated the recording
                 // Check if window is visible and has a recording path
                 if (!this.IsVisible || string.IsNullOrEmpty(_currentRecordingPath))
@@ -244,6 +257,47 @@ namespace TalkKeys
 
                 // Automatically start transcription
                 await TranscribeAndPaste();
+            });
+        }
+
+        private void OnNoAudioDetected(object? sender, EventArgs e)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                if (!this.IsVisible || string.IsNullOrEmpty(_currentRecordingPath))
+                {
+                    Logger.Log("OnNoAudioDetected: Ignoring event (window not visible or no recording path)");
+                    return;
+                }
+
+                _lastRecordingHadNoAudio = true;
+
+                var pulseAnimation = (Storyboard)this.Resources["PulseAnimation"];
+                pulseAnimation.Stop(RecordingPulse);
+                RecordingPulse.Opacity = 1;
+
+                RecordingStatus.Text = "No audio detected";
+                SubStatus.Text = "We could not hear anything. Check your microphone and try again.";
+                RecordingIcon.Text = "❌";
+                ActionButton.Content = "⏺";
+                ActionButton.IsEnabled = true;
+
+                if (!string.IsNullOrEmpty(_currentRecordingPath) && File.Exists(_currentRecordingPath))
+                {
+                    try
+                    {
+                        File.Delete(_currentRecordingPath);
+                        Logger.Log($"Cleaned up temp recording file after no-audio detection: {_currentRecordingPath}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log($"Failed to delete temp file after no-audio detection {_currentRecordingPath}: {ex.Message}");
+                    }
+                }
+
+                _currentRecordingPath = null;
+
+                _notifications.ShowError("Microphone Issue", "TalkKeys could not hear anything from your microphone. Please check your input device and try again.");
             });
         }
 

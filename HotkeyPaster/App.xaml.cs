@@ -112,11 +112,12 @@ namespace TalkKeys
                 // Register hotkeys
                 try
                 {
-                    _hotkeyService.RegisterHotkey("clipboard", System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.Shift, System.Windows.Forms.Keys.Q);
-                    _logger.Log("Registered Clipboard hotkey: Ctrl+Shift+Q");
+                    // Changed from Ctrl+Shift+Q to Ctrl+Alt+Q to avoid accidental triggers
+                    _hotkeyService.RegisterHotkey("clipboard", System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.Alt, System.Windows.Forms.Keys.Q);
+                    _logger.Log("Registered Clipboard hotkey: Ctrl+Alt+Q");
 
-                    _hotkeyService.RegisterHotkey("diary", System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.Shift, System.Windows.Forms.Keys.D);
-                    _logger.Log("Registered Diary hotkey: Ctrl+Shift+D");
+                    _hotkeyService.RegisterHotkey("diary", System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.Alt, System.Windows.Forms.Keys.D);
+                    _logger.Log("Registered Diary hotkey: Ctrl+Alt+D");
                 }
                 catch (Exception ex)
                 {

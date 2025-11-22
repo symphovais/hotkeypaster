@@ -10,5 +10,6 @@ namespace TalkKeys.Services.Audio
         string DeviceName { get; }
         event EventHandler? RecordingStarted;
         event EventHandler? RecordingStopped;
+        event EventHandler? NoAudioDetected;
     }
 }

@@ -62,8 +62,11 @@ namespace TalkKeys.Services.Clipboard
                 throw new InvalidOperationException($"Failed to send paste command: {ex.Message}", ex);
             }
 
-            // Restore previous clipboard content after a short delay
-            Thread.Sleep(100);
+            // Restore previous clipboard content after a longer delay
+            // Teams has very slow asynchronous clipboard handling and may take 2-3 seconds
+            // to fully process the paste operation. If we restore too early, Teams will
+            // paste the old clipboard content instead of our text.
+            Thread.Sleep(2500);
             if (!string.IsNullOrEmpty(previousClipboard))
             {
                 try
