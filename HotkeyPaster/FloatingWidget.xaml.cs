@@ -197,7 +197,7 @@ namespace TalkKeys
 
             // Calculate expanded dimensions
             const double expandedWidth = 320;
-            const double expandedHeight = 160;
+            const double expandedHeight = 200;
 
             // Hide compact panel, show expanded panel
             CompactPanel.Visibility = Visibility.Collapsed;
@@ -318,9 +318,9 @@ namespace TalkKeys
             CompactPanel.Visibility = Visibility.Visible;
             ExpandedPanel.Visibility = Visibility.Collapsed;
 
-            // Resize window back to compact (new card-style dimensions)
-            this.Width = 180;
-            this.Height = 100;
+            // Resize window back to compact (sleek card dimensions)
+            this.Width = 150;
+            this.Height = 72;
 
             // Restore original compact position
             this.Left = _compactPositionX;
@@ -376,18 +376,34 @@ namespace TalkKeys
         {
             if (_pipelineService == null)
             {
-                CompactStatus.Text = "API key required";
+                CompactStatus.Text = "Setup required";
                 CompactStatus.Foreground = new System.Windows.Media.SolidColorBrush(
                     System.Windows.Media.Color.FromRgb(239, 68, 68)); // Red
-                CompactInstruction.Text = "Click to configure";
+                CompactDeviceHint.Text = "Click to configure";
             }
             else
             {
-                CompactStatus.Text = "Ready to record";
+                CompactStatus.Text = "Ready";
                 CompactStatus.Foreground = new System.Windows.Media.SolidColorBrush(
                     System.Windows.Media.Color.FromRgb(99, 102, 241)); // Indigo
-                CompactInstruction.Text = "Click or Ctrl+Alt+Q";
+                // Show shortened device name
+                var deviceName = _audio.DeviceName ?? "Microphone";
+                CompactDeviceHint.Text = ShortenDeviceName(deviceName);
             }
+        }
+
+        private static string ShortenDeviceName(string deviceName)
+        {
+            // Remove common prefixes/suffixes to keep it short
+            var shortened = deviceName
+                .Replace("Microphone (", "")
+                .Replace("Microphone Array (", "")
+                .Replace(")", "")
+                .Replace(" - ", " ")
+                .Trim();
+
+            // Truncate if still too long
+            return shortened.Length > 18 ? shortened[..15] + "..." : shortened;
         }
 
         private void CompactPanel_MouseEnter(object sender, MouseEventArgs e)
