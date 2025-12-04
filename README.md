@@ -9,7 +9,6 @@ A simple Windows desktop application for voice-to-text transcription. Press a ho
 - **Automatic Pasting**: Transcribed text is automatically pasted into your active window
 - **System Tray Integration**: Runs quietly in the background
 - **Multi-Monitor Support**: Widget stays on the correct screen
-- **Voice Activity Detection**: Uses Silero VAD to detect speech
 - **Text Cleaning**: Optional GPT-4 powered text cleaning (removes filler words, fixes grammar)
 
 ## How It Works
@@ -18,7 +17,6 @@ A simple Windows desktop application for voice-to-text transcription. Press a ho
 2. Speak into your microphone
 3. Press `Space` to stop recording (or `Escape` to cancel)
 4. Audio is processed through the transcription pipeline:
-   - Voice Activity Detection (Silero VAD)
    - Speech-to-Text (OpenAI Whisper API)
    - Text Cleaning (optional, GPT-4)
 5. Text is automatically pasted into your previously active window
@@ -114,7 +112,7 @@ HotkeyPaster/
 │   ├── Hotkey/          # Global hotkey registration
 │   ├── Notifications/   # Toast notifications
 │   ├── Pipeline/        # Transcription pipeline
-│   │   ├── Stages/      # VAD, Whisper, Text Cleaning
+│   │   ├── Stages/      # Whisper, Text Cleaning
 │   │   └── Configuration/
 │   ├── Settings/        # Configuration persistence
 │   ├── Tray/            # System tray integration
@@ -127,7 +125,6 @@ HotkeyPaster/
 
 - **.NET 8.0** with WPF
 - **NAudio** for audio recording
-- **Silero VAD** for voice activity detection
 - **OpenAI Whisper API** for transcription
 - **OpenAI GPT-4** for text cleaning (optional)
 
@@ -157,5 +154,4 @@ MIT License
 ## Acknowledgments
 
 - [NAudio](https://github.com/naudio/NAudio) by Mark Heath
-- [Silero VAD](https://github.com/snakers4/silero-vad)
 - [OpenAI](https://openai.com) for Whisper and GPT APIs

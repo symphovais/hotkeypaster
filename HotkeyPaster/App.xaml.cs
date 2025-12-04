@@ -231,7 +231,6 @@ namespace TalkKeys
 
                 // Register stage factories (only the ones we need)
                 factory.RegisterStageFactory(new AudioValidationStageFactory());
-                factory.RegisterStageFactory(new SileroVADStageFactory());
                 factory.RegisterStageFactory(new OpenAIWhisperTranscriptionStageFactory());
                 factory.RegisterStageFactory(new GPTTextCleaningStageFactory());
 

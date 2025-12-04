@@ -123,16 +123,15 @@ namespace TalkKeys.Services.Pipeline.Configuration
 
             _logger?.Log("No pipeline configurations found, creating default");
 
-            // Single pipeline: VAD + OpenAI Whisper + GPT Cleaning
+            // Single pipeline: OpenAI Whisper + GPT Cleaning
             var defaultPipeline = new PipelineConfiguration
             {
                 Name = "Default",
-                Description = "Cloud-based transcription using OpenAI Whisper API with VAD preprocessing and GPT text cleaning",
+                Description = "Cloud-based transcription using OpenAI Whisper API with GPT text cleaning",
                 Enabled = true,
                 Stages = new List<StageConfiguration>
                 {
                     new() { Type = "AudioValidation", Enabled = true },
-                    new() { Type = "SileroVAD", Enabled = true, Settings = new() { ["Threshold"] = 0.5, ["MinSpeechDurationMs"] = 250, ["MinSilenceDurationMs"] = 100 } },
                     new() { Type = "OpenAIWhisperTranscription", Enabled = true, Settings = new() { ["ApiKey"] = openAiApiKey } },
                     new() { Type = "GPTTextCleaning", Enabled = true, Settings = new() { ["ApiKey"] = openAiApiKey } }
                 }
