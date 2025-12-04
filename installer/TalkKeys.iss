@@ -48,7 +48,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: "startwithwindows"; Description: "Start TalkKeys when Windows starts"; GroupDescription: "Startup:"; Flags: checked
+Name: "startwithwindows"; Description: "Start TalkKeys when Windows starts"; GroupDescription: "Startup:"
 
 [Files]
 ; Main application files - publish output
