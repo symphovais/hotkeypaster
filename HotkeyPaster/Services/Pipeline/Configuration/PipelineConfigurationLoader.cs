@@ -110,18 +110,13 @@ namespace TalkKeys.Services.Pipeline.Configuration
         }
 
         /// <summary>
-        /// Create default configuration if none exist
+        /// Create default configuration if none exist or if existing config has removed stages
         /// </summary>
         public void EnsureDefaultConfigurations(string openAiApiKey)
         {
-            var existing = LoadAll();
-            if (existing.Any())
-            {
-                _logger?.Log($"Found {existing.Count} existing pipeline configurations, skipping defaults");
-                return;
-            }
-
-            _logger?.Log("No pipeline configurations found, creating default");
+            // Always recreate the default pipeline to ensure it matches current app version
+            // This handles cases where stages have been removed (like SileroVAD)
+            _logger?.Log("Creating/updating default pipeline configuration");
 
             // Single pipeline: OpenAI Whisper + GPT Cleaning
             var defaultPipeline = new PipelineConfiguration
