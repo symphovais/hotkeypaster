@@ -1,218 +1,139 @@
-# 🎙️ HotkeyPaster
+# TalkKeys
 
-A powerful Windows desktop application for voice-to-text transcription with automatic clipboard pasting. Press a hotkey, speak, and instantly paste transcribed text anywhere.
+A simple Windows desktop application for voice-to-text transcription. Press a hotkey, speak, and your words are transcribed and pasted into any application.
 
-## ✨ Features
+## Features
 
-### 🎯 Core Functionality
-- **Global Hotkey**: Press `Ctrl+Shift+Q` to start/stop recording from anywhere
+- **Global Hotkey**: Press `Ctrl+Alt+Q` to start recording from anywhere
+- **Floating Widget**: Draggable, always-on-top widget shows recording status
 - **Automatic Pasting**: Transcribed text is automatically pasted into your active window
-- **System Tray Integration**: Runs quietly in the background with easy access
+- **System Tray Integration**: Runs quietly in the background
+- **Multi-Monitor Support**: Widget stays on the correct screen
+- **Voice Activity Detection**: Uses Silero VAD to detect speech
+- **Text Cleaning**: Optional GPT-4 powered text cleaning (removes filler words, fixes grammar)
 
-### 🎙️ Dual Transcription Modes
+## How It Works
 
-#### ☁️ Cloud Mode (OpenAI Whisper)
-- Uses OpenAI's Whisper API for transcription
-- Most accurate results
-- Requires API key and internet connection
-- Fast processing with cloud infrastructure
+1. Press `Ctrl+Alt+Q` or click the floating widget to start recording
+2. Speak into your microphone
+3. Press `Space` to stop recording (or `Escape` to cancel)
+4. Audio is processed through the transcription pipeline:
+   - Voice Activity Detection (Silero VAD)
+   - Speech-to-Text (OpenAI Whisper API)
+   - Text Cleaning (optional, GPT-4)
+5. Text is automatically pasted into your previously active window
 
-#### 📍 Local Mode (Whisper.net)
-- Runs entirely offline on your machine
-- **100% Private** - audio never leaves your computer
-- **Free** - no API costs
-- Works without internet connection
-- Supports GPU acceleration (CUDA) if available
+## Requirements
 
-### ✨ Text Processing
-- **Optional GPT-4 Cleaning**: Removes filler words, fixes grammar, improves formatting
-- **Works with both modes**: Available for local and cloud transcription
-- **Toggle on/off**: Enable or disable in settings
-
-### ⚡ Performance Testing
-- **Speed Test Tool**: Compare local vs cloud transcription speed
-- **Detailed Metrics**: Time, word count, words per second
-- **Side-by-side Results**: See transcribed text from both methods
-- **Winner Declaration**: Know which method is faster on your hardware
-
-### ⚙️ Modern Settings UI
-- Beautiful card-based interface
-- Real-time validation
-- Auto-save configuration
-- Model selection (shows only downloaded models)
-- API key management
-
-## 🚀 Quick Start
-
-### Prerequisites
 - Windows 10/11
 - .NET 8.0 Runtime
+- OpenAI API key
+- Microphone
+
+## Quick Start
 
 ### Installation
 
-1. **Clone the repository**
+1. Clone the repository
    ```bash
-   git clone https://github.com/yourusername/hotkeypaster.git
-   cd hotkeypaster
+   git clone https://github.com/yourusername/talkkeys.git
+   cd talkkeys
    ```
 
-2. **Build the project**
+2. Build the project
    ```bash
    cd HotkeyPaster
    dotnet build
    ```
 
-3. **Run the application**
+3. Run the application
    ```bash
    dotnet run
    ```
 
 ### First-Time Setup
 
-1. **Right-click the tray icon** and select **Settings**
+1. The floating widget will appear showing "API key required"
+2. Right-click the system tray icon and select **Settings**
+3. Enter your OpenAI API key
+4. Click **Save**
+5. The widget will now show "Ready to record"
 
-2. **Choose your transcription mode:**
-   - **Cloud Mode**: Enter your OpenAI API key
-   - **Local Mode**: Download a model first (see below)
+## Usage
 
-3. **Configure text cleaning** (optional)
+| Action | Method |
+|--------|--------|
+| Start recording | Press `Ctrl+Alt+Q` or click the widget |
+| Stop recording | Press `Space` |
+| Cancel recording | Press `Escape` |
+| Move widget | Drag the widget to any position |
+| Hide widget | Click the X button on the widget |
+| Show widget | Press `Ctrl+Alt+Q` |
+| Open settings | Right-click tray icon → Settings |
+| Exit application | Right-click tray icon → Exit |
 
-4. **Click Save & Close**
+## Settings
 
-## 📥 Downloading Local Models
+Settings are stored in: `%APPDATA%\TalkKeys\settings.json`
 
-For local transcription, you need to download a Whisper model:
+| Setting | Description |
+|---------|-------------|
+| OpenAI API Key | Required for transcription |
+| Audio Device | Select your microphone |
+| Enable Text Cleaning | Use GPT-4 to improve transcription quality |
 
-### Using PowerShell Script
-```powershell
-.\download-model.cmd
-```
+## Architecture
 
-### Manual Download
-1. Download from [Hugging Face](https://huggingface.co/ggerganov/whisper.cpp/tree/main)
-2. Save to `%APPDATA%\HotkeyPaster\Models\`
-3. Restart the app and select the model in settings
-
-### Available Models
-
-| Model | Size | Speed | Accuracy | Best For |
-|-------|------|-------|----------|----------|
-| Tiny | ~75 MB | ⚡⚡⚡⚡⚡ | ⭐⭐ | Quick notes, testing |
-| Base | ~142 MB | ⚡⚡⚡⚡ | ⭐⭐⭐ | **Recommended default** |
-| Small | ~466 MB | ⚡⚡⚡ | ⭐⭐⭐⭐ | Better accuracy |
-| Medium | ~1.5 GB | ⚡⚡ | ⭐⭐⭐⭐⭐ | High accuracy |
-| Large V3 | ~2.9 GB | ⚡ | ⭐⭐⭐⭐⭐ | Maximum accuracy |
-
-## 🎮 Usage
-
-### Basic Workflow
-1. **Start Recording**: Press `Ctrl+Shift+Q`
-2. **Speak**: Talk into your microphone
-3. **Stop Recording**: Press `Ctrl+Shift+Q` again
-4. **Transcribe**: Click "Transcribe & Paste" button
-5. **Auto-Paste**: Text is automatically pasted to your active window
-
-### Settings
-- **Right-click tray icon** → **Settings**
-- **Double-click tray icon** → Opens settings
-
-### Speed Test
-- Open **Settings** → Click **Run Speed Test**
-- Records 10 seconds of audio
-- Compares local vs cloud performance
-- Shows detailed results
-
-## 🏗️ Architecture
-
-### Clean Architecture
 ```
 HotkeyPaster/
 ├── Services/
-│   ├── Audio/              # Audio recording (NAudio)
-│   ├── Clipboard/          # Clipboard operations
-│   ├── Hotkey/             # Global hotkey registration
-│   ├── Notifications/      # Toast notifications
-│   ├── Settings/           # Configuration persistence
-│   ├── Transcription/      # Transcription services
-│   ├── Tray/               # System tray integration
-│   └── Window/             # Window positioning
-├── MainWindow.xaml         # Main UI
-├── SettingsWindow.xaml     # Settings UI
-└── SpeedTestWindow.xaml    # Speed test UI
+│   ├── Audio/           # Audio recording (NAudio)
+│   ├── Clipboard/       # Clipboard paste operations
+│   ├── Hotkey/          # Global hotkey registration
+│   ├── Notifications/   # Toast notifications
+│   ├── Pipeline/        # Transcription pipeline
+│   │   ├── Stages/      # VAD, Whisper, Text Cleaning
+│   │   └── Configuration/
+│   ├── Settings/        # Configuration persistence
+│   ├── Tray/            # System tray integration
+│   └── Windowing/       # Window context service
+├── FloatingWidget.xaml  # Main floating UI
+└── SettingsWindow.xaml  # Settings UI
 ```
 
-### Dependency Injection
-- **ITranscriber**: Interface for transcription (OpenAI or Local)
-- **ITextCleaner**: Interface for text cleaning (GPT or PassThrough)
-- **IAudioTranscriptionService**: Orchestrates transcription pipeline
+## Technologies
 
-### Key Technologies
 - **.NET 8.0** with WPF
-- **Whisper.net** for local transcription
 - **NAudio** for audio recording
-- **OpenAI API** for cloud transcription and text cleaning
-- **Windows Forms** for system tray
+- **Silero VAD** for voice activity detection
+- **OpenAI Whisper API** for transcription
+- **OpenAI GPT-4** for text cleaning (optional)
 
-## 📊 Comparison: Local vs Cloud
+## Troubleshooting
 
-| Feature | Local (Whisper.net) | Cloud (OpenAI) |
-|---------|-------------------|----------------|
-| **Privacy** | ✅ Fully offline | ❌ Data sent to OpenAI |
-| **Cost** | ✅ Free | ❌ Pay per use |
-| **Speed** | ⚡ Depends on hardware | ⚡⚡ Fast (cloud) |
-| **Accuracy** | ⭐⭐⭐⭐ Good | ⭐⭐⭐⭐⭐ Excellent |
-| **Setup** | 📥 One-time download | 🔑 API key needed |
-| **Internet** | ✅ Works offline | ❌ Requires connection |
-| **Disk Space** | 142 MB - 2.9 GB | None |
+### Widget not appearing
+- Check the system tray for the TalkKeys icon
+- Press `Ctrl+Alt+Q` to show the widget
 
-## 🔧 Configuration
+### Transcription not working
+- Verify your OpenAI API key is correct
+- Check your internet connection
+- Ensure your microphone is working
 
-Settings are stored in: `%APPDATA%\HotkeyPaster\settings.json`
+### Audio issues
+- Open Settings and select the correct audio device
+- Check Windows microphone permissions
 
-```json
-{
-  "TranscriptionMode": "Local",
-  "LocalModelPath": "C:\\Users\\...\\ggml-base.bin",
-  "EnableTextCleaning": true,
-  "OpenAIApiKey": "sk-..."
-}
-```
+### Hotkey not working
+- Another application may be using `Ctrl+Alt+Q`
+- Restart TalkKeys
 
-## 🐛 Troubleshooting
+## License
 
-### Audio Issues
-- **Check microphone permissions** in Windows Settings
-- **Ensure 16kHz recording** is supported by your device
-- **Test with different models** if local transcription fails
+MIT License
 
-### Model Issues
-- **Download failed**: Check internet connection
-- **Model not showing**: Ensure it's in `%APPDATA%\HotkeyPaster\Models\`
-- **Slow transcription**: Use smaller model (Tiny or Base)
+## Acknowledgments
 
-### API Issues
-- **Invalid API key**: Verify key at platform.openai.com
-- **Rate limits**: Wait a moment and try again
-- **Network errors**: Check internet connection
-
-## 📝 License
-
-MIT License - See LICENSE file for details
-
-## 🙏 Acknowledgments
-
-- [Whisper.net](https://github.com/sandrohanea/whisper.net) by Sandro Hanea
-- [OpenAI Whisper](https://openai.com/research/whisper) by OpenAI
 - [NAudio](https://github.com/naudio/NAudio) by Mark Heath
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📧 Support
-
-For issues and questions, please open an issue on GitHub.
-
----
-
-**Made with ❤️ for productivity enthusiasts**
+- [Silero VAD](https://github.com/snakers4/silero-vad)
+- [OpenAI](https://openai.com) for Whisper and GPT APIs
