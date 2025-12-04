@@ -2,8 +2,8 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Settings - TalkKeys"
-        Height="700"
-        Width="800"
+        Height="600"
+        Width="500"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResize"
         Background="{StaticResource BackgroundPrimary}">
@@ -17,8 +17,8 @@
 
         <!-- Header -->
         <StackPanel Grid.Row="0" Margin="0,0,0,20">
-            <TextBlock Text="⚙️ Settings" Style="{StaticResource DisplayText}"/>
-            <TextBlock Text="Configure transcription and application preferences"
+            <TextBlock Text="Settings" Style="{StaticResource DisplayText}"/>
+            <TextBlock Text="Configure your OpenAI API key for transcription"
                        Style="{StaticResource BodyText}"
                        Foreground="{StaticResource TextTertiary}"
                        Margin="0,5,0,0"/>
@@ -28,236 +28,12 @@
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <StackPanel>
                 
-                <!-- Pipeline Configuration Section -->
-                <Border Style="{StaticResource Card}">
-                    <StackPanel>
-                        <TextBlock Text="🎯 Pipeline Configuration" Style="{StaticResource TitleText}"/>
-                        <TextBlock Text="Choose the processing pipeline that works best for your needs:"
-                                   Style="{StaticResource CaptionText}"
-                                   Foreground="{StaticResource TextTertiary}"
-                                   Margin="0,0,0,12"/>
-
-                        <RadioButton x:Name="MaximumQualityRadio"
-                                     GroupName="Pipeline"
-                                     Style="{StaticResource RadioButtonStyle}"
-                                     Checked="PipelinePreset_Changed">
-                            <StackPanel>
-                                <Grid>
-                                    <StackPanel>
-                                        <TextBlock Text="🏆 Maximum Quality" Style="{StaticResource BodyText}" FontWeight="SemiBold"/>
-                                        <TextBlock Text="Best accuracy • Noise reduction + Silence removal + Cloud processing"
-                                                   Style="{StaticResource CaptionText}"
-                                                   Foreground="{StaticResource TextTertiary}"/>
-                                    </StackPanel>
-                                </Grid>
-                                <Border x:Name="MaximumQualityResult"
-                                        Visibility="Collapsed"
-                                        Background="{StaticResource BackgroundElevated}"
-                                        CornerRadius="6"
-                                        Padding="10,8"
-                                        Margin="0,8,0,0"
-                                        BorderBrush="{StaticResource BorderSubtle}"
-                                        BorderThickness="1">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Accuracy:" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="0,0,6,0"/>
-                                        <TextBlock Grid.Column="1" x:Name="MaximumQualityAccuracy" FontWeight="Bold" Foreground="{StaticResource AccentSuccess}" FontSize="11"/>
-                                        <TextBlock Grid.Column="2" Text="Speed:" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="12,0,6,0"/>
-                                        <TextBlock Grid.Column="3" x:Name="MaximumQualitySpeed" FontWeight="Bold" Foreground="{StaticResource AccentInfo}" FontSize="11"/>
-                                    </Grid>
-                                </Border>
-                            </StackPanel>
-                        </RadioButton>
-
-                        <RadioButton x:Name="BalancedQualityRadio"
-                                     GroupName="Pipeline"
-                                     Style="{StaticResource RadioButtonStyle}"
-                                     Checked="PipelinePreset_Changed">
-                            <StackPanel>
-                                <Grid>
-                                    <StackPanel>
-                                        <TextBlock Text="⚖️ Balanced Quality" FontWeight="SemiBold" FontSize="14"/>
-                                        <TextBlock Text="Good accuracy • Noise reduction + Cloud processing • Faster than maximum"
-                                                   Style="{StaticResource CaptionText}" Foreground="{StaticResource TextTertiary}"/>
-                                    </StackPanel>
-                                </Grid>
-                                <Border x:Name="BalancedQualityResult"
-                                        Visibility="Collapsed"
-                                        Background="{StaticResource BackgroundElevated}"
-                                        CornerRadius="6"
-                                        Padding="10,8"
-                                        Margin="0,8,0,0"
-                                        BorderBrush="{StaticResource BorderSubtle}"
-                                        BorderThickness="1">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Accuracy:" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="0,0,6,0"/>
-                                        <TextBlock Grid.Column="1" x:Name="BalancedQualityAccuracy" FontWeight="Bold" Foreground="{StaticResource AccentSuccess}" FontSize="11"/>
-                                        <TextBlock Grid.Column="2" Text="Speed:" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="12,0,6,0"/>
-                                        <TextBlock Grid.Column="3" x:Name="BalancedQualitySpeed" FontWeight="Bold" Foreground="{StaticResource AccentInfo}" FontSize="11"/>
-                                    </Grid>
-                                </Border>
-                            </StackPanel>
-                        </RadioButton>
-
-                        <RadioButton x:Name="FastCloudRadio"
-                                     GroupName="Pipeline"
-                                     Style="{StaticResource RadioButtonStyle}"
-                                     Checked="PipelinePreset_Changed">
-                            <StackPanel>
-                                <Grid>
-                                    <StackPanel>
-                                        <TextBlock Text="⚡ Fast Cloud" FontWeight="SemiBold" FontSize="14"/>
-                                        <TextBlock Text="Fastest cloud option • No preprocessing • Best for quiet environments"
-                                                   Style="{StaticResource CaptionText}" Foreground="{StaticResource TextTertiary}"/>
-                                    </StackPanel>
-                                </Grid>
-                                <Border x:Name="FastCloudResult"
-                                        Visibility="Collapsed"
-                                        Background="{StaticResource BackgroundElevated}"
-                                        CornerRadius="6"
-                                        Padding="10,8"
-                                        Margin="0,8,0,0"
-                                        BorderBrush="{StaticResource BorderSubtle}"
-                                        BorderThickness="1">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Accuracy:" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="0,0,6,0"/>
-                                        <TextBlock Grid.Column="1" x:Name="FastCloudAccuracy" FontWeight="Bold" Foreground="{StaticResource AccentSuccess}" FontSize="11"/>
-                                        <TextBlock Grid.Column="2" Text="Speed:" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="12,0,6,0"/>
-                                        <TextBlock Grid.Column="3" x:Name="FastCloudSpeed" FontWeight="Bold" Foreground="{StaticResource AccentInfo}" FontSize="11"/>
-                                    </Grid>
-                                </Border>
-                            </StackPanel>
-                        </RadioButton>
-
-                        <RadioButton x:Name="MaximumPrivacyRadio"
-                                     GroupName="Pipeline"
-                                     Style="{StaticResource RadioButtonStyle}"
-                                     Checked="PipelinePreset_Changed">
-                            <StackPanel>
-                                <Grid>
-                                    <StackPanel>
-                                        <TextBlock Text="🔒 Maximum Privacy" FontWeight="SemiBold" FontSize="14"/>
-                                        <TextBlock Text="Best for privacy • Noise reduction + Silence removal + Local processing • Runs entirely on your device"
-                                                   Style="{StaticResource CaptionText}" Foreground="{StaticResource TextTertiary}"/>
-                                    </StackPanel>
-                                </Grid>
-                                <Border x:Name="MaximumPrivacyResult"
-                                        Visibility="Collapsed"
-                                        Background="{StaticResource BackgroundElevated}"
-                                        CornerRadius="6"
-                                        Padding="10,8"
-                                        Margin="0,8,0,0"
-                                        BorderBrush="{StaticResource BorderSubtle}"
-                                        BorderThickness="1">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Accuracy:" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="0,0,6,0"/>
-                                        <TextBlock Grid.Column="1" x:Name="MaximumPrivacyAccuracy" FontWeight="Bold" Foreground="{StaticResource AccentSuccess}" FontSize="11"/>
-                                        <TextBlock Grid.Column="2" Text="Speed:" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="12,0,6,0"/>
-                                        <TextBlock Grid.Column="3" x:Name="MaximumPrivacySpeed" FontWeight="Bold" Foreground="{StaticResource AccentInfo}" FontSize="11"/>
-                                    </Grid>
-                                </Border>
-                            </StackPanel>
-                        </RadioButton>
-
-                        <RadioButton x:Name="FastLocalRadio"
-                                     GroupName="Pipeline"
-                                     Style="{StaticResource RadioButtonStyle}"
-                                     Checked="PipelinePreset_Changed">
-                            <StackPanel>
-                                <Grid>
-                                    <StackPanel>
-                                        <TextBlock Text="🚀 Fast Local" FontWeight="SemiBold" FontSize="14"/>
-                                        <TextBlock Text="Fastest offline option • Local processing only • Completely private"
-                                                   Style="{StaticResource CaptionText}" Foreground="{StaticResource TextTertiary}"/>
-                                    </StackPanel>
-                                </Grid>
-                                <Border x:Name="FastLocalResult"
-                                        Visibility="Collapsed"
-                                        Background="{StaticResource BackgroundElevated}"
-                                        CornerRadius="6"
-                                        Padding="10,8"
-                                        Margin="0,8,0,0"
-                                        BorderBrush="{StaticResource BorderSubtle}"
-                                        BorderThickness="1">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Accuracy:" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="0,0,6,0"/>
-                                        <TextBlock Grid.Column="1" x:Name="FastLocalAccuracy" FontWeight="Bold" Foreground="{StaticResource AccentSuccess}" FontSize="11"/>
-                                        <TextBlock Grid.Column="2" Text="Speed:" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="12,0,6,0"/>
-                                        <TextBlock Grid.Column="3" x:Name="FastLocalSpeed" FontWeight="Bold" Foreground="{StaticResource AccentInfo}" FontSize="11"/>
-                                    </Grid>
-                                </Border>
-                            </StackPanel>
-                        </RadioButton>
-
-                        <!-- Local Model Selection (shown for privacy options) -->
-                        <StackPanel x:Name="LocalModelPanel" Visibility="Collapsed" Margin="0,10,0,0">
-                            <TextBlock Text="Select Local Model:" Style="{StaticResource LabelText}"/>
-                            <ComboBox x:Name="LocalModelComboBox"
-                                      Style="{StaticResource ComboBoxStyle}"
-                                      SelectionChanged="LocalModel_Changed"/>
-                            <TextBlock x:Name="ModelInfoText"
-                                       Style="{StaticResource CaptionText}"
-                                       Foreground="{StaticResource AccentSuccess}"/>
-
-                            <!-- Download Models Button -->
-                            <Button x:Name="DownloadModelsButton"
-                                    Content="📥 Download More Models"
-                                    Click="DownloadModels_Click"
-                                    Style="{StaticResource SecondaryButton}"
-                                    HorizontalAlignment="Stretch"
-                                    Margin="0,15,0,0"/>
-                        </StackPanel>
-
-                        <Button x:Name="DeathmatchButton"
-                                Content="🧪 Pipeline Benchmark - Test &amp; Compare All"
-                                Style="{StaticResource PrimaryButton}"
-                                Click="Deathmatch_Click"
-                                Margin="0,15,0,0"
-                                HorizontalAlignment="Stretch"/>
-
-                        <TextBlock Text="💡 Run the benchmark to test all configurations and find the best one for your needs!"
-                                   Style="{StaticResource CaptionText}"
-                                   Foreground="{StaticResource AccentSuccess}"
-                                   FontStyle="Italic"
-                                   Margin="0,8,0,0"/>
-                    </StackPanel>
-                </Border>
-
                 <!-- API Configuration Section -->
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
-                        <TextBlock Text="🔑 API Configuration" Style="{StaticResource TitleText}"/>
+                        <TextBlock Text="API Configuration" Style="{StaticResource TitleText}"/>
 
-                        <TextBlock Text="OpenAI API Key:" Style="{StaticResource LabelText}"/>
+                        <TextBlock Text="OpenAI API Key:" Style="{StaticResource LabelText}" Margin="0,10,0,5"/>
                         <TextBox x:Name="ApiKeyTextBox"
                                  TextChanged="ApiKey_Changed"
                                  Height="36"
@@ -269,8 +45,63 @@
                                  BorderBrush="{StaticResource BorderInput}"
                                  BorderThickness="1"
                                  CaretBrush="{StaticResource AccentPrimary}"/>
-                        <TextBlock Text="Required for Cloud pipelines. Get your key from platform.openai.com"
-                                   Style="{StaticResource CaptionText}" Foreground="{StaticResource TextTertiary}"/>
+                        <TextBlock Text="Required for transcription. Get your key from platform.openai.com"
+                                   Style="{StaticResource CaptionText}" Foreground="{StaticResource TextTertiary}"
+                                   Margin="0,5,0,0"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Audio Configuration Section -->
+                <Border Style="{StaticResource Card}" Margin="0,20,0,0">
+                    <StackPanel>
+                        <TextBlock Text="Audio Configuration" Style="{StaticResource TitleText}"/>
+
+                        <TextBlock Text="Input Device:" Style="{StaticResource LabelText}" Margin="0,10,0,5"/>
+                        <ComboBox x:Name="AudioDeviceComboBox"
+                                  Style="{StaticResource ComboBoxStyle}"
+                                  SelectionChanged="AudioDevice_Changed"
+                                  Height="36"
+                                  Padding="10,8"
+                                  FontSize="13"
+                                  FontFamily="Segoe UI"
+                                  Background="{StaticResource BackgroundSecondary}"
+                                  Foreground="{StaticResource TextPrimary}"
+                                  BorderBrush="{StaticResource BorderInput}"
+                                  BorderThickness="1">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" 
+                                               TextTrimming="CharacterEllipsis" 
+                                               ToolTip="{Binding}"
+                                               Foreground="{StaticResource TextPrimary}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                            <ComboBox.Resources>
+                                <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#242424"/>
+                                <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#E5E7EB"/>
+                                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#FF6B47"/>
+                            </ComboBox.Resources>
+                            <ComboBox.ItemContainerStyle>
+                                <Style TargetType="ComboBoxItem">
+                                    <Setter Property="Background" Value="{StaticResource BackgroundSecondary}"/>
+                                    <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+                                    <Setter Property="BorderThickness" Value="0"/>
+                                    <Setter Property="Padding" Value="10,5"/>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource BackgroundTertiary}"/>
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource AccentPrimary}"/>
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ComboBox.ItemContainerStyle>
+                        </ComboBox>
+                        <TextBlock Text="Select the microphone to use for recording."
+                                   Style="{StaticResource CaptionText}" Foreground="{StaticResource TextTertiary}"
+                                   Margin="0,5,0,0"/>
                     </StackPanel>
                 </Border>
 

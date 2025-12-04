@@ -59,35 +59,65 @@ namespace TalkKeys.Services.Pipeline
 
                     _logger?.Log($"Pipeline '{Name}' executing stage {i + 1}/{_stages.Count}: {stage.Name}");
 
-                    // Execute the stage
-                    StageResult result;
-                    try
-                    {
-                        result = await stage.ExecuteAsync(context);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger?.Log($"Pipeline '{Name}' stage '{stage.Name}' threw exception: {ex}");
+                    // Execute the stage with retries
+                    StageResult? result = null;
+                    int attempts = 0;
+                    int maxAttempts = 1 + stage.RetryCount;
 
-                        // Create error metrics
-                        var errorMetrics = new StageMetrics
+                    while (attempts < maxAttempts)
+                    {
+                        attempts++;
+                        try
                         {
-                            StageName = stage.Name,
-                            StartTime = DateTime.UtcNow,
-                            EndTime = DateTime.UtcNow
-                        };
-                        errorMetrics.AddMetric("Exception", ex.Message);
+                            if (attempts > 1)
+                            {
+                                _logger?.Log($"Retry attempt {attempts}/{maxAttempts} for stage '{stage.Name}' after {stage.RetryDelay.TotalMilliseconds}ms delay");
+                                await Task.Delay(stage.RetryDelay, context.CancellationToken);
+                            }
 
-                        result = StageResult.Failure($"Exception in {stage.Name}: {ex.Message}", errorMetrics);
+                            result = await stage.ExecuteAsync(context);
+
+                            if (result.IsSuccess)
+                            {
+                                break;
+                            }
+                            else
+                            {
+                                _logger?.Log($"Stage '{stage.Name}' failed (attempt {attempts}/{maxAttempts}): {result.ErrorMessage}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger?.Log($"Pipeline '{Name}' stage '{stage.Name}' threw exception (attempt {attempts}/{maxAttempts}): {ex}");
+
+                            // Create error metrics
+                            var errorMetrics = new StageMetrics
+                            {
+                                StageName = stage.Name,
+                                StartTime = DateTime.UtcNow,
+                                EndTime = DateTime.UtcNow
+                            };
+                            errorMetrics.AddMetric("Exception", ex.Message);
+
+                            result = StageResult.Failure($"Exception in {stage.Name}: {ex.Message}", errorMetrics);
+                        }
                     }
 
-                    // Add stage metrics
-                    context.Metrics.AddStageMetrics(result.Metrics);
+                    // Add stage metrics (from last attempt)
+                    if (result != null)
+                    {
+                        context.Metrics.AddStageMetrics(result.Metrics);
+                    }
+                    else
+                    {
+                        // Should not happen, but safety check
+                        result = StageResult.Failure($"Stage {stage.Name} failed to execute", new StageMetrics { StageName = stage.Name });
+                    }
 
-                    // Check if stage failed
+                    // Check if stage failed after all retries
                     if (!result.IsSuccess)
                     {
-                        _logger?.Log($"Pipeline '{Name}' failed at stage '{stage.Name}': {result.ErrorMessage}");
+                        _logger?.Log($"Pipeline '{Name}' failed at stage '{stage.Name}' after {attempts} attempts: {result.ErrorMessage}");
                         context.Metrics.EndTime = DateTime.UtcNow;
 
                         return new PipelineResult

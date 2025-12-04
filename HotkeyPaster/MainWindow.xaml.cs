@@ -70,7 +70,7 @@ namespace TalkKeys
         private readonly ILogger _logger;
         private readonly IAudioRecordingService _audio;
         private readonly IHotkeyService _hotkeyService;
-        private readonly IPipelineService _pipelineService;
+        private IPipelineService _pipelineService;
         private readonly IActiveWindowContextService _contextService;
         private string? _currentRecordingPath;
         private IRecordingModeHandler? _currentModeHandler;
@@ -127,6 +127,15 @@ namespace TalkKeys
             {
                 Logger.Log($"Ctor PositionWindowAtBottom error: {ex}");
             }
+        }
+
+        /// <summary>
+        /// Updates the pipeline service (called when settings change)
+        /// </summary>
+        public void UpdatePipelineService(IPipelineService newPipelineService)
+        {
+            _pipelineService = newPipelineService;
+            Logger.Log("Pipeline service updated");
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)

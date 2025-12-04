@@ -9,27 +9,14 @@ namespace TalkKeys.Services.Settings
     /// </summary>
     public class AppSettings
     {
-        // Pipeline Selection
-        public string SelectedPipeline { get; set; } = "MaximumQuality"; // Default to best quality
-
-        // API & Model Configuration
-        public string? LocalModelPath { get; set; }
+        // API Configuration
         public string? OpenAIApiKey { get; set; }
 
         // Text Processing
         public bool EnableTextCleaning { get; set; } = true;
-    }
 
-    /// <summary>
-    /// Available pipeline presets.
-    /// </summary>
-    public static class PipelinePresets
-    {
-        public const string MaximumQuality = "MaximumQuality";      // RNNoise + VAD + Cloud
-        public const string BalancedQuality = "BalancedQuality";    // RNNoise only + Cloud
-        public const string FastCloud = "FastCloud";                // Cloud only
-        public const string MaximumPrivacy = "MaximumPrivacy";      // RNNoise + VAD + Local
-        public const string FastLocal = "FastLocal";                // Local only
+        // Audio Configuration
+        public int AudioDeviceIndex { get; set; } = 0;
     }
 
     /// <summary>
@@ -76,9 +63,9 @@ namespace TalkKeys.Services.Settings
             try
             {
                 Directory.CreateDirectory(SettingsDir);
-                var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions 
-                { 
-                    WriteIndented = true 
+                var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions
+                {
+                    WriteIndented = true
                 });
                 File.WriteAllText(SettingsPath, json);
             }

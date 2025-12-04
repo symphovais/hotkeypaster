@@ -11,6 +11,8 @@ namespace TalkKeys.Services.Pipeline.Stages
     {
         public string Name { get; }
         public string StageType => "AudioValidation";
+        public int RetryCount => 0;
+        public TimeSpan RetryDelay => TimeSpan.Zero;
 
         public AudioValidationStage(string? name = null)
         {

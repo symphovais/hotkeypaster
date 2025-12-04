@@ -20,6 +20,8 @@ namespace TalkKeys.Services.Audio
         private bool _hasNonZeroSample;
         private int _totalBytesRecorded;
 
+        private int _currentDeviceIndex = 0;
+
         public AudioRecordingService(ILogger? logger = null)
         {
             _logger = logger;
@@ -27,17 +29,17 @@ namespace TalkKeys.Services.Audio
 
         public bool IsRecording => _waveIn != null;
         
+        public int CurrentDeviceIndex => _currentDeviceIndex;
+
         public string DeviceName
         {
             get
             {
                 try
                 {
-                    // Get the default recording device (device number 0)
-                    int deviceNumber = 0;
-                    if (deviceNumber < WaveInEvent.DeviceCount)
+                    if (_currentDeviceIndex < WaveInEvent.DeviceCount)
                     {
-                        var capabilities = WaveInEvent.GetCapabilities(deviceNumber);
+                        var capabilities = WaveInEvent.GetCapabilities(_currentDeviceIndex);
                         return capabilities.ProductName;
                     }
                     return "Default Microphone";
@@ -46,6 +48,49 @@ namespace TalkKeys.Services.Audio
                 {
                     return "Unknown Device";
                 }
+            }
+        }
+
+        public string[] GetAvailableDevices()
+        {
+            var devices = new System.Collections.Generic.List<string>();
+            
+            // Add System Default option
+            devices.Add("System Default");
+
+            for (int i = 0; i < WaveInEvent.DeviceCount; i++)
+            {
+                try
+                {
+                    var capabilities = WaveInEvent.GetCapabilities(i);
+                    devices.Add(capabilities.ProductName);
+                }
+                catch
+                {
+                    devices.Add($"Device {i}");
+                }
+            }
+            return devices.ToArray();
+        }
+
+        public void SetDevice(int deviceIndex)
+        {
+            // Index 0 is "System Default", which maps to device 0 for now
+            // Real devices start at index 1 (Device 0), index 2 (Device 1), etc.
+            
+            if (deviceIndex == 0)
+            {
+                _currentDeviceIndex = 0; // Default to first device
+                _logger?.Log("Audio device set to System Default (using device 0)");
+            }
+            else if (deviceIndex > 0 && deviceIndex <= WaveInEvent.DeviceCount)
+            {
+                _currentDeviceIndex = deviceIndex - 1;
+                _logger?.Log($"Audio device set to index {_currentDeviceIndex}: {DeviceName}");
+            }
+            else
+            {
+                _logger?.Log($"Invalid audio device index: {deviceIndex}. Keeping current: {_currentDeviceIndex}");
             }
         }
 
@@ -59,6 +104,7 @@ namespace TalkKeys.Services.Audio
             _totalBytesRecorded = 0;
             _waveIn = new WaveInEvent
             {
+                DeviceNumber = _currentDeviceIndex,
                 WaveFormat = new WaveFormat(16000, 16, 1) // 16kHz, 16-bit, mono (required for Whisper.net)
             };
 

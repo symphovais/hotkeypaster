@@ -16,8 +16,6 @@ using TalkKeys.Services.Pipeline.Configuration;
 using TalkKeys.Services.Pipeline.Stages;
 using TalkKeys.Services.Settings;
 using TalkKeys.Services.RecordingMode;
-using TalkKeys.Services.Diary;
-using Whisper.net.Ggml;
 
 namespace TalkKeys
 {
@@ -30,12 +28,13 @@ namespace TalkKeys
         private SettingsService? _settingsService;
         private ILogger? _logger;
         private INotificationService? _notifications;
-        private PipelineFactory? _pipelineFactory;
-        private PipelineBuildContext? _pipelineBuildContext;
-        private PipelineBuildContextFactory? _buildContextFactory;
         private IAudioRecordingService? _audioService;
         private IHotkeyService? _hotkeyService;
         private ITrayService? _trayService;
+        private MainWindow? _mainWindow;
+        private WindowPositionService? _positioner;
+        private ClipboardPasteService? _clipboardService;
+        private ActiveWindowContextService? _contextService;
         private bool _mutexOwned = false;
 
         protected override void OnStartup(StartupEventArgs e)
@@ -65,137 +64,69 @@ namespace TalkKeys
 
             // Create services
             _logger = new FileLogger();
-            _buildContextFactory = new PipelineBuildContextFactory(_logger);
             _notifications = new ToastNotificationService();
 
             // Register global exception handlers
             RegisterGlobalExceptionHandlers();
-            var positioner = new WindowPositionService(_logger);
-            var clipboardService = new ClipboardPasteService();
+            _positioner = new WindowPositionService(_logger);
+            _clipboardService = new ClipboardPasteService();
             _audioService = new AudioRecordingService(_logger);
             _hotkeyService = new Win32HotkeyService();
             _trayService = new TrayService();
-            var contextService = new ActiveWindowContextService();
+            _contextService = new ActiveWindowContextService();
             _settingsService = new SettingsService();
-            var diaryService = new DiaryService(_logger);
 
             // Load settings and configure pipeline service
             var settings = _settingsService.LoadSettings();
-            _pipelineService = CreatePipelineService(settings);
 
-            if (_pipelineService == null)
+            // Check if API key is configured
+            if (string.IsNullOrWhiteSpace(settings.OpenAIApiKey))
             {
-                _notifications.ShowError("Configuration Required",
-                    "Please configure transcription settings. Right-click the tray icon and select Settings.");
-                _logger.Log("App started with invalid configuration - user needs to configure settings");
+                _notifications.ShowError("API Key Required",
+                    "No OpenAI API key configured. Right-click the tray icon and select Settings to add your API key.");
+                _logger.Log("App started without API key - user needs to configure settings");
+            }
+            else
+            {
+                _pipelineService = CreatePipelineService(settings);
+                if (_pipelineService == null)
+                {
+                    _notifications.ShowError("Configuration Error",
+                        "Failed to initialize transcription pipeline. Check logs for details.");
+                    _logger.Log("App started with invalid configuration");
+                }
             }
 
             // Initialize tray
             _trayService.InitializeTray();
 
-            // Create MainWindow and inject services (only if pipeline service is available)
-            MainWindow? mainWindow = null;
-
+            // Create MainWindow if pipeline service is available
             if (_pipelineService != null)
             {
-                mainWindow = new MainWindow(
-                    _notifications,
-                    positioner,
-                    clipboardService,
-                    _logger,
-                    _audioService,
-                    _hotkeyService,
-                    _pipelineService,
-                    contextService
-                );
-
-                // Register hotkeys
-                try
-                {
-                    // Changed from Ctrl+Shift+Q to Ctrl+Alt+Q to avoid accidental triggers
-                    _hotkeyService.RegisterHotkey("clipboard", System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.Alt, System.Windows.Forms.Keys.Q);
-                    _logger.Log("Registered Clipboard hotkey: Ctrl+Alt+Q");
-
-                    _hotkeyService.RegisterHotkey("diary", System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.Alt, System.Windows.Forms.Keys.D);
-                    _logger.Log("Registered Diary hotkey: Ctrl+Alt+D");
-                }
-                catch (Exception ex)
-                {
-                    _logger.Log($"Hotkey registration failed: {ex}");
-                    _notifications.ShowError("Hotkey Registration Failed", $"Could not register hotkeys: {ex.Message}");
-                }
-
-                // Wire hotkey event - route to appropriate mode handler based on hotkey ID
-                _hotkeyService.HotkeyPressed += (s, args) =>
-                {
-                    if (args.HotkeyId == "clipboard")
-                    {
-                        var clipboardHandler = new ClipboardModeHandler(clipboardService, _logger);
-                        mainWindow.ShowWindow(clipboardHandler);
-                    }
-                    else if (args.HotkeyId == "diary")
-                    {
-                        var diaryHandler = new DiaryModeHandler(diaryService, _logger);
-                        mainWindow.ShowWindow(diaryHandler);
-                    }
-                };
+                CreateMainWindow();
             }
-            else
+
+            // Register hotkeys
+            try
             {
-                // If no pipeline service, hotkey opens settings
-                _hotkeyService.HotkeyPressed += (s, args) =>
-                {
-                    // Create factory and build context for settings window (even if pipeline service failed)
-                    if (_pipelineFactory == null || _pipelineBuildContext == null)
-                    {
-                        _pipelineFactory = new PipelineFactory(_logger);
-                        _pipelineBuildContext = _buildContextFactory!.Create(settings);
-                    }
-
-                    var settingsWindow = new SettingsWindow(_settingsService, _audioService, _logger, _pipelineFactory, _pipelineBuildContext, _buildContextFactory!);
-                    settingsWindow.SettingsChanged += (sender, eventArgs) =>
-                    {
-                        ReloadPipelineService();
-                        // TODO: Create MainWindow after successful config
-                    };
-                    settingsWindow.Show();
-                };
+                _hotkeyService.RegisterHotkey("clipboard", System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.Alt, System.Windows.Forms.Keys.Q);
+                _logger.Log("Registered hotkey: Ctrl+Alt+Q");
             }
+            catch (Exception ex)
+            {
+                _logger.Log($"Hotkey registration failed: {ex}");
+                _notifications.ShowError("Hotkey Registration Failed", $"Could not register hotkeys: {ex.Message}");
+            }
+
+            // Wire hotkey event
+            _hotkeyService.HotkeyPressed += OnHotkeyPressed;
 
             // Wire tray events
             _trayService.SettingsRequested += (s, args) =>
             {
-                // Ensure factory and build context exist
-                if (_pipelineFactory == null || _pipelineBuildContext == null)
-                {
-                    var currentSettings = _settingsService.LoadSettings();
-                    _pipelineFactory = new PipelineFactory(_logger);
-                    _pipelineBuildContext = _buildContextFactory!.Create(currentSettings);
-                }
-
-                var settingsWindow = new SettingsWindow(_settingsService, _audioService, _logger, _pipelineFactory, _pipelineBuildContext, _buildContextFactory!);
-                settingsWindow.SettingsChanged += (sender, eventArgs) => ReloadPipelineService();
+                var settingsWindow = new SettingsWindow(_settingsService, _logger, _audioService);
+                settingsWindow.SettingsChanged += OnSettingsChanged;
                 settingsWindow.Show();
-            };
-
-            _trayService.ViewDiaryRequested += (s, args) =>
-            {
-                var diaryViewerWindow = new DiaryViewerWindow(diaryService);
-                diaryViewerWindow.Show();
-            };
-
-            _trayService.NewDiaryEntryRequested += (s, args) =>
-            {
-                if (mainWindow != null)
-                {
-                    var diaryHandler = new DiaryModeHandler(diaryService, _logger);
-                    mainWindow.ShowWindow(diaryHandler);
-                }
-                else
-                {
-                    _notifications.ShowError("Configuration Required",
-                        "Please configure transcription settings first. Right-click the tray icon and select Settings.");
-                }
             };
 
             _trayService.ExitRequested += (s, args) =>
@@ -205,16 +136,68 @@ namespace TalkKeys
                 Current.Shutdown();
             };
 
-            // Log startup (no notification needed)
+            // Log startup
             if (_pipelineService != null)
             {
                 var pipelineName = _pipelineService.GetDefaultPipelineName() ?? "unknown";
                 _logger.Log($"TalkKeys started with pipeline: {pipelineName}");
             }
+            else
+            {
+                _logger.Log("TalkKeys started without pipeline - waiting for API key configuration");
+            }
+        }
+
+        private void OnHotkeyPressed(object? sender, HotkeyPressedEventArgs args)
+        {
+            // Check if pipeline is available
+            if (_pipelineService == null || _mainWindow == null)
+            {
+                _notifications?.ShowError("API Key Required",
+                    "No OpenAI API key configured. Right-click the tray icon and select Settings to add your API key.");
+                return;
+            }
+
+            if (args.HotkeyId == "clipboard")
+            {
+                var clipboardHandler = new ClipboardModeHandler(_clipboardService!, _logger!);
+                _mainWindow.ShowWindow(clipboardHandler);
+            }
+        }
+
+        private void OnSettingsChanged(object? sender, EventArgs e)
+        {
+            ReloadPipelineService();
+        }
+
+        private void CreateMainWindow()
+        {
+            if (_mainWindow != null) return;
+            if (_pipelineService == null) return;
+
+            _mainWindow = new MainWindow(
+                _notifications!,
+                _positioner!,
+                _clipboardService!,
+                _logger!,
+                _audioService!,
+                _hotkeyService!,
+                _pipelineService,
+                _contextService!
+            );
+
+            _logger?.Log("MainWindow created");
         }
 
         private IPipelineService? CreatePipelineService(AppSettings settings)
         {
+            // Don't try to create pipeline without API key
+            if (string.IsNullOrWhiteSpace(settings.OpenAIApiKey))
+            {
+                _logger?.Log("Cannot create pipeline service: No API key configured");
+                return null;
+            }
+
             try
             {
                 // Get configuration directory
@@ -225,58 +208,35 @@ namespace TalkKeys
 
                 // Create pipeline factory
                 var factory = new PipelineFactory(_logger);
-                _pipelineFactory = factory; // Store for benchmark window
 
-                // Register all stage factories
+                // Register stage factories (only the ones we need)
                 factory.RegisterStageFactory(new AudioValidationStageFactory());
-                factory.RegisterStageFactory(new RNNoiseStageFactory());
                 factory.RegisterStageFactory(new SileroVADStageFactory());
                 factory.RegisterStageFactory(new OpenAIWhisperTranscriptionStageFactory());
-                factory.RegisterStageFactory(new LocalWhisperTranscriptionStageFactory());
                 factory.RegisterStageFactory(new GPTTextCleaningStageFactory());
-                factory.RegisterStageFactory(new PassThroughCleaningStageFactory());
 
                 // Create configuration loader
                 var configLoader = new PipelineConfigurationLoader(pipelineConfigDir, _logger);
 
-                // Ensure default configurations exist
-                configLoader.EnsureDefaultConfigurations(
-                    settings.OpenAIApiKey ?? string.Empty,
-                    settings.LocalModelPath);
+                // Ensure default configuration exists
+                configLoader.EnsureDefaultConfigurations(settings.OpenAIApiKey);
 
-                // Create build context using factory
-                var buildContext = _buildContextFactory!.Create(settings);
-                _pipelineBuildContext = buildContext; // Store for benchmark window
+                // Create build context
+                var buildContext = new PipelineBuildContext
+                {
+                    OpenAIApiKey = settings.OpenAIApiKey,
+                    Logger = _logger
+                };
 
                 // Create registry
                 var registry = new PipelineRegistry(factory, configLoader, buildContext, _logger);
                 registry.LoadConfigurations();
 
-                // Set default pipeline based on user's selected preset
+                // Set default pipeline
                 var availablePipelines = registry.GetAvailablePipelineNames().ToList();
                 if (availablePipelines.Any())
                 {
-                    // Map preset names to actual pipeline names
-                    string? pipelineName = settings.SelectedPipeline switch
-                    {
-                        PipelinePresets.MaximumQuality => "CloudQuality",        // RNNoise + VAD + Cloud
-                        PipelinePresets.BalancedQuality => "CloudNoiseReduction", // RNNoise + Cloud
-                        PipelinePresets.FastCloud => "FastCloud",                 // Cloud only
-                        PipelinePresets.MaximumPrivacy => "LocalPrivacy",        // RNNoise + VAD + Local
-                        PipelinePresets.FastLocal => "FastLocal",                 // Local only
-                        _ => "CloudQuality" // Default to maximum quality
-                    };
-
-                    // Set the selected pipeline if it exists, otherwise use first available
-                    if (availablePipelines.Contains(pipelineName))
-                    {
-                        registry.SetDefaultPipeline(pipelineName);
-                    }
-                    else if (availablePipelines.Any())
-                    {
-                        // Fallback to first available if preferred doesn't exist
-                        registry.SetDefaultPipeline(availablePipelines.First());
-                    }
+                    registry.SetDefaultPipeline(availablePipelines.First());
                 }
 
                 // Create and return pipeline service
@@ -294,13 +254,34 @@ namespace TalkKeys
             if (_settingsService == null) return;
 
             var settings = _settingsService.LoadSettings();
+
+            // Check if API key is now configured
+            if (string.IsNullOrWhiteSpace(settings.OpenAIApiKey))
+            {
+                _logger?.Log("Settings saved but no API key configured");
+                return;
+            }
+
             var newService = CreatePipelineService(settings);
 
             if (newService != null)
             {
                 _pipelineService = newService;
                 _logger?.Log($"Pipeline service reloaded with pipeline: {newService.GetDefaultPipelineName()}");
-                // No success notification needed - settings window already provides feedback
+
+                // Create MainWindow if it doesn't exist yet
+                if (_mainWindow == null)
+                {
+                    CreateMainWindow();
+                    _notifications?.ShowSuccess("Configuration Complete",
+                        "API key saved. You can now use Ctrl+Alt+Q to record and transcribe.");
+                }
+                else
+                {
+                    // Update existing MainWindow with new pipeline service
+                    _mainWindow.UpdatePipelineService(_pipelineService);
+                    // _notifications?.ShowSuccess("Settings Saved", "Configuration updated successfully.");
+                }
             }
             else
             {

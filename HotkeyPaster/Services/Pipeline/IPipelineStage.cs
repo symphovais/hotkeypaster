@@ -22,5 +22,15 @@ namespace TalkKeys.Services.Pipeline
         /// Execute the stage with the given context
         /// </summary>
         Task<StageResult> ExecuteAsync(PipelineContext context);
+
+        /// <summary>
+        /// Number of times to retry this stage if it fails
+        /// </summary>
+        int RetryCount { get; }
+
+        /// <summary>
+        /// Delay between retries
+        /// </summary>
+        System.TimeSpan RetryDelay { get; }
     }
 }

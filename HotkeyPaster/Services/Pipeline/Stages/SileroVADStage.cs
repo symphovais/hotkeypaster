@@ -21,6 +21,8 @@ namespace TalkKeys.Services.Pipeline.Stages
 
         public string Name { get; }
         public string StageType => "SileroVAD";
+        public int RetryCount => 0;
+        public TimeSpan RetryDelay => TimeSpan.Zero;
 
         public SileroVADStage(
             string? name = null,

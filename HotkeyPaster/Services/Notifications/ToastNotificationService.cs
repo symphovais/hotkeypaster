@@ -46,6 +46,12 @@ namespace TalkKeys.Services.Notifications
             ShowToast(title, message);
         }
 
+        public void ShowSuccess(string title, string message)
+        {
+            EnsureInitialized();
+            ShowToast(title, message);
+        }
+
         public void ShowError(string title, string message)
         {
             EnsureInitialized();

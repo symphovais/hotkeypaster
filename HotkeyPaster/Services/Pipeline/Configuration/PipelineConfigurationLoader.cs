@@ -110,9 +110,9 @@ namespace TalkKeys.Services.Pipeline.Configuration
         }
 
         /// <summary>
-        /// Create default configurations if none exist
+        /// Create default configuration if none exist
         /// </summary>
-        public void EnsureDefaultConfigurations(string openAiApiKey, string? localModelPath)
+        public void EnsureDefaultConfigurations(string openAiApiKey)
         {
             var existing = LoadAll();
             if (existing.Any())
@@ -121,67 +121,24 @@ namespace TalkKeys.Services.Pipeline.Configuration
                 return;
             }
 
-            _logger?.Log("No pipeline configurations found, creating defaults");
+            _logger?.Log("No pipeline configurations found, creating default");
 
-            // Default 1: Fast Cloud Pipeline
-            var fastCloud = new PipelineConfiguration
+            // Single pipeline: VAD + OpenAI Whisper + GPT Cleaning
+            var defaultPipeline = new PipelineConfiguration
             {
-                Name = "FastCloud",
-                Description = "Fast cloud-based transcription using OpenAI Whisper API with GPT cleaning (with noise removal and VAD)",
+                Name = "Default",
+                Description = "Cloud-based transcription using OpenAI Whisper API with VAD preprocessing and GPT text cleaning",
                 Enabled = true,
                 Stages = new List<StageConfiguration>
                 {
                     new() { Type = "AudioValidation", Enabled = true },
-                    new() { Type = "RNNoise", Enabled = true },
                     new() { Type = "SileroVAD", Enabled = true, Settings = new() { ["Threshold"] = 0.5, ["MinSpeechDurationMs"] = 250, ["MinSilenceDurationMs"] = 100 } },
                     new() { Type = "OpenAIWhisperTranscription", Enabled = true, Settings = new() { ["ApiKey"] = openAiApiKey } },
                     new() { Type = "GPTTextCleaning", Enabled = true, Settings = new() { ["ApiKey"] = openAiApiKey } }
                 }
             };
 
-            Save(fastCloud);
-
-            // Default 2: Local Privacy Pipeline
-            if (!string.IsNullOrEmpty(localModelPath))
-            {
-                var localPrivacy = new PipelineConfiguration
-                {
-                    Name = "LocalPrivacy",
-                    Description = "100% offline transcription using local Whisper model (no API calls, with noise removal and VAD)",
-                    Enabled = true,
-                    Stages = new List<StageConfiguration>
-                    {
-                        new() { Type = "AudioValidation", Enabled = true },
-                        new() { Type = "RNNoise", Enabled = true },
-                        new() { Type = "SileroVAD", Enabled = true, Settings = new() { ["Threshold"] = 0.5, ["MinSpeechDurationMs"] = 250, ["MinSilenceDurationMs"] = 100 } },
-                        new() { Type = "LocalWhisperTranscription", Enabled = true, Settings = new() { ["ModelPath"] = localModelPath } },
-                        new() { Type = "PassThroughCleaning", Enabled = true }
-                    }
-                };
-
-                Save(localPrivacy);
-            }
-
-            // Default 3: Hybrid Pipeline
-            if (!string.IsNullOrEmpty(localModelPath))
-            {
-                var hybrid = new PipelineConfiguration
-                {
-                    Name = "Hybrid",
-                    Description = "Local transcription for privacy + cloud cleaning for quality (with noise removal and VAD)",
-                    Enabled = true,
-                    Stages = new List<StageConfiguration>
-                    {
-                        new() { Type = "AudioValidation", Enabled = true },
-                        new() { Type = "RNNoise", Enabled = true },
-                        new() { Type = "SileroVAD", Enabled = true, Settings = new() { ["Threshold"] = 0.5, ["MinSpeechDurationMs"] = 250, ["MinSilenceDurationMs"] = 100 } },
-                        new() { Type = "LocalWhisperTranscription", Enabled = true, Settings = new() { ["ModelPath"] = localModelPath } },
-                        new() { Type = "GPTTextCleaning", Enabled = true, Settings = new() { ["ApiKey"] = openAiApiKey } }
-                    }
-                };
-
-                Save(hybrid);
-            }
+            Save(defaultPipeline);
         }
 
         private static string SanitizeFileName(string name)

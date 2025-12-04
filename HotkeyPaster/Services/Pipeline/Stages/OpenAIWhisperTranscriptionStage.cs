@@ -14,6 +14,8 @@ namespace TalkKeys.Services.Pipeline.Stages
 
         public string Name { get; }
         public string StageType => "OpenAIWhisperTranscription";
+        public int RetryCount => 2;
+        public TimeSpan RetryDelay => TimeSpan.FromSeconds(1);
 
         public OpenAIWhisperTranscriptionStage(string apiKey, string? name = null)
         {
