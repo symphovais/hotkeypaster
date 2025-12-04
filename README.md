@@ -32,7 +32,18 @@ A simple Windows desktop application for voice-to-text transcription. Press a ho
 
 ## Quick Start
 
-### Installation
+### Option 1: Installer (Recommended)
+
+1. Download the latest `TalkKeys-Setup-x.x.x.exe` from the [Releases](https://github.com/yourusername/talkkeys/releases) page
+2. Run the installer
+3. TalkKeys will start automatically and appear in your system tray
+
+The installer will:
+- Install TalkKeys to your Program Files
+- Add TalkKeys to Windows startup (can be disabled in Settings)
+- Create a desktop shortcut (optional)
+
+### Option 2: Build from Source
 
 1. Clone the repository
    ```bash
@@ -50,6 +61,17 @@ A simple Windows desktop application for voice-to-text transcription. Press a ho
    ```bash
    dotnet run
    ```
+
+### Building the Installer
+
+To build the installer yourself:
+
+1. Install [Inno Setup 6](https://jrsoftware.org/isinfo.php)
+2. Run the build script:
+   ```cmd
+   build-installer.cmd
+   ```
+3. The installer will be created in `installer\output\`
 
 ### First-Time Setup
 
@@ -80,7 +102,7 @@ Settings are stored in: `%APPDATA%\TalkKeys\settings.json`
 |---------|-------------|
 | OpenAI API Key | Required for transcription |
 | Audio Device | Select your microphone |
-| Enable Text Cleaning | Use GPT-4 to improve transcription quality |
+| Start with Windows | Launch TalkKeys automatically on login |
 
 ## Architecture
 

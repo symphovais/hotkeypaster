@@ -105,6 +105,25 @@
                     </StackPanel>
                 </Border>
 
+                <!-- General Settings Section -->
+                <Border Style="{StaticResource Card}" Margin="0,20,0,0">
+                    <StackPanel>
+                        <TextBlock Text="General" Style="{StaticResource TitleText}"/>
+
+                        <CheckBox x:Name="StartWithWindowsCheckBox"
+                                  Content="Start TalkKeys with Windows"
+                                  Checked="StartWithWindows_Changed"
+                                  Unchecked="StartWithWindows_Changed"
+                                  Margin="0,15,0,0"
+                                  Foreground="{StaticResource TextPrimary}"
+                                  FontSize="13"
+                                  VerticalContentAlignment="Center"/>
+                        <TextBlock Text="Automatically launch TalkKeys when you sign in to Windows."
+                                   Style="{StaticResource CaptionText}" Foreground="{StaticResource TextTertiary}"
+                                   Margin="20,5,0,0"/>
+                    </StackPanel>
+                </Border>
+
             </StackPanel>
         </ScrollViewer>
 

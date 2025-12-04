@@ -22,6 +22,9 @@ namespace TalkKeys.Services.Settings
         public bool FloatingWidgetVisible { get; set; } = true; // Visible on startup
         public double FloatingWidgetX { get; set; } = -1; // -1 = not set
         public double FloatingWidgetY { get; set; } = -1;
+
+        // Startup Configuration
+        public bool StartWithWindows { get; set; } = true; // Default to true for installer
     }
 
     /// <summary>

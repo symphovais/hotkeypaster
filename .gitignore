@@ -235,3 +235,6 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+# Installer output
+installer/output/

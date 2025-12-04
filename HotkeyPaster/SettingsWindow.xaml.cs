@@ -2,6 +2,7 @@ using System;
 using System.Windows;
 using TalkKeys.Logging;
 using TalkKeys.Services.Settings;
+using TalkKeys.Services.Startup;
 
 namespace TalkKeys
 {
@@ -10,6 +11,7 @@ namespace TalkKeys
         private readonly SettingsService _settingsService;
         private readonly ILogger _logger;
         private readonly Services.Audio.IAudioRecordingService _audioService;
+        private readonly IStartupService _startupService;
         private AppSettings _currentSettings;
         private bool _isInitializing = true;
 
@@ -22,6 +24,7 @@ namespace TalkKeys
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _audioService = audioService ?? throw new ArgumentNullException(nameof(audioService));
+            _startupService = new StartupService();
 
             _currentSettings = _settingsService.LoadSettings();
 
@@ -41,7 +44,7 @@ namespace TalkKeys
             // Load Audio Devices
             var devices = _audioService.GetAvailableDevices();
             AudioDeviceComboBox.ItemsSource = devices;
-            
+
             if (_currentSettings.AudioDeviceIndex >= 0 && _currentSettings.AudioDeviceIndex < devices.Length)
             {
                 AudioDeviceComboBox.SelectedIndex = _currentSettings.AudioDeviceIndex;
@@ -50,6 +53,9 @@ namespace TalkKeys
             {
                 AudioDeviceComboBox.SelectedIndex = 0;
             }
+
+            // Load startup setting - check actual registry state
+            StartWithWindowsCheckBox.IsChecked = _startupService.IsStartupEnabled;
         }
 
         private void ApiKey_Changed(object sender, System.Windows.Controls.TextChangedEventArgs e)
@@ -74,6 +80,17 @@ namespace TalkKeys
             // Update the service immediately
             _audioService.SetDevice(selectedIndex);
             
+            AutoSave();
+        }
+
+        private void StartWithWindows_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing) return;
+
+            var enabled = StartWithWindowsCheckBox.IsChecked == true;
+            _logger.Log($"[Settings] Start with Windows changed to: {enabled}");
+            _startupService.SetStartupEnabled(enabled);
+            _currentSettings.StartWithWindows = enabled;
             AutoSave();
         }
 
