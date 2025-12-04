@@ -91,6 +91,8 @@ begin
 end;
 
 function InitializeSetup(): Boolean;
+var
+  ErrorCode: Integer;
 begin
   Result := True;
 
@@ -100,7 +102,7 @@ begin
     if MsgBox('TalkKeys requires .NET 8.0 Desktop Runtime.' + #13#10 + #13#10 +
               'Would you like to download it now?', mbConfirmation, MB_YESNO) = IDYES then
     begin
-      ShellExec('open', 'https://dotnet.microsoft.com/download/dotnet/8.0', '', '', SW_SHOWNORMAL, ewNoWait, ResultCode);
+      ShellExec('open', 'https://dotnet.microsoft.com/download/dotnet/8.0', '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);
     end;
     Result := False;
   end;
