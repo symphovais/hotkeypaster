@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Voice Transcription"
-        Height="120"
+        Height="150"
         Width="320"
         WindowStyle="None"
         ResizeMode="NoResize"
@@ -129,18 +129,46 @@
 
                 <!-- Compact Status -->
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,-20,0,0">
-                    <TextBlock x:Name="RecordingStatus"
-                               Text="Recording..."
-                               Foreground="#212121"
-                               FontSize="14"
-                               FontWeight="SemiBold"
-                               Margin="0,0,0,2"/>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock x:Name="RecordingStatus"
+                                   Text="Recording..."
+                                   Foreground="#212121"
+                                   FontSize="14"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,2"/>
+                        <TextBlock x:Name="RecordingTimer"
+                                   Text="0:00"
+                                   Foreground="#616161"
+                                   FontSize="12"
+                                   FontWeight="Medium"
+                                   Margin="8,0,0,2"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
 
                     <TextBlock x:Name="SubStatus"
                                Text="Speak clearly"
                                Foreground="#616161"
                                FontSize="11"
-                               TextTrimming="CharacterEllipsis"/>
+                               TextTrimming="CharacterEllipsis"
+                               Margin="0,0,0,4"/>
+
+                    <!-- Audio Level Indicator -->
+                    <ProgressBar x:Name="AudioLevelBar"
+                                 Height="3"
+                                 Minimum="0"
+                                 Maximum="1"
+                                 Value="0"
+                                 BorderThickness="0"
+                                 Background="#E0E0E0"
+                                 Foreground="#10B981"
+                                 Margin="0,0,0,4"/>
+
+                    <!-- Keyboard Hints -->
+                    <TextBlock x:Name="KeyboardHints"
+                               Text="SPACE to stop • ESC to cancel"
+                               Foreground="#9CA3AF"
+                               FontSize="9"
+                               Visibility="Visible"/>
                 </StackPanel>
             </Grid>
             

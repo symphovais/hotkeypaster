@@ -31,7 +31,7 @@ namespace TalkKeys
         private IAudioRecordingService? _audioService;
         private IHotkeyService? _hotkeyService;
         private ITrayService? _trayService;
-        private MainWindow? _mainWindow;
+        private FloatingWidget? _floatingWidget; // Changed from MainWindow
         private WindowPositionService? _positioner;
         private ClipboardPasteService? _clipboardService;
         private ActiveWindowContextService? _contextService;
@@ -100,13 +100,10 @@ namespace TalkKeys
             // Initialize tray
             _trayService.InitializeTray();
 
-            // Create MainWindow if pipeline service is available
-            if (_pipelineService != null)
-            {
-                CreateMainWindow();
-            }
+            // Always create FloatingWidget (it will show "API Key Required" message if not configured)
+            CreateFloatingWidget();
 
-            // Register hotkeys
+            // Register hotkeys AFTER widget is created
             try
             {
                 _hotkeyService.RegisterHotkey("clipboard", System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.Alt, System.Windows.Forms.Keys.Q);
@@ -151,7 +148,7 @@ namespace TalkKeys
         private void OnHotkeyPressed(object? sender, HotkeyPressedEventArgs args)
         {
             // Check if pipeline is available
-            if (_pipelineService == null || _mainWindow == null)
+            if (_pipelineService == null || _floatingWidget == null)
             {
                 _notifications?.ShowError("API Key Required",
                     "No OpenAI API key configured. Right-click the tray icon and select Settings to add your API key.");
@@ -160,8 +157,15 @@ namespace TalkKeys
 
             if (args.HotkeyId == "clipboard")
             {
+                // Show widget if hidden
+                if (!_floatingWidget.IsVisible)
+                {
+                    _floatingWidget.Show();
+                }
+
+                // Start recording with clipboard mode
                 var clipboardHandler = new ClipboardModeHandler(_clipboardService!, _logger!);
-                _mainWindow.ShowWindow(clipboardHandler);
+                _floatingWidget.StartRecording(clipboardHandler);
             }
         }
 
@@ -170,23 +174,39 @@ namespace TalkKeys
             ReloadPipelineService();
         }
 
-        private void CreateMainWindow()
+        private void CreateFloatingWidget()
         {
-            if (_mainWindow != null) return;
-            if (_pipelineService == null) return;
+            if (_floatingWidget != null) return;
 
-            _mainWindow = new MainWindow(
-                _notifications!,
-                _positioner!,
-                _clipboardService!,
+            _floatingWidget = new FloatingWidget(
                 _logger!,
                 _audioService!,
-                _hotkeyService!,
-                _pipelineService,
-                _contextService!
+                _pipelineService, // Can be null - widget will show "API Key Required"
+                _notifications!,
+                _contextService!,
+                _settingsService!,
+                _clipboardService!
             );
 
-            _logger?.Log("MainWindow created");
+            // Subscribe to widget closed event
+            _floatingWidget.WidgetClosed += (s, e) =>
+            {
+                _logger?.Log("FloatingWidget closed to tray");
+            };
+
+            // Initialize window handle for hotkeys
+            _floatingWidget.InitializeForHotkeys(_hotkeyService!);
+
+            // Load position from settings
+            var settings = _settingsService!.LoadSettings();
+            double? x = settings.FloatingWidgetX >= 0 ? settings.FloatingWidgetX : null;
+            double? y = settings.FloatingWidgetY >= 0 ? settings.FloatingWidgetY : null;
+
+            _floatingWidget.PositionWidget(x, y);
+
+            // Always show widget on startup
+            _floatingWidget.Show();
+            _logger?.Log("FloatingWidget shown on startup");
         }
 
         private IPipelineService? CreatePipelineService(AppSettings settings)
@@ -269,18 +289,10 @@ namespace TalkKeys
                 _pipelineService = newService;
                 _logger?.Log($"Pipeline service reloaded with pipeline: {newService.GetDefaultPipelineName()}");
 
-                // Create MainWindow if it doesn't exist yet
-                if (_mainWindow == null)
+                // Update the floating widget with the new pipeline service
+                if (_floatingWidget != null)
                 {
-                    CreateMainWindow();
-                    _notifications?.ShowSuccess("Configuration Complete",
-                        "API key saved. You can now use Ctrl+Alt+Q to record and transcribe.");
-                }
-                else
-                {
-                    // Update existing MainWindow with new pipeline service
-                    _mainWindow.UpdatePipelineService(_pipelineService);
-                    // _notifications?.ShowSuccess("Settings Saved", "Configuration updated successfully.");
+                    _floatingWidget.UpdatePipelineService(newService);
                 }
             }
             else

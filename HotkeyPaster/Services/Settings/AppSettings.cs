@@ -17,6 +17,11 @@ namespace TalkKeys.Services.Settings
 
         // Audio Configuration
         public int AudioDeviceIndex { get; set; } = 0;
+
+        // Floating Widget Configuration
+        public bool FloatingWidgetVisible { get; set; } = true; // Visible on startup
+        public double FloatingWidgetX { get; set; } = -1; // -1 = not set
+        public double FloatingWidgetY { get; set; } = -1;
     }
 
     /// <summary>

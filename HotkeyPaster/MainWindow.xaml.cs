@@ -75,6 +75,8 @@ namespace TalkKeys
         private string? _currentRecordingPath;
         private IRecordingModeHandler? _currentModeHandler;
         private bool _lastRecordingHadNoAudio;
+        private System.Windows.Threading.DispatcherTimer? _recordingTimer;
+        private DateTime _recordingStartTime;
 
         // The text to paste
         private const string TEXT_TO_PASTE = "Hello from TalkKeys!";
@@ -95,6 +97,12 @@ namespace TalkKeys
             _audio.RecordingStarted += OnRecordingStarted;
             _audio.RecordingStopped += OnRecordingStopped;
             _audio.NoAudioDetected += OnNoAudioDetected;
+            _audio.AudioLevelChanged += OnAudioLevelChanged;
+
+            // Initialize recording timer
+            _recordingTimer = new System.Windows.Threading.DispatcherTimer();
+            _recordingTimer.Interval = TimeSpan.FromMilliseconds(100);
+            _recordingTimer.Tick += OnRecordingTimerTick;
 
             // Subscribe to display settings changes to handle screen configuration changes
             SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
@@ -222,6 +230,17 @@ namespace TalkKeys
                 ActionButton.Content = "⏹";
                 ActionButton.IsEnabled = true;
 
+                // Start recording timer
+                _recordingStartTime = DateTime.Now;
+                RecordingTimer.Text = "0:00";
+                _recordingTimer?.Start();
+
+                // Reset audio level
+                AudioLevelBar.Value = 0;
+
+                // Show keyboard hints
+                KeyboardHints.Visibility = Visibility.Visible;
+
                 // Start pulse animation
                 var pulseAnimation = (Storyboard)this.Resources["PulseAnimation"];
                 pulseAnimation.Begin(RecordingPulse);
@@ -251,6 +270,12 @@ namespace TalkKeys
                 var pulseAnimation = (Storyboard)this.Resources["PulseAnimation"];
                 pulseAnimation.Stop(RecordingPulse);
                 RecordingPulse.Opacity = 1;
+
+                // Stop recording timer
+                _recordingTimer?.Stop();
+
+                // Hide keyboard hints during transcription
+                KeyboardHints.Visibility = Visibility.Collapsed;
 
                 // Update UI for transcription
                 RecordingStatus.Text = "Transcribing...";
@@ -540,6 +565,20 @@ namespace TalkKeys
                     }
                 }
             }
+        }
+
+        private void OnRecordingTimerTick(object? sender, EventArgs e)
+        {
+            var elapsed = DateTime.Now - _recordingStartTime;
+            RecordingTimer.Text = $"{(int)elapsed.TotalMinutes}:{elapsed.Seconds:D2}";
+        }
+
+        private void OnAudioLevelChanged(object? sender, AudioLevelEventArgs e)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                AudioLevelBar.Value = e.Level;
+            });
         }
 
         private void CloseButton_Click(object sender, RoutedEventArgs e)

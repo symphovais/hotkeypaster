@@ -11,6 +11,7 @@ namespace TalkKeys.Services.Audio
         public event EventHandler? RecordingStarted;
         public event EventHandler? RecordingStopped;
         public event EventHandler? NoAudioDetected;
+        public event EventHandler<AudioLevelEventArgs>? AudioLevelChanged;
 
         private readonly ILogger? _logger;
         private WaveInEvent? _waveIn;
@@ -141,18 +142,36 @@ namespace TalkKeys.Services.Audio
             {
                 _totalBytesRecorded += e.BytesRecorded;
 
-                if (!_hasNonZeroSample)
+                // Calculate audio level (RMS)
+                float sum = 0;
+                int sampleCount = 0;
+                for (int index = 0; index + 1 < e.BytesRecorded; index += 2)
                 {
-                    for (int index = 0; index + 1 < e.BytesRecorded; index += 2)
+                    short sample = BitConverter.ToInt16(e.Buffer, index);
+                    sum += sample * sample;
+                    sampleCount++;
+
+                    if (!_hasNonZeroSample)
                     {
-                        short sample = BitConverter.ToInt16(e.Buffer, index);
                         const int silenceThreshold = 500;
                         if (sample > silenceThreshold || sample < -silenceThreshold)
                         {
                             _hasNonZeroSample = true;
-                            break;
                         }
                     }
+                }
+
+                // Fire audio level event
+                if (sampleCount > 0)
+                {
+                    float rms = (float)Math.Sqrt(sum / sampleCount);
+                    // Normalize to 0.0-1.0 range (16-bit audio max sample value is 32767)
+                    float normalizedLevel = Math.Min(1.0f, rms / 32767f);
+                    // Apply scaling for better visual response
+                    normalizedLevel = (float)Math.Pow(normalizedLevel * 10, 0.5);
+                    normalizedLevel = Math.Min(1.0f, normalizedLevel);
+
+                    AudioLevelChanged?.Invoke(this, new AudioLevelEventArgs { Level = normalizedLevel });
                 }
             }
 
