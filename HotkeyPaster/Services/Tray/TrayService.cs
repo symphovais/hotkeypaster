@@ -9,6 +9,7 @@ namespace TalkKeys.Services.Tray
         event EventHandler? ExitRequested;
         void InitializeTray();
         void DisposeTray();
+        void AddUpdateMenuItem(Action onUpdate);
     }
 
     public sealed class TrayService : ITrayService, IDisposable
@@ -42,6 +43,31 @@ namespace TalkKeys.Services.Tray
             contextMenu.Items.Add("Exit", null, (s, e) => ExitRequested?.Invoke(this, EventArgs.Empty));
 
             _notifyIcon.ContextMenuStrip = contextMenu;
+        }
+
+        public void AddUpdateMenuItem(Action onUpdate)
+        {
+            if (_notifyIcon?.ContextMenuStrip == null) return;
+
+            var menu = _notifyIcon.ContextMenuStrip;
+
+            // Check if update item already exists
+            foreach (ToolStripItem item in menu.Items)
+            {
+                if (item.Text == "Restart to Update")
+                    return; // Already added
+            }
+
+            // Insert update item at the top with emphasis
+            var updateItem = new ToolStripMenuItem("Restart to Update")
+            {
+                Font = new System.Drawing.Font(menu.Font, System.Drawing.FontStyle.Bold),
+                ForeColor = System.Drawing.Color.FromArgb(99, 102, 241) // Purple accent
+            };
+            updateItem.Click += (s, e) => onUpdate?.Invoke();
+
+            menu.Items.Insert(0, updateItem);
+            menu.Items.Insert(1, new ToolStripSeparator());
         }
 
         public void DisposeTray()

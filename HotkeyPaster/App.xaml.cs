@@ -17,6 +17,7 @@ using TalkKeys.Services.Pipeline.Stages;
 using TalkKeys.Services.Settings;
 using TalkKeys.Services.RecordingMode;
 using TalkKeys.Services.Triggers;
+using TalkKeys.Services.Updates;
 
 namespace TalkKeys
 {
@@ -37,6 +38,7 @@ namespace TalkKeys
         private ClipboardPasteService? _clipboardService;
         private ActiveWindowContextService? _contextService;
         private TriggerPluginManager? _triggerPluginManager;
+        private IUpdateService? _updateService;
         private bool _mutexOwned = false;
 
         protected override void OnStartup(StartupEventArgs e)
@@ -138,6 +140,67 @@ namespace TalkKeys
 
             // Auto-select Jabra Engage 50 II as audio device if enabled
             AutoSelectJabraDeviceIfEnabled(settings);
+
+            // Check for updates in the background
+            CheckForUpdatesAsync();
+        }
+
+        private async void CheckForUpdatesAsync()
+        {
+            try
+            {
+                _updateService = new UpdateService(_logger);
+
+                // Subscribe to update events
+                _updateService.UpdateAvailable += OnUpdateAvailable;
+                _updateService.UpdateDownloaded += OnUpdateDownloaded;
+                _updateService.UpdateError += (s, msg) => _logger?.Log($"[Update] Error: {msg}");
+
+                // Check for updates
+                var updateInfo = await _updateService.CheckForUpdatesAsync();
+
+                if (updateInfo?.IsUpdateAvailable == true)
+                {
+                    _logger?.Log($"[Update] New version available: {updateInfo.NewVersion}");
+
+                    // Automatically download the update in the background
+                    await _updateService.DownloadAndApplyUpdateAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Log($"[Update] Failed to check for updates: {ex.Message}");
+            }
+        }
+
+        private void OnUpdateAvailable(object? sender, UpdateInfo info)
+        {
+            _logger?.Log($"[Update] Update available: {info.CurrentVersion} -> {info.NewVersion}");
+
+            // Show toast notification about the update
+            Current.Dispatcher.Invoke(() =>
+            {
+                _notifications?.ShowInfo("Update Available",
+                    $"TalkKeys {info.NewVersion} is available. It will be installed when you restart.");
+            });
+        }
+
+        private void OnUpdateDownloaded(object? sender, string version)
+        {
+            _logger?.Log($"[Update] Update downloaded: {version}");
+
+            // Show toast notification that update is ready
+            Current.Dispatcher.Invoke(() =>
+            {
+                _notifications?.ShowInfo("Update Ready",
+                    $"TalkKeys {version} has been downloaded. Restart to apply the update.");
+
+                // Add "Restart to Update" option to tray menu
+                _trayService?.AddUpdateMenuItem(() =>
+                {
+                    _updateService?.RestartAndApplyUpdate();
+                });
+            });
         }
 
         private void InitializeTriggerPlugins(AppSettings settings)
