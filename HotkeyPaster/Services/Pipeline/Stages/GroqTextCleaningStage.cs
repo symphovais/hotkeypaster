@@ -6,24 +6,24 @@ using TalkKeys.Services.Transcription;
 namespace TalkKeys.Services.Pipeline.Stages
 {
     /// <summary>
-    /// Text cleaning stage using OpenAI GPT
+    /// Text cleaning stage using Groq with Llama models (very fast inference)
     /// </summary>
-    public class GPTTextCleaningStage : IPipelineStage
+    public class GroqTextCleaningStage : IPipelineStage
     {
-        private readonly OpenAIGPTTextCleaner _cleaner;
+        private readonly GroqTextCleaner _cleaner;
 
         public string Name { get; }
-        public string StageType => "GPTTextCleaning";
+        public string StageType => "GroqTextCleaning";
         public int RetryCount => 2;
         public TimeSpan RetryDelay => TimeSpan.FromSeconds(1);
 
-        public GPTTextCleaningStage(string apiKey, string? name = null)
+        public GroqTextCleaningStage(string apiKey, string? name = null)
         {
             if (string.IsNullOrWhiteSpace(apiKey))
                 throw new ArgumentException("API key cannot be null or empty", nameof(apiKey));
 
-            _cleaner = new OpenAIGPTTextCleaner(apiKey);
-            Name = name ?? "GPT Text Cleaning";
+            _cleaner = new GroqTextCleaner(apiKey);
+            Name = name ?? "Groq Text Cleaning";
         }
 
         public async Task<StageResult> ExecuteAsync(PipelineContext context)
@@ -50,7 +50,7 @@ namespace TalkKeys.Services.Pipeline.Stages
                 var windowContext = context.GetData<Windowing.WindowContext>("WindowContext");
 
                 // Report progress
-                context.Progress?.Report(new ProgressEventArgs("Cleaning text with GPT...", 70));
+                context.Progress?.Report(new ProgressEventArgs("Cleaning text with Groq...", 70));
 
                 // Calculate before word count
                 var beforeWordCount = rawText.Split(new[] { ' ', '\n', '\r', '\t' },
@@ -83,7 +83,8 @@ namespace TalkKeys.Services.Pipeline.Stages
 
                 // Add metrics
                 metrics.EndTime = DateTime.UtcNow;
-                metrics.AddMetric("Model", "gpt-4.1-nano");
+                metrics.AddMetric("Provider", "Groq");
+                metrics.AddMetric("Model", "llama-3.1-8b-instant");
                 metrics.AddMetric("BeforeWordCount", beforeWordCount);
                 metrics.AddMetric("AfterWordCount", afterWordCount);
                 metrics.AddMetric("WordCountChange", afterWordCount - beforeWordCount);
@@ -99,30 +100,30 @@ namespace TalkKeys.Services.Pipeline.Stages
             {
                 metrics.EndTime = DateTime.UtcNow;
                 metrics.AddMetric("Exception", ex.Message);
-                return StageResult.Failure($"GPT text cleaning failed: {ex.Message}", metrics);
+                return StageResult.Failure($"Groq text cleaning failed: {ex.Message}", metrics);
             }
         }
     }
 
     /// <summary>
-    /// Factory for creating GPTTextCleaningStage instances
+    /// Factory for creating GroqTextCleaningStage instances
     /// </summary>
-    public class GPTTextCleaningStageFactory : IPipelineStageFactory
+    public class GroqTextCleaningStageFactory : IPipelineStageFactory
     {
-        public string StageType => "GPTTextCleaning";
+        public string StageType => "GroqTextCleaning";
 
         public IPipelineStage CreateStage(StageConfiguration config, PipelineBuildContext buildContext)
         {
             // Get API key from stage settings or build context
-            var apiKey = SettingsHelper.GetString(config.Settings, "ApiKey") ?? buildContext.OpenAIApiKey;
+            var apiKey = SettingsHelper.GetString(config.Settings, "ApiKey") ?? buildContext.GroqApiKey;
 
             if (string.IsNullOrWhiteSpace(apiKey))
             {
                 throw new InvalidOperationException(
-                    "OpenAI API key not found in stage settings or build context");
+                    "Groq API key not found in stage settings or build context");
             }
 
-            return new GPTTextCleaningStage(apiKey, config.Name);
+            return new GroqTextCleaningStage(apiKey, config.Name);
         }
     }
 }

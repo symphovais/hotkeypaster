@@ -195,9 +195,9 @@ namespace TalkKeys
             }
             _logger.Log($"Compact position for restoration: {_compactPositionX}, {_compactPositionY}");
 
-            // Calculate expanded dimensions
-            const double expandedWidth = 320;
-            const double expandedHeight = 200;
+            // Calculate expanded dimensions (more compact now)
+            const double expandedWidth = 280;
+            const double expandedHeight = 120;
 
             // Hide compact panel, show expanded panel
             CompactPanel.Visibility = Visibility.Collapsed;
@@ -213,6 +213,10 @@ namespace TalkKeys
             // Resize window
             this.Width = expandedWidth;
             this.Height = expandedHeight;
+
+            // Play expand animation
+            var expandAnimation = (Storyboard)this.Resources["ExpandAnimation"];
+            expandAnimation.Begin(ExpandedPanel);
 
             // Ensure window is on top and focused
             this.Topmost = true;
@@ -310,10 +314,6 @@ namespace TalkKeys
             // Stop timers
             _autoCollapseTimer?.Stop();
 
-            // Reset panels to recording state
-            RecordingPanel.Visibility = Visibility.Visible;
-            SuccessPanel.Visibility = Visibility.Collapsed;
-
             // Show compact panel, hide expanded panel
             CompactPanel.Visibility = Visibility.Visible;
             ExpandedPanel.Visibility = Visibility.Collapsed;
@@ -335,6 +335,121 @@ namespace TalkKeys
             {
                 Win32Helper.SetForegroundWindow(_previousWindow);
             }
+        }
+
+        private bool _isToastVisible = false;
+
+        private void ShowSuccessToast(string text)
+        {
+            _logger.Log($"Showing success toast. IsExpanded={_isExpanded}");
+            _isToastVisible = true;
+
+            // Set transcribed text
+            TranscribedText.Text = text;
+
+            // Stop any recording-related timers
+            _recordingTimer?.Stop();
+            _autoCollapseTimer?.Stop();
+
+            // Stop pulse animation
+            var pulseAnimation = (Storyboard)this.Resources["PulseAnimation"];
+            pulseAnimation.Stop(RecordingPulse);
+
+            // Hide expanded panel, show compact panel
+            ExpandedPanel.Visibility = Visibility.Collapsed;
+            CompactPanel.Visibility = Visibility.Visible;
+            _isExpanded = false;
+
+            // Position toast below compact widget
+            SuccessToast.Margin = new Thickness(0, 80, 0, 0); // Below the 72px compact widget + 8px gap
+
+            // Show toast
+            SuccessToast.Visibility = Visibility.Visible;
+
+            // Fixed toast height - content is: header(28) + text area(~80) + button(30) + margins(24) = ~162
+            const double toastHeight = 170;
+
+            // Resize window to fit both compact widget and toast
+            this.Width = 260; // Toast is wider
+            this.Height = 80 + toastHeight; // 72px compact + 8px gap + toast
+
+            // Restore to saved compact position first
+            this.Left = _compactPositionX;
+            this.Top = _compactPositionY;
+
+            // Now check screen bounds using the correct screen for this position
+            var dpiScale = GetDpiScale();
+            var centerXPixels = (_compactPositionX + 75) * dpiScale;
+            var centerYPixels = (_compactPositionY + 36) * dpiScale;
+            var screen = GetScreenForPoint(centerXPixels, centerYPixels);
+
+            // Convert screen bounds to WPF units
+            var workingArea = new Rect(
+                screen.WorkingArea.Left / dpiScale,
+                screen.WorkingArea.Top / dpiScale,
+                screen.WorkingArea.Width / dpiScale,
+                screen.WorkingArea.Height / dpiScale);
+
+            // Adjust if toast would go off screen
+            if (this.Left + this.Width > workingArea.Right)
+            {
+                this.Left = workingArea.Right - this.Width - 10;
+            }
+            if (this.Top + this.Height > workingArea.Bottom)
+            {
+                this.Top = workingArea.Bottom - this.Height - 10;
+            }
+
+            _logger.Log($"Toast position: {this.Left}, {this.Top}, size: {this.Width}x{this.Height}");
+
+            // Animate toast in
+            var slideIn = (Storyboard)this.Resources["SlideInAnimation"];
+            slideIn.Begin(SuccessToast);
+
+            // Start auto-collapse timer
+            _collapseSecondsRemaining = 5;
+            AutoCollapseText.Text = "• 5s";
+            _autoCollapseTimer?.Start();
+        }
+
+        private void HideSuccessToast()
+        {
+            if (!_isToastVisible) return;
+
+            _logger.Log("Hiding success toast");
+            _isToastVisible = false;
+
+            // Stop auto-collapse timer
+            _autoCollapseTimer?.Stop();
+
+            // Animate toast out then clean up
+            var slideOut = (Storyboard)this.Resources["SlideOutAnimation"];
+
+            // Create a one-time handler
+            EventHandler? handler = null;
+            handler = (s, e) =>
+            {
+                slideOut.Completed -= handler;
+
+                SuccessToast.Visibility = Visibility.Collapsed;
+
+                // Reset window to compact size
+                this.Width = 150;
+                this.Height = 72;
+
+                // Restore compact position
+                this.Left = _compactPositionX;
+                this.Top = _compactPositionY;
+
+                _logger.Log($"Toast hidden, restored to: {_compactPositionX}, {_compactPositionY}");
+            };
+            slideOut.Completed += handler;
+            slideOut.Begin(SuccessToast);
+        }
+
+        private void CollapseToast_Click(object sender, RoutedEventArgs e)
+        {
+            HideSuccessToast();
         }
 
         private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -595,12 +710,19 @@ namespace TalkKeys
         private void OnAutoCollapseTimerTick(object? sender, EventArgs e)
         {
             _collapseSecondsRemaining--;
-            AutoCollapseText.Text = $"• Collapsing in {_collapseSecondsRemaining}s";
-            
+            AutoCollapseText.Text = $"• {_collapseSecondsRemaining}s";
+
             if (_collapseSecondsRemaining <= 0)
             {
                 _autoCollapseTimer?.Stop();
-                CollapseWidget();
+                if (_isToastVisible)
+                {
+                    HideSuccessToast();
+                }
+                else
+                {
+                    CollapseWidget();
+                }
             }
         }
 
@@ -611,12 +733,12 @@ namespace TalkKeys
                 System.Windows.Clipboard.SetText(TranscribedText.Text);
                 // Change button text briefly to indicate success
                 CopyButton.Content = "✓ Copied!";
-                
+
                 var timer = new System.Windows.Threading.DispatcherTimer();
-                timer.Interval = TimeSpan.FromSeconds(1);
+                timer.Interval = TimeSpan.FromSeconds(1.5);
                 timer.Tick += (s, args) =>
                 {
-                    CopyButton.Content = "📋 Copy";
+                    CopyButton.Content = "📋 Copy to clipboard";
                     timer.Stop();
                 };
                 timer.Start();
@@ -713,20 +835,8 @@ namespace TalkKeys
                     _logger.Log("Warning: No mode handler available to process transcription result");
                 }
 
-                // Small delay to let paste complete
-                await System.Threading.Tasks.Task.Delay(300);
-
-                // NOW show transcribed text in integrated success panel
-                TranscribedText.Text = result.Text;
-                
-                // Switch to success panel
-                RecordingPanel.Visibility = Visibility.Collapsed;
-                SuccessPanel.Visibility = Visibility.Visible;
-                
-                // Start auto-collapse timer
-                _collapseSecondsRemaining = 5;
-                AutoCollapseText.Text = "• Collapsing in 5s";
-                _autoCollapseTimer?.Start();
+                // Show success toast with transcribed text (elegant slide-in animation)
+                ShowSuccessToast(result.Text);
             }
             catch (Exception ex)
             {
@@ -767,18 +877,27 @@ namespace TalkKeys
                 _audio.StopRecording();
                 e.Handled = true;
             }
-            // Escape key closes the widget
-            else if (e.Key == Key.Escape && _isExpanded)
+            // Escape key closes the widget or toast
+            else if (e.Key == Key.Escape)
             {
-                _logger.Log("Escape key pressed - collapsing widget");
-                
-                if (_audio.IsRecording)
+                if (_isToastVisible)
                 {
-                    _audio.StopRecording();
+                    _logger.Log("Escape key pressed - hiding toast");
+                    HideSuccessToast();
+                    e.Handled = true;
                 }
-                
-                CollapseWidget();
-                e.Handled = true;
+                else if (_isExpanded)
+                {
+                    _logger.Log("Escape key pressed - collapsing widget");
+
+                    if (_audio.IsRecording)
+                    {
+                        _audio.StopRecording();
+                    }
+
+                    CollapseWidget();
+                    e.Handled = true;
+                }
             }
         }
 

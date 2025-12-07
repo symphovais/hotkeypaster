@@ -15,8 +15,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="HidSharp" Version="2.6.4" />
     <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" Version="7.1.2" />
     <PackageReference Include="NAudio" Version="2.2.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TalkKeys.PluginSdk\TalkKeys.PluginSdk.csproj" />
   </ItemGroup>
 
   <ItemGroup>

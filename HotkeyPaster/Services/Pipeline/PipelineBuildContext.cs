@@ -24,6 +24,11 @@ namespace TalkKeys.Services.Pipeline
         public string? OpenAIApiKey { get; init; }
 
         /// <summary>
+        /// Groq API key (if available)
+        /// </summary>
+        public string? GroqApiKey { get; init; }
+
+        /// <summary>
         /// Local Whisper model path (if available)
         /// </summary>
         public string? LocalModelPath { get; init; }

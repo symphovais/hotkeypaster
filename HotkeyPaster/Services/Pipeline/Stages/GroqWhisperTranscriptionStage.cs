@@ -6,24 +6,24 @@ using TalkKeys.Services.Transcription;
 namespace TalkKeys.Services.Pipeline.Stages
 {
     /// <summary>
-    /// Transcription stage using OpenAI Whisper API
+    /// Transcription stage using Groq Whisper API (very fast inference)
     /// </summary>
-    public class OpenAIWhisperTranscriptionStage : IPipelineStage
+    public class GroqWhisperTranscriptionStage : IPipelineStage
     {
-        private readonly OpenAIWhisperTranscriber _transcriber;
+        private readonly GroqWhisperTranscriber _transcriber;
 
         public string Name { get; }
-        public string StageType => "OpenAIWhisperTranscription";
+        public string StageType => "GroqWhisperTranscription";
         public int RetryCount => 2;
         public TimeSpan RetryDelay => TimeSpan.FromSeconds(1);
 
-        public OpenAIWhisperTranscriptionStage(string apiKey, string? name = null)
+        public GroqWhisperTranscriptionStage(string apiKey, string? name = null)
         {
             if (string.IsNullOrWhiteSpace(apiKey))
                 throw new ArgumentException("API key cannot be null or empty", nameof(apiKey));
 
-            _transcriber = new OpenAIWhisperTranscriber(apiKey);
-            Name = name ?? "OpenAI Whisper Transcription";
+            _transcriber = new GroqWhisperTranscriber(apiKey);
+            Name = name ?? "Groq Whisper Transcription";
         }
 
         public async Task<StageResult> ExecuteAsync(PipelineContext context)
@@ -47,7 +47,7 @@ namespace TalkKeys.Services.Pipeline.Stages
                 }
 
                 // Report progress
-                context.Progress?.Report(new ProgressEventArgs("Transcribing with OpenAI Whisper...", 30));
+                context.Progress?.Report(new ProgressEventArgs("Transcribing with Groq Whisper...", 30));
 
                 // Transcribe
                 var transcription = await _transcriber.TranscribeAsync(audioData);
@@ -67,8 +67,8 @@ namespace TalkKeys.Services.Pipeline.Stages
 
                 // Add metrics
                 metrics.EndTime = DateTime.UtcNow;
-                metrics.AddMetric("Provider", "OpenAI");
-                metrics.AddMetric("Model", "whisper-1");
+                metrics.AddMetric("Provider", "Groq");
+                metrics.AddMetric("Model", "whisper-large-v3-turbo");
                 metrics.AddMetric("WordCount", wordCount);
                 metrics.AddMetric("CharacterCount", transcription.Length);
 
@@ -81,30 +81,30 @@ namespace TalkKeys.Services.Pipeline.Stages
             {
                 metrics.EndTime = DateTime.UtcNow;
                 metrics.AddMetric("Exception", ex.Message);
-                return StageResult.Failure($"OpenAI Whisper transcription failed: {ex.Message}", metrics);
+                return StageResult.Failure($"Groq Whisper transcription failed: {ex.Message}", metrics);
             }
         }
     }
 
     /// <summary>
-    /// Factory for creating OpenAIWhisperTranscriptionStage instances
+    /// Factory for creating GroqWhisperTranscriptionStage instances
     /// </summary>
-    public class OpenAIWhisperTranscriptionStageFactory : IPipelineStageFactory
+    public class GroqWhisperTranscriptionStageFactory : IPipelineStageFactory
     {
-        public string StageType => "OpenAIWhisperTranscription";
+        public string StageType => "GroqWhisperTranscription";
 
         public IPipelineStage CreateStage(StageConfiguration config, PipelineBuildContext buildContext)
         {
             // Get API key from stage settings or build context
-            var apiKey = SettingsHelper.GetString(config.Settings, "ApiKey") ?? buildContext.OpenAIApiKey;
+            var apiKey = SettingsHelper.GetString(config.Settings, "ApiKey") ?? buildContext.GroqApiKey;
 
             if (string.IsNullOrWhiteSpace(apiKey))
             {
                 throw new InvalidOperationException(
-                    "OpenAI API key not found in stage settings or build context");
+                    "Groq API key not found in stage settings or build context");
             }
 
-            return new OpenAIWhisperTranscriptionStage(apiKey, config.Name);
+            return new GroqWhisperTranscriptionStage(apiKey, config.Name);
         }
     }
 }

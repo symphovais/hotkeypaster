@@ -16,6 +16,7 @@ using TalkKeys.Services.Pipeline.Configuration;
 using TalkKeys.Services.Pipeline.Stages;
 using TalkKeys.Services.Settings;
 using TalkKeys.Services.RecordingMode;
+using TalkKeys.Services.Triggers;
 
 namespace TalkKeys
 {
@@ -31,10 +32,11 @@ namespace TalkKeys
         private IAudioRecordingService? _audioService;
         private IHotkeyService? _hotkeyService;
         private ITrayService? _trayService;
-        private FloatingWidget? _floatingWidget; // Changed from MainWindow
+        private FloatingWidget? _floatingWidget;
         private WindowPositionService? _positioner;
         private ClipboardPasteService? _clipboardService;
         private ActiveWindowContextService? _contextService;
+        private TriggerPluginManager? _triggerPluginManager;
         private bool _mutexOwned = false;
 
         protected override void OnStartup(StartupEventArgs e)
@@ -80,10 +82,11 @@ namespace TalkKeys
             var settings = _settingsService.LoadSettings();
 
             // Check if API key is configured
-            if (string.IsNullOrWhiteSpace(settings.OpenAIApiKey))
+            if (string.IsNullOrWhiteSpace(settings.OpenAIApiKey) &&
+                string.IsNullOrWhiteSpace(settings.GroqApiKey))
             {
                 _notifications.ShowError("API Key Required",
-                    "No OpenAI API key configured. Right-click the tray icon and select Settings to add your API key.");
+                    "No API key configured. Right-click the tray icon and select Settings to add your API key.");
                 _logger.Log("App started without API key - user needs to configure settings");
             }
             else
@@ -103,31 +106,20 @@ namespace TalkKeys
             // Always create FloatingWidget (it will show "API Key Required" message if not configured)
             CreateFloatingWidget();
 
-            // Register hotkeys AFTER widget is created
-            try
-            {
-                _hotkeyService.RegisterHotkey("clipboard", System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.Alt, System.Windows.Forms.Keys.Q);
-                _logger.Log("Registered hotkey: Ctrl+Alt+Q");
-            }
-            catch (Exception ex)
-            {
-                _logger.Log($"Hotkey registration failed: {ex}");
-                _notifications.ShowError("Hotkey Registration Failed", $"Could not register hotkeys: {ex.Message}");
-            }
-
-            // Wire hotkey event
-            _hotkeyService.HotkeyPressed += OnHotkeyPressed;
+            // Initialize trigger plugin system
+            InitializeTriggerPlugins(settings);
 
             // Wire tray events
             _trayService.SettingsRequested += (s, args) =>
             {
-                var settingsWindow = new SettingsWindow(_settingsService, _logger, _audioService);
+                var settingsWindow = new SettingsWindow(_settingsService, _logger, _audioService, _triggerPluginManager);
                 settingsWindow.SettingsChanged += OnSettingsChanged;
                 settingsWindow.Show();
             };
 
             _trayService.ExitRequested += (s, args) =>
             {
+                _triggerPluginManager?.StopAll();
                 _hotkeyService.UnregisterAllHotkeys();
                 _trayService.DisposeTray();
                 Current.Shutdown();
@@ -143,20 +135,96 @@ namespace TalkKeys
             {
                 _logger.Log("TalkKeys started without pipeline - waiting for API key configuration");
             }
+
+            // Auto-select Jabra Engage 50 II as audio device if enabled
+            AutoSelectJabraDeviceIfEnabled(settings);
         }
 
-        private void OnHotkeyPressed(object? sender, HotkeyPressedEventArgs args)
+        private void InitializeTriggerPlugins(AppSettings settings)
         {
-            // Check if pipeline is available
-            if (_pipelineService == null || _floatingWidget == null)
+            _triggerPluginManager = new TriggerPluginManager(_logger);
+
+            // Register built-in plugins
+            _triggerPluginManager.RegisterPlugin(new KeyboardTriggerPlugin(_logger));
+
+            // Discover and load external plugins from the Plugins folder
+            // (including the Jabra plugin which is now loaded as an external DLL)
+            _triggerPluginManager.DiscoverExternalPlugins();
+
+            // Subscribe to trigger events
+            _triggerPluginManager.TriggerActivated += OnTriggerActivated;
+            _triggerPluginManager.TriggerDeactivated += OnTriggerDeactivated;
+
+            // Initialize with stored configurations (or defaults)
+            _triggerPluginManager.Initialize(settings.TriggerPlugins);
+
+            // Start all enabled plugins
+            _triggerPluginManager.StartAll();
+
+            _logger?.Log($"Trigger plugin system initialized. Plugins directory: {_triggerPluginManager.PluginsDirectory}");
+        }
+
+        private void OnTriggerActivated(object? sender, TriggerEventArgs e)
+        {
+            _logger?.Log($"Trigger activated: {e.TriggerId}, Action: {e.Action}");
+
+            Current.Dispatcher.Invoke(() =>
+            {
+                switch (e.Action)
+                {
+                    case RecordingTriggerAction.ToggleRecording:
+                        HandleToggleRecording();
+                        break;
+
+                    case RecordingTriggerAction.PushToTalk:
+                        HandlePushToTalkStart();
+                        break;
+
+                    case RecordingTriggerAction.KeyboardShortcut:
+                        // Keyboard shortcuts are handled by the plugin itself
+                        break;
+
+                    case RecordingTriggerAction.Disabled:
+                        // Do nothing
+                        break;
+                }
+            });
+        }
+
+        private void OnTriggerDeactivated(object? sender, TriggerEventArgs e)
+        {
+            _logger?.Log($"Trigger deactivated: {e.TriggerId}");
+
+            Current.Dispatcher.Invoke(() =>
+            {
+                if (e.Action == RecordingTriggerAction.PushToTalk)
+                {
+                    HandlePushToTalkStop();
+                }
+            });
+        }
+
+        private void HandleToggleRecording()
+        {
+            if (_floatingWidget == null || _pipelineService == null)
             {
                 _notifications?.ShowError("API Key Required",
-                    "No OpenAI API key configured. Right-click the tray icon and select Settings to add your API key.");
+                    "No API key configured. Right-click the tray icon and select Settings to add your API key.");
                 return;
             }
 
-            if (args.HotkeyId == "clipboard")
+            // Toggle recording
+            if (_audioService?.IsRecording == true)
             {
+                // Stop recording
+                _logger?.Log("Toggle: Stopping recording");
+                _audioService.StopRecording();
+            }
+            else
+            {
+                // Start recording
+                _logger?.Log("Toggle: Starting recording");
+
                 // Show widget if hidden
                 if (!_floatingWidget.IsVisible)
                 {
@@ -169,9 +237,99 @@ namespace TalkKeys
             }
         }
 
+        private void HandlePushToTalkStart()
+        {
+            if (_floatingWidget == null || _pipelineService == null)
+            {
+                _notifications?.ShowError("API Key Required",
+                    "No API key configured. Right-click the tray icon and select Settings to add your API key.");
+                return;
+            }
+
+            // Only start if not already recording
+            if (_audioService?.IsRecording != true)
+            {
+                _logger?.Log("Push-to-talk: Starting recording");
+
+                // Show widget if hidden
+                if (!_floatingWidget.IsVisible)
+                {
+                    _floatingWidget.Show();
+                }
+
+                // Start recording with clipboard mode
+                var clipboardHandler = new ClipboardModeHandler(_clipboardService!, _logger!);
+                _floatingWidget.StartRecording(clipboardHandler);
+            }
+        }
+
+        private void HandlePushToTalkStop()
+        {
+            if (_audioService?.IsRecording == true)
+            {
+                _logger?.Log("Push-to-talk: Stopping recording");
+                _audioService.StopRecording();
+            }
+        }
+
+        private void AutoSelectJabraDeviceIfEnabled(AppSettings settings)
+        {
+            // Check if Jabra plugin has auto-select enabled
+            if (settings.TriggerPlugins.TryGetValue("jabra", out var jabraConfig))
+            {
+                if (jabraConfig.Settings.TryGetValue("AutoSelectAudioDevice", out var autoSelectObj)
+                    && autoSelectObj is bool autoSelect && autoSelect)
+                {
+                    AutoSelectJabraDevice();
+                    return;
+                }
+            }
+
+            // Legacy check for older settings format
+            if (settings.JabraAutoSelectDevice)
+            {
+                AutoSelectJabraDevice();
+            }
+        }
+
+        private void AutoSelectJabraDevice()
+        {
+            if (_audioService == null) return;
+
+            var devices = _audioService.GetAvailableDevices();
+            _logger?.Log($"Available audio devices: {string.Join(", ", devices)}");
+
+            // Look for Jabra Engage 50 II device
+            for (int i = 0; i < devices.Length; i++)
+            {
+                if (devices[i].Contains("Engage 50", StringComparison.OrdinalIgnoreCase))
+                {
+                    _audioService.SetDevice(i);
+                    _logger?.Log($"Auto-selected Jabra Engage 50 II as audio device (index {i})");
+                    return;
+                }
+            }
+
+            _logger?.Log("Jabra Engage 50 II not found in audio devices - using default");
+        }
+
         private void OnSettingsChanged(object? sender, EventArgs e)
         {
             ReloadPipelineService();
+
+            // Reload trigger plugin configurations
+            if (_triggerPluginManager != null && _settingsService != null)
+            {
+                var settings = _settingsService.LoadSettings();
+
+                // Update each plugin's configuration
+                foreach (var kvp in settings.TriggerPlugins)
+                {
+                    _triggerPluginManager.UpdatePluginConfiguration(kvp.Key, kvp.Value);
+                }
+
+                _logger?.Log("Trigger plugin configurations reloaded");
+            }
         }
 
         private void CreateFloatingWidget()
@@ -211,10 +369,18 @@ namespace TalkKeys
 
         private IPipelineService? CreatePipelineService(AppSettings settings)
         {
-            // Don't try to create pipeline without API key
-            if (string.IsNullOrWhiteSpace(settings.OpenAIApiKey))
+            // Don't try to create pipeline without the required API key for the selected provider
+            if (settings.TranscriptionProvider == TranscriptionProvider.OpenAI &&
+                string.IsNullOrWhiteSpace(settings.OpenAIApiKey))
             {
-                _logger?.Log("Cannot create pipeline service: No API key configured");
+                _logger?.Log("Cannot create pipeline service: No OpenAI API key configured");
+                return null;
+            }
+
+            if (settings.TranscriptionProvider == TranscriptionProvider.Groq &&
+                string.IsNullOrWhiteSpace(settings.GroqApiKey))
+            {
+                _logger?.Log("Cannot create pipeline service: No Groq API key configured");
                 return null;
             }
 
@@ -232,18 +398,24 @@ namespace TalkKeys
                 // Register stage factories (only the ones we need)
                 factory.RegisterStageFactory(new AudioValidationStageFactory());
                 factory.RegisterStageFactory(new OpenAIWhisperTranscriptionStageFactory());
+                factory.RegisterStageFactory(new GroqWhisperTranscriptionStageFactory());
                 factory.RegisterStageFactory(new GPTTextCleaningStageFactory());
+                factory.RegisterStageFactory(new GroqTextCleaningStageFactory());
 
                 // Create configuration loader
                 var configLoader = new PipelineConfigurationLoader(pipelineConfigDir, _logger);
 
-                // Ensure default configuration exists
-                configLoader.EnsureDefaultConfigurations(settings.OpenAIApiKey);
+                // Ensure default configuration exists based on selected provider
+                configLoader.EnsureDefaultConfigurations(
+                    settings.OpenAIApiKey,
+                    settings.GroqApiKey,
+                    settings.TranscriptionProvider);
 
                 // Create build context
                 var buildContext = new PipelineBuildContext
                 {
                     OpenAIApiKey = settings.OpenAIApiKey,
+                    GroqApiKey = settings.GroqApiKey,
                     Logger = _logger
                 };
 
@@ -274,10 +446,17 @@ namespace TalkKeys
 
             var settings = _settingsService.LoadSettings();
 
-            // Check if API key is now configured
-            if (string.IsNullOrWhiteSpace(settings.OpenAIApiKey))
+            // Check if the API key for the selected provider is configured
+            bool hasRequiredApiKey = settings.TranscriptionProvider switch
             {
-                _logger?.Log("Settings saved but no API key configured");
+                TranscriptionProvider.OpenAI => !string.IsNullOrWhiteSpace(settings.OpenAIApiKey),
+                TranscriptionProvider.Groq => !string.IsNullOrWhiteSpace(settings.GroqApiKey),
+                _ => false
+            };
+
+            if (!hasRequiredApiKey)
+            {
+                _logger?.Log($"Settings saved but no API key configured for {settings.TranscriptionProvider}");
                 return;
             }
 
@@ -306,6 +485,7 @@ namespace TalkKeys
             try
             {
                 // Dispose services
+                _triggerPluginManager?.Dispose();
                 (_hotkeyService as IDisposable)?.Dispose();
                 (_trayService as IDisposable)?.Dispose();
                 (_audioService as IDisposable)?.Dispose();

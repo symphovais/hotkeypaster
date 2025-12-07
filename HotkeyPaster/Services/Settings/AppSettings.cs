@@ -1,9 +1,40 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using TalkKeys.PluginSdk;
 
 namespace TalkKeys.Services.Settings
 {
+    /// <summary>
+    /// Action types for Jabra buttons
+    /// </summary>
+    public enum JabraButtonAction
+    {
+        Disabled = 0,
+        TalkKeysToggle = 1,
+        KeyboardShortcut = 2,
+        PushToTalk = 3
+    }
+
+    /// <summary>
+    /// Recording mode for keyboard shortcut
+    /// </summary>
+    public enum RecordingMode
+    {
+        Toggle = 0,
+        PushToTalk = 1
+    }
+
+    /// <summary>
+    /// Transcription provider selection
+    /// </summary>
+    public enum TranscriptionProvider
+    {
+        OpenAI = 0,
+        Groq = 1
+    }
+
     /// <summary>
     /// Application settings that can be persisted.
     /// </summary>
@@ -11,6 +42,10 @@ namespace TalkKeys.Services.Settings
     {
         // API Configuration
         public string? OpenAIApiKey { get; set; }
+        public string? GroqApiKey { get; set; }
+
+        // Transcription Provider
+        public TranscriptionProvider TranscriptionProvider { get; set; } = TranscriptionProvider.OpenAI;
 
         // Text Processing
         public bool EnableTextCleaning { get; set; } = true;
@@ -25,10 +60,29 @@ namespace TalkKeys.Services.Settings
 
         // Startup Configuration
         public bool StartWithWindows { get; set; } = true; // Default to true for installer
+
+        // Recording Mode Configuration
+        public RecordingMode RecordingMode { get; set; } = RecordingMode.Toggle;
+
+        // Jabra Headset Configuration
+        public bool JabraEnabled { get; set; } = true;
+        public bool JabraAutoSelectDevice { get; set; } = true;
+
+        // Three Dot Button (⋮) Configuration
+        public JabraButtonAction JabraThreeDotAction { get; set; } = JabraButtonAction.TalkKeysToggle;
+        public string? JabraThreeDotShortcut { get; set; }
+
+        // Hook Button Configuration (Legacy - kept for backwards compatibility)
+        public JabraButtonAction JabraHookAction { get; set; } = JabraButtonAction.Disabled;
+        public string? JabraHookShortcut { get; set; }
+
+        // Trigger Plugin Configurations (new system)
+        public Dictionary<string, TriggerPluginConfiguration> TriggerPlugins { get; set; } = new();
     }
 
     /// <summary>
     /// Service for persisting and loading application settings.
+    /// Uses in-memory caching to avoid repeated disk reads.
     /// </summary>
     public class SettingsService
     {
@@ -38,48 +92,85 @@ namespace TalkKeys.Services.Settings
         );
         private static readonly string SettingsPath = Path.Combine(SettingsDir, "settings.json");
 
+        private AppSettings? _cachedSettings;
+        private readonly object _lock = new();
+
+        /// <summary>
+        /// Event raised when settings fail to save.
+        /// </summary>
+        public event EventHandler<SettingsSaveErrorEventArgs>? SaveError;
+
         /// <summary>
         /// Loads settings from disk, or returns defaults if not found.
+        /// Uses caching to avoid repeated disk reads.
         /// </summary>
         public AppSettings LoadSettings()
         {
-            try
+            lock (_lock)
             {
-                if (File.Exists(SettingsPath))
+                if (_cachedSettings != null)
                 {
-                    var json = File.ReadAllText(SettingsPath);
-                    var settings = JsonSerializer.Deserialize<AppSettings>(json);
-                    if (settings != null)
+                    return _cachedSettings;
+                }
+
+                try
+                {
+                    if (File.Exists(SettingsPath))
                     {
-                        return settings;
+                        var json = File.ReadAllText(SettingsPath);
+                        var settings = JsonSerializer.Deserialize<AppSettings>(json);
+                        if (settings != null)
+                        {
+                            _cachedSettings = settings;
+                            return settings;
+                        }
                     }
                 }
-            }
-            catch
-            {
-                // If loading fails, return defaults
-            }
+                catch
+                {
+                    // If loading fails, return defaults
+                }
 
-            return new AppSettings();
+                _cachedSettings = new AppSettings();
+                return _cachedSettings;
+            }
         }
 
         /// <summary>
-        /// Saves settings to disk.
+        /// Saves settings to disk and updates the cache.
         /// </summary>
-        public void SaveSettings(AppSettings settings)
+        /// <returns>True if save succeeded, false otherwise.</returns>
+        public bool SaveSettings(AppSettings settings)
         {
-            try
+            lock (_lock)
             {
-                Directory.CreateDirectory(SettingsDir);
-                var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions
+                try
                 {
-                    WriteIndented = true
-                });
-                File.WriteAllText(SettingsPath, json);
+                    Directory.CreateDirectory(SettingsDir);
+                    var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions
+                    {
+                        WriteIndented = true
+                    });
+                    File.WriteAllText(SettingsPath, json);
+                    _cachedSettings = settings;
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    SaveError?.Invoke(this, new SettingsSaveErrorEventArgs(ex.Message));
+                    return false;
+                }
             }
-            catch
+        }
+
+        /// <summary>
+        /// Invalidates the cache, forcing a reload from disk on next access.
+        /// </summary>
+        public void InvalidateCache()
+        {
+            lock (_lock)
             {
-                // Silently fail - settings won't persist
+                _cachedSettings = null;
             }
         }
 
@@ -87,5 +178,18 @@ namespace TalkKeys.Services.Settings
         /// Gets the path where settings are stored.
         /// </summary>
         public string GetSettingsPath() => SettingsPath;
+    }
+
+    /// <summary>
+    /// Event args for settings save errors.
+    /// </summary>
+    public class SettingsSaveErrorEventArgs : EventArgs
+    {
+        public string ErrorMessage { get; }
+
+        public SettingsSaveErrorEventArgs(string errorMessage)
+        {
+            ErrorMessage = errorMessage;
+        }
     }
 }

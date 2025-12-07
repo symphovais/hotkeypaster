@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RootNamespace>TalkKeys.JabraTriggerPlugin</RootNamespace>
+    <AssemblyName>TalkKeys.JabraTriggerPlugin</AssemblyName>
+
+    <!-- Build output goes to Plugins folder -->
+    <OutputPath>..\HotkeyPaster\bin\Debug\net8.0-windows10.0.17763.0\Plugins\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+
+    <!-- Copy dependencies to output (for standalone plugin deployment) -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- HidSharp for USB HID communication with Jabra headset -->
+    <PackageReference Include="HidSharp" Version="2.6.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Reference the Plugin SDK - don't copy it since it's already in the app -->
+    <ProjectReference Include="..\TalkKeys.PluginSdk\TalkKeys.PluginSdk.csproj">
+      <Private>false</Private>
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </ProjectReference>
+  </ItemGroup>
+
+</Project>
