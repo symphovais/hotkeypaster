@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media.Animation;
 using Microsoft.Win32;
@@ -38,6 +39,10 @@ namespace TalkKeys
         private double _compactPositionX;
         private double _compactPositionY;
         private bool _hasValidCompactPosition = false;
+        private System.Windows.Threading.DispatcherTimer? _visualizerTimer;
+        private Random _random = new Random();
+        private Border[]? _visualizerBars;
+        private Border[]? _levelBars;
 
         public event EventHandler? WidgetClosed;
 
@@ -76,11 +81,21 @@ namespace TalkKeys
             _autoCollapseTimer.Interval = TimeSpan.FromSeconds(1);
             _autoCollapseTimer.Tick += OnAutoCollapseTimerTick;
 
+            // Initialize visualizer timer for ambient animation (slow, subtle movement)
+            _visualizerTimer = new System.Windows.Threading.DispatcherTimer();
+            _visualizerTimer.Interval = TimeSpan.FromMilliseconds(700);
+            _visualizerTimer.Tick += OnVisualizerTimerTick;
+
             // Subscribe to display settings changes
             SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
 
             // Update compact status based on pipeline availability
             UpdateCompactStatus();
+
+            // Cache visualizer bars and start ambient animation
+            _visualizerBars = new Border[] { Bar1, Bar2, Bar3, Bar4, Bar5 };
+            _levelBars = new Border[] { LevelBar1, LevelBar2, LevelBar3, LevelBar4, LevelBar5 };
+            _visualizerTimer?.Start();
 
             _logger.Log("FloatingWidget initialized");
         }
@@ -195,13 +210,19 @@ namespace TalkKeys
             }
             _logger.Log($"Compact position for restoration: {_compactPositionX}, {_compactPositionY}");
 
-            // Calculate expanded dimensions (more compact now)
-            const double expandedWidth = 280;
-            const double expandedHeight = 120;
+            // Calculate expanded dimensions (minimal pill style)
+            const double expandedWidth = 180;
+            const double expandedHeight = 36;
 
             // Hide compact panel, show expanded panel
             CompactPanel.Visibility = Visibility.Collapsed;
             ExpandedPanel.Visibility = Visibility.Visible;
+
+            // Reset recording dot to red gradient
+            RecordingPulse.Fill = new System.Windows.Media.RadialGradientBrush(
+                System.Windows.Media.Color.FromRgb(239, 68, 68),
+                System.Windows.Media.Color.FromRgb(220, 38, 38)
+            );
 
             // Calculate position for expanded widget with screen bounds awareness
             var expandedPosition = CalculateExpandedPosition(expandedWidth, expandedHeight);
@@ -318,9 +339,9 @@ namespace TalkKeys
             CompactPanel.Visibility = Visibility.Visible;
             ExpandedPanel.Visibility = Visibility.Collapsed;
 
-            // Resize window back to compact (sleek card dimensions)
-            this.Width = 150;
-            this.Height = 72;
+            // Resize window back to compact (minimal pill dimensions)
+            this.Width = 90;
+            this.Height = 32;
 
             // Restore original compact position
             this.Left = _compactPositionX;
@@ -361,7 +382,7 @@ namespace TalkKeys
             _isExpanded = false;
 
             // Position toast below compact widget
-            SuccessToast.Margin = new Thickness(0, 80, 0, 0); // Below the 72px compact widget + 8px gap
+            SuccessToast.Margin = new Thickness(0, 40, 0, 0); // Below the 32px compact widget + 8px gap
 
             // Show toast
             SuccessToast.Visibility = Visibility.Visible;
@@ -371,7 +392,7 @@ namespace TalkKeys
 
             // Resize window to fit both compact widget and toast
             this.Width = 260; // Toast is wider
-            this.Height = 80 + toastHeight; // 72px compact + 8px gap + toast
+            this.Height = 40 + toastHeight; // 32px compact + 8px gap + toast
 
             // Restore to saved compact position first
             this.Left = _compactPositionX;
@@ -433,9 +454,9 @@ namespace TalkKeys
 
                 SuccessToast.Visibility = Visibility.Collapsed;
 
-                // Reset window to compact size
-                this.Width = 150;
-                this.Height = 72;
+                // Reset window to compact size (minimal pill dimensions)
+                this.Width = 90;
+                this.Height = 32;
 
                 // Restore compact position
                 this.Left = _compactPositionX;
@@ -491,19 +512,32 @@ namespace TalkKeys
         {
             if (_pipelineService == null)
             {
-                CompactStatus.Text = "Setup required";
+                CompactStatus.Text = "Setup";
+                CompactStatus.Visibility = Visibility.Visible;
                 CompactStatus.Foreground = new System.Windows.Media.SolidColorBrush(
                     System.Windows.Media.Color.FromRgb(239, 68, 68)); // Red
-                CompactDeviceHint.Text = "Click to configure";
+                // Change visualizer bars to red to indicate not configured
+                if (_visualizerBars != null)
+                {
+                    foreach (var bar in _visualizerBars)
+                    {
+                        bar.Background = new System.Windows.Media.SolidColorBrush(
+                            System.Windows.Media.Color.FromRgb(239, 68, 68));
+                    }
+                }
             }
             else
             {
-                CompactStatus.Text = "Ready";
-                CompactStatus.Foreground = new System.Windows.Media.SolidColorBrush(
-                    System.Windows.Media.Color.FromRgb(99, 102, 241)); // Indigo
-                // Show shortened device name
-                var deviceName = _audio.DeviceName ?? "Microphone";
-                CompactDeviceHint.Text = ShortenDeviceName(deviceName);
+                CompactStatus.Visibility = Visibility.Collapsed;
+                // Restore visualizer bars to indigo
+                if (_visualizerBars != null)
+                {
+                    foreach (var bar in _visualizerBars)
+                    {
+                        bar.Background = new System.Windows.Media.SolidColorBrush(
+                            System.Windows.Media.Color.FromRgb(99, 102, 241));
+                    }
+                }
             }
         }
 
@@ -590,22 +624,21 @@ namespace TalkKeys
                 // Play system beep
                 System.Media.SystemSounds.Beep.Play();
 
-                RecordingStatus.Text = _currentModeHandler.GetModeTitle();
-                SubStatus.Text = $"🎤 {_audio.DeviceName} • {_currentModeHandler.GetInstructionText()}";
-                RecordingIcon.Text = _currentModeHandler.GetRecordingIcon();
-
                 // Start recording timer
                 _recordingStartTime = DateTime.Now;
                 RecordingTimer.Text = "0:00";
                 _recordingTimer?.Start();
 
-                // Reset audio level
-                AudioLevelBar.Value = 0;
+                // Reset level bars to gray
+                if (_levelBars != null)
+                {
+                    var grayBrush = new System.Windows.Media.SolidColorBrush(
+                        System.Windows.Media.Color.FromRgb(75, 85, 99));
+                    foreach (var bar in _levelBars)
+                        bar.Background = grayBrush;
+                }
 
-                // Show keyboard hints
-                KeyboardHints.Visibility = Visibility.Visible;
-
-                // Start pulse animation
+                // Start pulse animation on recording dot
                 var pulseAnimation = (Storyboard)this.Resources["PulseAnimation"];
                 pulseAnimation.Begin(RecordingPulse);
             });
@@ -637,19 +670,20 @@ namespace TalkKeys
                 // Stop recording timer
                 _recordingTimer?.Stop();
 
-                // Hide keyboard hints during transcription
-                KeyboardHints.Visibility = Visibility.Collapsed;
-
-                // Update UI for transcription
-                RecordingStatus.Text = "Transcribing...";
-                SubStatus.Text = "Processing with AI";
-                RecordingIcon.Text = "⚡";
-
-                // Change pulse color to purple for transcription
+                // Change dot to purple for transcription state
                 RecordingPulse.Fill = new System.Windows.Media.RadialGradientBrush(
                     System.Windows.Media.Color.FromRgb(139, 92, 246),
                     System.Windows.Media.Color.FromRgb(124, 58, 237)
                 );
+
+                // Set level bars to purple during transcription
+                if (_levelBars != null)
+                {
+                    var purpleBrush = new System.Windows.Media.SolidColorBrush(
+                        System.Windows.Media.Color.FromRgb(139, 92, 246));
+                    foreach (var bar in _levelBars)
+                        bar.Background = purpleBrush;
+                }
 
                 // Automatically start transcription
                 await TranscribeAndPaste();
@@ -666,15 +700,13 @@ namespace TalkKeys
                 }
 
                 _lastRecordingHadNoAudio = true;
+                _logger.Log("No audio detected - silently collapsing widget");
 
                 var pulseAnimation = (Storyboard)this.Resources["PulseAnimation"];
                 pulseAnimation.Stop(RecordingPulse);
                 RecordingPulse.Opacity = 1;
 
-                RecordingStatus.Text = "No audio detected";
-                SubStatus.Text = "Check your microphone";
-                RecordingIcon.Text = "❌";
-
+                // Clean up temp file
                 if (!string.IsNullOrEmpty(_currentRecordingPath) && File.Exists(_currentRecordingPath))
                 {
                     try
@@ -689,7 +721,7 @@ namespace TalkKeys
                 }
 
                 _currentRecordingPath = null;
-                _notifications.ShowError("Microphone Issue", "TalkKeys could not hear anything from your microphone. Please check your input device and try again.");
+                // No notification - just silently collapse. User will notice nothing happened.
             });
         }
 
@@ -703,7 +735,26 @@ namespace TalkKeys
         {
             Dispatcher.Invoke(() =>
             {
-                AudioLevelBar.Value = e.Level;
+                // Update level bars in recording mode
+                if (_levelBars != null && _isExpanded)
+                {
+                    double[] baseHeights = { 8, 12, 6, 14, 10 };
+                    var greenBrush = new System.Windows.Media.SolidColorBrush(
+                        System.Windows.Media.Color.FromRgb(16, 185, 129)); // #10B981
+                    var grayBrush = new System.Windows.Media.SolidColorBrush(
+                        System.Windows.Media.Color.FromRgb(75, 85, 99)); // #4B5563
+
+                    for (int i = 0; i < _levelBars.Length; i++)
+                    {
+                        // Scale bar height based on audio level with some randomness
+                        double variation = _random.NextDouble() * 4 - 2;
+                        double scaledHeight = baseHeights[i] * (0.3 + e.Level * 0.7) + variation;
+                        _levelBars[i].Height = Math.Max(4, Math.Min(18, scaledHeight));
+
+                        // Color bars based on level threshold
+                        _levelBars[i].Background = e.Level > 0.1 ? greenBrush : grayBrush;
+                    }
+                }
             });
         }
 
@@ -723,6 +774,22 @@ namespace TalkKeys
                 {
                     CollapseWidget();
                 }
+            }
+        }
+
+        private void OnVisualizerTimerTick(object? sender, EventArgs e)
+        {
+            // Only animate when in compact mode and not recording
+            if (_isExpanded || _audio.IsRecording || _visualizerBars == null) return;
+
+            // Animate each bar with random heights for subtle ambient "alive" effect
+            double[] baseHeights = { 6, 10, 5, 12, 8 };
+            for (int i = 0; i < _visualizerBars.Length; i++)
+            {
+                // Small random variation of +/- 2 pixels from base for subtle movement
+                double variation = _random.NextDouble() * 4 - 2;
+                double newHeight = Math.Max(3, Math.Min(14, baseHeights[i] + variation));
+                _visualizerBars[i].Height = newHeight;
             }
         }
 
@@ -754,9 +821,9 @@ namespace TalkKeys
             if (string.IsNullOrEmpty(_currentRecordingPath) || !File.Exists(_currentRecordingPath))
             {
                 _notifications.ShowError("No Recording", "No audio file found to transcribe.");
-                RecordingStatus.Text = "Error";
-                SubStatus.Text = "No audio found";
-                RecordingIcon.Text = "❌";
+                // Show error state
+                RecordingPulse.Fill = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(239, 68, 68));
                 return;
             }
 
@@ -774,14 +841,10 @@ namespace TalkKeys
                     _logger.Log($"Window context captured - Process: '{windowContext.ProcessName}', Title: '{windowContext.WindowTitle}'");
                 }
 
-                // Create progress reporter
+                // Create progress reporter (minimal - just log)
                 IProgress<Services.ProgressEventArgs> progress = new Progress<Services.ProgressEventArgs>(e =>
                 {
-                    Dispatcher.Invoke(() =>
-                    {
-                        SubStatus.Text = e.Message;
-                        _logger.Log($"Pipeline progress: {e.Message} ({e.PercentComplete}%)");
-                    });
+                    _logger.Log($"Pipeline progress: {e.Message} ({e.PercentComplete}%)");
                 });
 
                 // Execute pipeline (should never be null here since we check in StartRecording)
@@ -792,24 +855,29 @@ namespace TalkKeys
                 {
                     var errorMsg = result.ErrorMessage ?? "Could not transcribe audio.";
                     _notifications.ShowError("Pipeline Failed", errorMsg);
-                    RecordingStatus.Text = "Failed";
-                    SubStatus.Text = errorMsg;
-                    RecordingIcon.Text = "❌";
-                    RecordingPulse.Fill = new System.Windows.Media.RadialGradientBrush(
-                        System.Windows.Media.Color.FromRgb(239, 68, 68),
-                        System.Windows.Media.Color.FromRgb(220, 38, 38)
-                    );
+                    // Show error state
+                    RecordingPulse.Fill = new System.Windows.Media.SolidColorBrush(
+                        System.Windows.Media.Color.FromRgb(239, 68, 68));
+                    if (_levelBars != null)
+                    {
+                        var redBrush = new System.Windows.Media.SolidColorBrush(
+                            System.Windows.Media.Color.FromRgb(239, 68, 68));
+                        foreach (var bar in _levelBars)
+                            bar.Background = redBrush;
+                    }
                     return;
                 }
 
-                // Show success state briefly
-                RecordingStatus.Text = "Complete!";
-                SubStatus.Text = _currentModeHandler?.GetSuccessMessage(result) ?? $"{result.WordCount} words";
-                RecordingIcon.Text = "✓";
-                RecordingPulse.Fill = new System.Windows.Media.RadialGradientBrush(
-                    System.Windows.Media.Color.FromRgb(34, 197, 94),
-                    System.Windows.Media.Color.FromRgb(22, 163, 74)
-                );
+                // Show success state - green dot
+                RecordingPulse.Fill = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(34, 197, 94));
+                if (_levelBars != null)
+                {
+                    var greenBrush = new System.Windows.Media.SolidColorBrush(
+                        System.Windows.Media.Color.FromRgb(34, 197, 94));
+                    foreach (var bar in _levelBars)
+                        bar.Background = greenBrush;
+                }
 
                 // Wait a moment before handling transcription
                 await System.Threading.Tasks.Task.Delay(300);
@@ -835,20 +903,24 @@ namespace TalkKeys
                     _logger.Log("Warning: No mode handler available to process transcription result");
                 }
 
-                // Show success toast with transcribed text (elegant slide-in animation)
-                ShowSuccessToast(result.Text);
+                // Brief green flash then collapse - text is already pasted
+                await System.Threading.Tasks.Task.Delay(200);
+                CollapseWidget();
             }
             catch (Exception ex)
             {
                 _logger.Log($"Transcription error: {ex}");
                 _notifications.ShowError("Transcription Error", ex.Message);
-                RecordingStatus.Text = "Error";
-                SubStatus.Text = "Failed";
-                RecordingIcon.Text = "❌";
-                RecordingPulse.Fill = new System.Windows.Media.RadialGradientBrush(
-                    System.Windows.Media.Color.FromRgb(239, 68, 68),
-                    System.Windows.Media.Color.FromRgb(220, 38, 38)
-                );
+                // Show error state
+                RecordingPulse.Fill = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(239, 68, 68));
+                if (_levelBars != null)
+                {
+                    var redBrush = new System.Windows.Media.SolidColorBrush(
+                        System.Windows.Media.Color.FromRgb(239, 68, 68));
+                    foreach (var bar in _levelBars)
+                        bar.Background = redBrush;
+                }
             }
             finally
             {
