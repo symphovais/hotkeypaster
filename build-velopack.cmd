@@ -9,7 +9,7 @@ echo Uses Velopack for packaging and auto-updates.
 echo.
 
 :: Configuration
-set VERSION=1.0.1
+set VERSION=1.0.3
 set APP_NAME=TalkKeys
 set PUBLISH_DIR=HotkeyPaster\bin\publish
 set RELEASES_DIR=releases
@@ -169,6 +169,7 @@ echo RELEASE PUBLISHED SUCCESSFULLY
 echo ========================================
 echo.
 echo Release URL: https://github.com/symphovais/hotkeypaster/releases/tag/v%VERSION%
+echo Update source: https://github.com/symphovais/hotkeypaster/releases
 echo Users will auto-update on next launch.
 echo.
 goto :done

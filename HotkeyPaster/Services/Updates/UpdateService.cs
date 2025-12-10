@@ -28,7 +28,7 @@ namespace TalkKeys.Services.Updates
 
     public class UpdateService : IUpdateService
     {
-        private const string GITHUB_RELEASES_URL = "https://github.com/akhterarif/talkkeys/releases";
+        private const string GITHUB_RELEASES_URL = "https://github.com/symphovais/hotkeypaster/releases";
 
         private readonly ILogger? _logger;
         private readonly UpdateManager _updateManager;

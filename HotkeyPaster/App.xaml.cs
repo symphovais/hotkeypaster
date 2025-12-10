@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using TalkKeys.Logging;
+using TalkKeys.Services.Auth;
 using TalkKeys.Services.Notifications;
 using TalkKeys.Services.Windowing;
 using TalkKeys.Services.Clipboard;
@@ -28,6 +29,7 @@ namespace TalkKeys
 
         private IPipelineService? _pipelineService;
         private SettingsService? _settingsService;
+        private TalkKeysApiService? _talkKeysApiService;
         private ILogger? _logger;
         private INotificationService? _notifications;
         private IAudioRecordingService? _audioService;
@@ -80,25 +82,37 @@ namespace TalkKeys
             _contextService = new ActiveWindowContextService();
             _settingsService = new SettingsService();
 
-            // Load settings and configure pipeline service
+            // Load settings and check authentication
             var settings = _settingsService.LoadSettings();
 
-            // Check if API key is configured
-            if (string.IsNullOrWhiteSpace(settings.GroqApiKey))
+            // Check if user is authenticated (either with TalkKeys account or own API key)
+            if (!IsAuthenticated(settings))
             {
-                _notifications.ShowError("API Key Required",
-                    "No Groq API key configured. Right-click the tray icon and select Settings to add your API key.");
-                _logger.Log("App started without API key - user needs to configure settings");
-            }
-            else
-            {
-                _pipelineService = CreatePipelineService(settings);
-                if (_pipelineService == null)
+                _logger.Log("No authentication configured - showing welcome window");
+
+                // Show welcome window for first-time setup
+                var welcomeWindow = new WelcomeWindow(_settingsService, _logger);
+                var result = welcomeWindow.ShowDialog();
+
+                if (result != true)
                 {
-                    _notifications.ShowError("Configuration Error",
-                        "Failed to initialize transcription pipeline. Check logs for details.");
-                    _logger.Log("App started with invalid configuration");
+                    // User closed without authenticating - exit app
+                    _logger.Log("User closed welcome window without authenticating - exiting");
+                    Current.Shutdown();
+                    return;
                 }
+
+                // Reload settings after authentication
+                settings = _settingsService.LoadSettings();
+            }
+
+            // Create pipeline service based on auth mode
+            _pipelineService = CreatePipelineService(settings);
+            if (_pipelineService == null)
+            {
+                _notifications.ShowError("Configuration Error",
+                    "Failed to initialize transcription pipeline. Check logs for details.");
+                _logger.Log("App started with invalid configuration");
             }
 
             // Initialize tray
@@ -392,6 +406,9 @@ namespace TalkKeys
 
                 _logger?.Log("Trigger plugin configurations reloaded");
             }
+
+            // Update hotkey hints in the floating widget
+            _floatingWidget?.UpdateHotkeyHints();
         }
 
         private void CreateFloatingWidget()
@@ -429,12 +446,21 @@ namespace TalkKeys
             _logger?.Log("FloatingWidget shown on startup");
         }
 
+        /// <summary>
+        /// Check if user is authenticated (either TalkKeys account or own API key)
+        /// </summary>
+        private bool IsAuthenticated(AppSettings settings)
+        {
+            return (settings.AuthMode == AuthMode.TalkKeysAccount && !string.IsNullOrEmpty(settings.TalkKeysAccessToken)) ||
+                   (settings.AuthMode == AuthMode.OwnApiKey && !string.IsNullOrEmpty(settings.GroqApiKey));
+        }
+
         private IPipelineService? CreatePipelineService(AppSettings settings)
         {
-            // Don't try to create pipeline without the required API key
-            if (string.IsNullOrWhiteSpace(settings.GroqApiKey))
+            // Verify authentication
+            if (!IsAuthenticated(settings))
             {
-                _logger?.Log("Cannot create pipeline service: No Groq API key configured");
+                _logger?.Log("Cannot create pipeline service: Not authenticated");
                 return null;
             }
 
@@ -449,21 +475,49 @@ namespace TalkKeys
                 // Create pipeline factory
                 var factory = new PipelineFactory(_logger);
 
-                // Register stage factories
+                // Register stage factories based on auth mode
                 factory.RegisterStageFactory(new AudioValidationStageFactory());
-                factory.RegisterStageFactory(new GroqWhisperTranscriptionStageFactory());
-                factory.RegisterStageFactory(new GroqTextCleaningStageFactory());
+
+                if (settings.AuthMode == AuthMode.TalkKeysAccount)
+                {
+                    // Use TalkKeys proxy stages
+                    factory.RegisterStageFactory(new TalkKeysTranscriptionStageFactory());
+                    factory.RegisterStageFactory(new TalkKeysTextCleaningStageFactory());
+                    _logger?.Log("Using TalkKeys account for transcription");
+                }
+                else
+                {
+                    // Use direct Groq API stages
+                    factory.RegisterStageFactory(new GroqWhisperTranscriptionStageFactory());
+                    factory.RegisterStageFactory(new GroqTextCleaningStageFactory());
+                    _logger?.Log("Using own Groq API key for transcription");
+                }
 
                 // Create configuration loader
                 var configLoader = new PipelineConfigurationLoader(pipelineConfigDir, _logger);
 
-                // Ensure default configuration exists
-                configLoader.EnsureDefaultConfigurations(settings.GroqApiKey);
+                // Ensure default configuration exists based on auth mode
+                if (settings.AuthMode == AuthMode.TalkKeysAccount)
+                {
+                    EnsureTalkKeysPipelineConfig(configLoader);
+                }
+                else
+                {
+                    configLoader.EnsureDefaultConfigurations(settings.GroqApiKey!);
+                }
+
+                // Create API service for TalkKeys mode
+                if (settings.AuthMode == AuthMode.TalkKeysAccount)
+                {
+                    _talkKeysApiService?.Dispose();
+                    _talkKeysApiService = new TalkKeysApiService(_settingsService!, _logger);
+                }
 
                 // Create build context
                 var buildContext = new PipelineBuildContext
                 {
                     GroqApiKey = settings.GroqApiKey,
+                    TalkKeysApiService = _talkKeysApiService,
                     Logger = _logger
                 };
 
@@ -488,16 +542,38 @@ namespace TalkKeys
             }
         }
 
+        /// <summary>
+        /// Create pipeline configuration for TalkKeys account mode
+        /// </summary>
+        private void EnsureTalkKeysPipelineConfig(PipelineConfigurationLoader configLoader)
+        {
+            var config = new PipelineConfiguration
+            {
+                Name = "Default",
+                Description = "Transcription via TalkKeys service",
+                Enabled = true,
+                Stages = new System.Collections.Generic.List<StageConfiguration>
+                {
+                    new() { Type = "AudioValidation", Enabled = true },
+                    new() { Type = "TalkKeysTranscription", Enabled = true },
+                    new() { Type = "TalkKeysTextCleaning", Enabled = true }
+                }
+            };
+
+            configLoader.Save(config);
+            _logger?.Log("Created TalkKeys pipeline configuration");
+        }
+
         private void ReloadPipelineService()
         {
             if (_settingsService == null) return;
 
             var settings = _settingsService.LoadSettings();
 
-            // Check if the Groq API key is configured
-            if (string.IsNullOrWhiteSpace(settings.GroqApiKey))
+            // Check if authenticated
+            if (!IsAuthenticated(settings))
             {
-                _logger?.Log("Settings saved but no Groq API key configured");
+                _logger?.Log("Settings saved but not authenticated");
                 return;
             }
 
@@ -527,6 +603,7 @@ namespace TalkKeys
             {
                 // Dispose services
                 _triggerPluginManager?.Dispose();
+                _talkKeysApiService?.Dispose();
                 (_hotkeyService as IDisposable)?.Dispose();
                 (_trayService as IDisposable)?.Dispose();
                 (_audioService as IDisposable)?.Dispose();

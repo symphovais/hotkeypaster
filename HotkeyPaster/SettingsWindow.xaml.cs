@@ -89,10 +89,27 @@ namespace TalkKeys
 
         private void UpdateApiKeyHint()
         {
-            ApiKeyLabel.Text = "Groq API Key";
-            ApiKeyHint.Text = string.IsNullOrEmpty(_currentSettings.GroqApiKey)
-                ? "Required for transcription"
-                : "Configured";
+            if (_currentSettings.AuthMode == AuthMode.TalkKeysAccount)
+            {
+                // Show TalkKeys account info
+                ApiKeyLabel.Text = "TalkKeys Account";
+                if (!string.IsNullOrEmpty(_currentSettings.TalkKeysUserEmail))
+                {
+                    ApiKeyHint.Text = $"Signed in as {_currentSettings.TalkKeysUserEmail}";
+                }
+                else
+                {
+                    ApiKeyHint.Text = "Free account (10 min/day)";
+                }
+            }
+            else
+            {
+                // Show API key status
+                ApiKeyLabel.Text = "Groq API Key";
+                ApiKeyHint.Text = string.IsNullOrEmpty(_currentSettings.GroqApiKey)
+                    ? "Required for transcription"
+                    : "Configured (unlimited)";
+            }
         }
 
         private void LoadTriggerPlugins()
@@ -215,6 +232,119 @@ namespace TalkKeys
 
         private void ShowApiKeyDialog()
         {
+            if (_currentSettings.AuthMode == AuthMode.TalkKeysAccount)
+            {
+                // Show account options dialog
+                ShowAccountOptionsDialog();
+            }
+            else
+            {
+                // Show API key entry dialog
+                ShowGroqApiKeyDialog();
+            }
+        }
+
+        private void ShowAccountOptionsDialog()
+        {
+            var dialog = CreateModalDialog("Account");
+
+            var content = new StackPanel { Margin = new Thickness(0, 16, 0, 0) };
+
+            // Current account info
+            var accountInfo = new Border
+            {
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F3E8FF")),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(12),
+                Margin = new Thickness(0, 0, 0, 16)
+            };
+
+            var accountStack = new StackPanel();
+            accountStack.Children.Add(new TextBlock
+            {
+                Text = _currentSettings.TalkKeysUserName ?? "TalkKeys Account",
+                FontSize = 14,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#7C3AED"))
+            });
+            accountStack.Children.Add(new TextBlock
+            {
+                Text = _currentSettings.TalkKeysUserEmail ?? "Signed in",
+                FontSize = 12,
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#6B7280")),
+                Margin = new Thickness(0, 4, 0, 0)
+            });
+            accountStack.Children.Add(new TextBlock
+            {
+                Text = "Free tier: 10 minutes/day",
+                FontSize = 11,
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#9CA3AF")),
+                Margin = new Thickness(0, 4, 0, 0)
+            });
+            accountInfo.Child = accountStack;
+            content.Children.Add(accountInfo);
+
+            // Sign out button
+            var signOutButton = new Button
+            {
+                Content = "Sign Out",
+                Height = 38,
+                Margin = new Thickness(0, 0, 0, 12),
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F3F4F6")),
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#374151")),
+                FontSize = 14,
+                FontWeight = FontWeights.Medium,
+                BorderThickness = new Thickness(0),
+                Cursor = System.Windows.Input.Cursors.Hand
+            };
+            signOutButton.Click += (s, e) =>
+            {
+                if (MessageBox.Show("Are you sure you want to sign out?", "Sign Out",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                {
+                    // Clear TalkKeys credentials
+                    _currentSettings.TalkKeysAccessToken = null;
+                    _currentSettings.TalkKeysRefreshToken = null;
+                    _currentSettings.TalkKeysUserEmail = null;
+                    _currentSettings.TalkKeysUserName = null;
+                    dialog.Close();
+                    UpdateApiKeyHint();
+
+                    MessageBox.Show("You have been signed out. Please restart the app to sign in again.",
+                        "Signed Out", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            };
+            content.Children.Add(signOutButton);
+
+            // Switch to own API key
+            var switchButton = new Button
+            {
+                Content = "Use my own Groq API key instead",
+                Height = 38,
+                Background = Brushes.Transparent,
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#6B7280")),
+                FontSize = 13,
+                BorderThickness = new Thickness(0),
+                Cursor = System.Windows.Input.Cursors.Hand
+            };
+            switchButton.Click += (s, e) =>
+            {
+                dialog.Close();
+                _currentSettings.AuthMode = AuthMode.OwnApiKey;
+                ShowGroqApiKeyDialog();
+            };
+            content.Children.Add(switchButton);
+
+            var outerGrid = (Grid)dialog.Content;
+            var border = (Border)outerGrid.Children[0];
+            var dialogContent = (StackPanel)border.Child;
+            dialogContent.Children.Add(content);
+
+            dialog.ShowDialog();
+        }
+
+        private void ShowGroqApiKeyDialog()
+        {
             var dialog = CreateModalDialog("Groq API Key");
 
             var content = new StackPanel { Margin = new Thickness(0, 16, 0, 0) };
@@ -265,8 +395,12 @@ namespace TalkKeys
 
             dialog.ShowDialog();
 
-            // Save the key
-            _currentSettings.GroqApiKey = passwordBox.Password;
+            // Save the key if entered
+            if (!string.IsNullOrWhiteSpace(passwordBox.Password))
+            {
+                _currentSettings.AuthMode = AuthMode.OwnApiKey;
+                _currentSettings.GroqApiKey = passwordBox.Password;
+            }
             UpdateApiKeyHint();
         }
 
@@ -509,12 +643,22 @@ namespace TalkKeys
 
         private void SaveClose_Click(object sender, RoutedEventArgs e)
         {
-            // Validate Groq API key
-            if (string.IsNullOrWhiteSpace(_currentSettings.GroqApiKey))
+            // Validate authentication based on mode
+            if (_currentSettings.AuthMode == AuthMode.OwnApiKey && string.IsNullOrWhiteSpace(_currentSettings.GroqApiKey))
             {
                 MessageBox.Show(
                     "Please enter your Groq API key before saving.",
                     "Groq API Key Required",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            if (_currentSettings.AuthMode == AuthMode.TalkKeysAccount && string.IsNullOrWhiteSpace(_currentSettings.TalkKeysAccessToken))
+            {
+                MessageBox.Show(
+                    "Please sign in with your TalkKeys account before saving.",
+                    "Sign In Required",
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
                 return;

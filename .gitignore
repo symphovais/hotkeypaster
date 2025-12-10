@@ -238,3 +238,11 @@ FodyWeavers.xsd
 
 # Installer output
 installer/output/
+
+# Node.js
+node_modules/
+**/node_modules/
+
+# Wrangler/Cloudflare local state
+.wrangler/
+**/.wrangler/

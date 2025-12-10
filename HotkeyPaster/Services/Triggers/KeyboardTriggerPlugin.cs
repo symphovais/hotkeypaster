@@ -25,12 +25,12 @@ namespace TalkKeys.Services.Triggers
         // UI elements for settings panel
         private ComboBox? _modeComboBox;
         private TextBox? _hotkeyTextBox;
-        private System.Windows.Forms.Keys _currentKey = System.Windows.Forms.Keys.Q;
-        private System.Windows.Forms.Keys _currentModifiers = System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.Alt;
+        private System.Windows.Forms.Keys _currentKey = System.Windows.Forms.Keys.Space;
+        private System.Windows.Forms.Keys _currentModifiers = System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.Shift;
 
         public string PluginId => "keyboard";
         public string DisplayName => "Keyboard Hotkey";
-        public string Description => "Trigger recording using a keyboard shortcut (Ctrl+Alt+Q by default)";
+        public string Description => "Trigger recording using a keyboard shortcut (Ctrl+Shift+Space by default)";
         public string Icon => "⌨️";
         public bool IsAvailable => true; // Keyboard is always available
         public string StatusMessage => "Ready";
@@ -131,7 +131,7 @@ namespace TalkKeys.Services.Triggers
                         Action = RecordingTriggerAction.ToggleRecording,
                         Settings = new Dictionary<string, object>
                         {
-                            ["Hotkey"] = "Ctrl+Alt+Q"
+                            ["Hotkey"] = "Ctrl+Shift+Space"
                         }
                     }
                 }

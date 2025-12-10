@@ -27,11 +27,36 @@ namespace TalkKeys.Services.Settings
     }
 
     /// <summary>
+    /// Authentication mode - how the app connects to transcription services
+    /// </summary>
+    public enum AuthMode
+    {
+        /// <summary>
+        /// Use TalkKeys account (free tier with limits)
+        /// </summary>
+        TalkKeysAccount = 0,
+
+        /// <summary>
+        /// Use user's own Groq API key (unlimited)
+        /// </summary>
+        OwnApiKey = 1
+    }
+
+    /// <summary>
     /// Application settings that can be persisted.
     /// </summary>
     public class AppSettings
     {
-        // API Configuration
+        // Authentication Mode
+        public AuthMode AuthMode { get; set; } = AuthMode.TalkKeysAccount;
+
+        // TalkKeys Account (when AuthMode = TalkKeysAccount)
+        public string? TalkKeysAccessToken { get; set; }
+        public string? TalkKeysRefreshToken { get; set; }
+        public string? TalkKeysUserEmail { get; set; }
+        public string? TalkKeysUserName { get; set; }
+
+        // Own API Key (when AuthMode = OwnApiKey)
         public string? GroqApiKey { get; set; }
 
         // Text Processing

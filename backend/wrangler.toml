@@ -1,0 +1,21 @@
+name = "talkkeys-api"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+# Custom domain - configure in Cloudflare dashboard
+# routes = [{ pattern = "talkkeys.symphonytek.dk", custom_domain = true }]
+
+[vars]
+DAILY_LIMIT_SECONDS = "600"  # 10 minutes
+
+# D1 Database binding
+[[d1_databases]]
+binding = "DB"
+database_name = "talkkeys-db"
+database_id = "610c582b-5ac0-4d4c-8c74-7e23fb677b80"
+
+# Secrets (set via wrangler secret put):
+# - GOOGLE_CLIENT_ID
+# - GOOGLE_CLIENT_SECRET
+# - GROQ_API_KEY
+# - JWT_SECRET

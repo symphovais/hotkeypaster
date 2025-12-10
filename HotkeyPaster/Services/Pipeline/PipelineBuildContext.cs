@@ -1,4 +1,5 @@
 using TalkKeys.Logging;
+using TalkKeys.Services.Auth;
 using TalkKeys.Services.Settings;
 
 namespace TalkKeys.Services.Pipeline
@@ -19,9 +20,14 @@ namespace TalkKeys.Services.Pipeline
         public AppSettings? AppSettings { get; init; }
 
         /// <summary>
-        /// Groq API key (if available)
+        /// Groq API key (if available, for OwnApiKey mode)
         /// </summary>
         public string? GroqApiKey { get; init; }
+
+        /// <summary>
+        /// TalkKeys API service (for TalkKeysAccount mode)
+        /// </summary>
+        public TalkKeysApiService? TalkKeysApiService { get; init; }
 
         /// <summary>
         /// Local Whisper model path (if available)

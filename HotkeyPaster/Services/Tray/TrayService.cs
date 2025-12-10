@@ -31,7 +31,7 @@ namespace TalkKeys.Services.Tray
             {
                 Icon = icon,
                 Visible = true,
-                Text = "TalkKeys - Press Ctrl+Alt+Q to record"
+                Text = "TalkKeys - Press Ctrl+Shift+Space to record"
             };
 
             _notifyIcon.DoubleClick += (s, e) => SettingsRequested?.Invoke(this, EventArgs.Empty);

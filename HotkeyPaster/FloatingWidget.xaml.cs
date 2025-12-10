@@ -6,6 +6,7 @@ using System.Windows.Input;
 using System.Windows.Media.Animation;
 using Microsoft.Win32;
 using TalkKeys.Logging;
+using TalkKeys.PluginSdk;
 using TalkKeys.Services.Audio;
 using TalkKeys.Services.Clipboard;
 using TalkKeys.Services.Hotkey;
@@ -97,7 +98,99 @@ namespace TalkKeys
             _levelBars = new Border[] { LevelBar1, LevelBar2, LevelBar3, LevelBar4, LevelBar5 };
             _visualizerTimer?.Start();
 
+            // Update hotkey hints from settings
+            UpdateHotkeyHints();
+
             _logger.Log("FloatingWidget initialized");
+        }
+
+        /// <summary>
+        /// Update the hotkey hints in the UI based on current settings.
+        /// Call this when settings change.
+        /// </summary>
+        public void UpdateHotkeyHints()
+        {
+            try
+            {
+                var (hotkey, isPushToTalk) = GetCurrentHotkeySettings();
+
+                // Update compact panel tooltip based on mode
+                if (isPushToTalk)
+                {
+                    CompactPanel.ToolTip = $"Hold {hotkey} to record, release to stop";
+                }
+                else
+                {
+                    CompactPanel.ToolTip = $"Click or press {hotkey} to record";
+                }
+
+                // Update expanded panel stop hint based on mode
+                if (isPushToTalk)
+                {
+                    StopHintText.Text = "Release to stop";
+                    StopHintText.ToolTip = "Release the hotkey to stop recording";
+                }
+                else
+                {
+                    StopHintText.Text = hotkey;
+                    StopHintText.ToolTip = "Press again to stop recording";
+                }
+
+                _logger.Log($"Updated hotkey hints: {hotkey}, PushToTalk: {isPushToTalk}");
+            }
+            catch (Exception ex)
+            {
+                _logger.Log($"Failed to update hotkey hints: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Get the current hotkey string and mode from settings.
+        /// </summary>
+        private (string hotkey, bool isPushToTalk) GetCurrentHotkeySettings()
+        {
+            const string defaultHotkey = "Ctrl+Shift+Space";
+            bool isPushToTalk = false;
+
+            try
+            {
+                var settings = _settingsService.LoadSettings();
+
+                if (settings.TriggerPlugins.TryGetValue("keyboard", out var keyboardConfig))
+                {
+                    var trigger = keyboardConfig.Triggers.Find(t => t.TriggerId == "keyboard:hotkey");
+                    if (trigger != null)
+                    {
+                        // Check mode
+                        isPushToTalk = trigger.Action == RecordingTriggerAction.PushToTalk;
+
+                        // Get hotkey
+                        if (trigger.Settings.TryGetValue("Hotkey", out var hotkeyObj))
+                        {
+                            if (hotkeyObj is string hotkeyStr && !string.IsNullOrEmpty(hotkeyStr))
+                            {
+                                return (hotkeyStr, isPushToTalk);
+                            }
+                            // Handle JsonElement for deserialized settings
+                            if (hotkeyObj is System.Text.Json.JsonElement jsonElement &&
+                                jsonElement.ValueKind == System.Text.Json.JsonValueKind.String)
+                            {
+                                var value = jsonElement.GetString();
+                                if (!string.IsNullOrEmpty(value))
+                                {
+                                    return (value, isPushToTalk);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Log($"Error reading hotkey settings: {ex.Message}");
+            }
+
+            return (defaultHotkey, isPushToTalk);
         }
 
         public void InitializeForHotkeys(IHotkeyService hotkeyService)
@@ -211,7 +304,7 @@ namespace TalkKeys
             _logger.Log($"Compact position for restoration: {_compactPositionX}, {_compactPositionY}");
 
             // Calculate expanded dimensions (minimal pill style)
-            const double expandedWidth = 180;
+            const double expandedWidth = 230;
             const double expandedHeight = 36;
 
             // Hide compact panel, show expanded panel
