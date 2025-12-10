@@ -10,7 +10,7 @@
   <Identity
     Name="symphonytekApS.TalkKeys"
     Publisher="CN=D97D5D4A-DA94-43A2-8C05-B88D8395A8B0"
-    Version="1.0.4.0"
+    Version="1.0.5.0"
     ProcessorArchitecture="x64" />
 
   <mp:PhoneIdentity PhoneProductId="D97D5D4A-DA94-43A2-8C05-B88D8395A8B0" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
