@@ -84,11 +84,10 @@ namespace TalkKeys
             var settings = _settingsService.LoadSettings();
 
             // Check if API key is configured
-            if (string.IsNullOrWhiteSpace(settings.OpenAIApiKey) &&
-                string.IsNullOrWhiteSpace(settings.GroqApiKey))
+            if (string.IsNullOrWhiteSpace(settings.GroqApiKey))
             {
                 _notifications.ShowError("API Key Required",
-                    "No API key configured. Right-click the tray icon and select Settings to add your API key.");
+                    "No Groq API key configured. Right-click the tray icon and select Settings to add your API key.");
                 _logger.Log("App started without API key - user needs to configure settings");
             }
             else
@@ -432,16 +431,8 @@ namespace TalkKeys
 
         private IPipelineService? CreatePipelineService(AppSettings settings)
         {
-            // Don't try to create pipeline without the required API key for the selected provider
-            if (settings.TranscriptionProvider == TranscriptionProvider.OpenAI &&
-                string.IsNullOrWhiteSpace(settings.OpenAIApiKey))
-            {
-                _logger?.Log("Cannot create pipeline service: No OpenAI API key configured");
-                return null;
-            }
-
-            if (settings.TranscriptionProvider == TranscriptionProvider.Groq &&
-                string.IsNullOrWhiteSpace(settings.GroqApiKey))
+            // Don't try to create pipeline without the required API key
+            if (string.IsNullOrWhiteSpace(settings.GroqApiKey))
             {
                 _logger?.Log("Cannot create pipeline service: No Groq API key configured");
                 return null;
@@ -458,26 +449,20 @@ namespace TalkKeys
                 // Create pipeline factory
                 var factory = new PipelineFactory(_logger);
 
-                // Register stage factories (only the ones we need)
+                // Register stage factories
                 factory.RegisterStageFactory(new AudioValidationStageFactory());
-                factory.RegisterStageFactory(new OpenAIWhisperTranscriptionStageFactory());
                 factory.RegisterStageFactory(new GroqWhisperTranscriptionStageFactory());
-                factory.RegisterStageFactory(new GPTTextCleaningStageFactory());
                 factory.RegisterStageFactory(new GroqTextCleaningStageFactory());
 
                 // Create configuration loader
                 var configLoader = new PipelineConfigurationLoader(pipelineConfigDir, _logger);
 
-                // Ensure default configuration exists based on selected provider
-                configLoader.EnsureDefaultConfigurations(
-                    settings.OpenAIApiKey,
-                    settings.GroqApiKey,
-                    settings.TranscriptionProvider);
+                // Ensure default configuration exists
+                configLoader.EnsureDefaultConfigurations(settings.GroqApiKey);
 
                 // Create build context
                 var buildContext = new PipelineBuildContext
                 {
-                    OpenAIApiKey = settings.OpenAIApiKey,
                     GroqApiKey = settings.GroqApiKey,
                     Logger = _logger
                 };
@@ -509,17 +494,10 @@ namespace TalkKeys
 
             var settings = _settingsService.LoadSettings();
 
-            // Check if the API key for the selected provider is configured
-            bool hasRequiredApiKey = settings.TranscriptionProvider switch
+            // Check if the Groq API key is configured
+            if (string.IsNullOrWhiteSpace(settings.GroqApiKey))
             {
-                TranscriptionProvider.OpenAI => !string.IsNullOrWhiteSpace(settings.OpenAIApiKey),
-                TranscriptionProvider.Groq => !string.IsNullOrWhiteSpace(settings.GroqApiKey),
-                _ => false
-            };
-
-            if (!hasRequiredApiKey)
-            {
-                _logger?.Log($"Settings saved but no API key configured for {settings.TranscriptionProvider}");
+                _logger?.Log("Settings saved but no Groq API key configured");
                 return;
             }
 

@@ -1,5 +1,5 @@
 @echo off
-setlocal
+setlocal EnableDelayedExpansion
 
 echo ========================================
 echo TalkKeys Installer Build Script
@@ -9,10 +9,11 @@ echo Uses Velopack for packaging and auto-updates.
 echo.
 
 :: Configuration
-set VERSION=1.0.0
+set VERSION=1.0.1
 set APP_NAME=TalkKeys
 set PUBLISH_DIR=HotkeyPaster\bin\publish
 set RELEASES_DIR=releases
+set DO_PUBLISH=0
 
 :: Parse command line arguments
 :parse_args
@@ -26,6 +27,16 @@ if /I "%~1"=="--version" (
 if /I "%~1"=="-v" (
     set VERSION=%~2
     shift
+    shift
+    goto :parse_args
+)
+if /I "%~1"=="--publish" (
+    set DO_PUBLISH=1
+    shift
+    goto :parse_args
+)
+if /I "%~1"=="-p" (
+    set DO_PUBLISH=1
     shift
     goto :parse_args
 )
@@ -107,15 +118,76 @@ echo Output files in %RELEASES_DIR%\:
 echo.
 dir /b %RELEASES_DIR%
 echo.
+
+:: Check if we should publish to GitHub
+if "%DO_PUBLISH%"=="0" goto :skip_publish
+
+echo ----------------------------------------
+echo PUBLISHING TO GITHUB RELEASES
+echo ----------------------------------------
+echo.
+
+:: Check for gh CLI
+where gh >nul 2>&1
+if !errorlevel! neq 0 (
+    echo ERROR: GitHub CLI not found!
+    echo.
+    echo Please install from: https://cli.github.com/
+    pause
+    exit /b 1
+)
+
+:: Check if authenticated
+gh auth status >nul 2>&1
+if !errorlevel! neq 0 (
+    echo ERROR: Not authenticated with GitHub CLI!
+    echo.
+    echo Please run: gh auth login
+    pause
+    exit /b 1
+)
+
+:: Create release and upload all files
+echo Creating GitHub release v%VERSION%...
+gh release create v%VERSION% %RELEASES_DIR%\* --title "TalkKeys v%VERSION%" --generate-notes
+if !errorlevel! neq 0 (
+    echo.
+    echo ERROR: Failed to create GitHub release!
+    echo.
+    echo This could be because:
+    echo   - Tag v%VERSION% already exists
+    echo   - Network issues
+    echo   - Permission issues
+    echo.
+    pause
+    exit /b 1
+)
+
+echo.
+echo ========================================
+echo RELEASE PUBLISHED SUCCESSFULLY
+echo ========================================
+echo.
+echo Release URL: https://github.com/symphovais/hotkeypaster/releases/tag/v%VERSION%
+echo Users will auto-update on next launch.
+echo.
+goto :done
+
+:skip_publish
 echo ----------------------------------------
 echo INSTALLATION:
 echo   Run: %RELEASES_DIR%\TalkKeys-Setup.exe
 echo.
 echo PUBLISHING TO GITHUB:
+echo   Re-run with --publish flag:
+echo   build-velopack.cmd --version %VERSION% --publish
+echo.
+echo   Or manually:
 echo   1. Create a new release with tag: v%VERSION%
 echo   2. Upload ALL files from %RELEASES_DIR%\
 echo   3. Users will auto-update on next launch
 echo ----------------------------------------
 echo.
 
+:done
 pause

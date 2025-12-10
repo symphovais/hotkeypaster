@@ -66,9 +66,6 @@ namespace TalkKeys
 
         private void LoadSettings()
         {
-            // Load provider hint
-            UpdateProviderHint();
-
             // Load API key hint
             UpdateApiKeyHint();
 
@@ -90,32 +87,12 @@ namespace TalkKeys
             StartWithWindowsCheckBox.IsChecked = _startupService.IsStartupEnabled;
         }
 
-        private void UpdateProviderHint()
-        {
-            TranscriptionProviderHint.Text = _currentSettings.TranscriptionProvider switch
-            {
-                TranscriptionProvider.OpenAI => "OpenAI Whisper",
-                TranscriptionProvider.Groq => "Groq Whisper (Faster)",
-                _ => "OpenAI Whisper"
-            };
-        }
-
         private void UpdateApiKeyHint()
         {
-            if (_currentSettings.TranscriptionProvider == TranscriptionProvider.Groq)
-            {
-                ApiKeyLabel.Text = "Groq API Key";
-                ApiKeyHint.Text = string.IsNullOrEmpty(_currentSettings.GroqApiKey)
-                    ? "Required for Groq transcription"
-                    : "Configured";
-            }
-            else
-            {
-                ApiKeyLabel.Text = "OpenAI API Key";
-                ApiKeyHint.Text = string.IsNullOrEmpty(_currentSettings.OpenAIApiKey)
-                    ? "Required for transcription"
-                    : "Configured";
-            }
+            ApiKeyLabel.Text = "Groq API Key";
+            ApiKeyHint.Text = string.IsNullOrEmpty(_currentSettings.GroqApiKey)
+                ? "Required for transcription"
+                : "Configured";
         }
 
         private void LoadTriggerPlugins()
@@ -231,60 +208,6 @@ namespace TalkKeys
             }
         }
 
-        private void ChangeProvider_Click(object sender, RoutedEventArgs e)
-        {
-            ShowProviderDialog();
-        }
-
-        private void ShowProviderDialog()
-        {
-            var dialog = CreateModalDialog("Transcription Provider");
-
-            var content = new StackPanel { Margin = new Thickness(0, 16, 0, 0) };
-
-            var options = new[]
-            {
-                ("OpenAI", "OpenAI Whisper", "High quality transcription"),
-                ("Groq", "Groq Whisper", "Faster transcription with Llama")
-            };
-
-            RadioButton? selectedOption = null;
-
-            foreach (var (tag, name, description) in options)
-            {
-                var isSelected = (_currentSettings.TranscriptionProvider == TranscriptionProvider.OpenAI && tag == "OpenAI") ||
-                                 (_currentSettings.TranscriptionProvider == TranscriptionProvider.Groq && tag == "Groq");
-
-                var option = CreateRadioOption(tag, name, description, isSelected, "ProviderGroup");
-                if (isSelected) selectedOption = option;
-                content.Children.Add(option);
-            }
-
-            var outerGrid = (Grid)dialog.Content;
-            var border = (Border)outerGrid.Children[0];
-            var dialogContent = (StackPanel)border.Child;
-            dialogContent.Children.Add(content);
-
-            dialog.ShowDialog();
-
-            // Find selected option
-            foreach (RadioButton rb in content.Children)
-            {
-                if (rb.IsChecked == true && rb.Tag is string tag)
-                {
-                    _currentSettings.TranscriptionProvider = tag switch
-                    {
-                        "OpenAI" => TranscriptionProvider.OpenAI,
-                        "Groq" => TranscriptionProvider.Groq,
-                        _ => TranscriptionProvider.OpenAI
-                    };
-                    UpdateProviderHint();
-                    UpdateApiKeyHint();
-                    break;
-                }
-            }
-        }
-
         private void ChangeApiKey_Click(object sender, RoutedEventArgs e)
         {
             ShowApiKeyDialog();
@@ -292,20 +215,13 @@ namespace TalkKeys
 
         private void ShowApiKeyDialog()
         {
-            var isGroq = _currentSettings.TranscriptionProvider == TranscriptionProvider.Groq;
-            var title = isGroq ? "Groq API Key" : "OpenAI API Key";
-            var currentKey = isGroq ? _currentSettings.GroqApiKey : _currentSettings.OpenAIApiKey;
-            var helpText = isGroq
-                ? "Get your key from console.groq.com"
-                : "Get your key from platform.openai.com";
-
-            var dialog = CreateModalDialog(title);
+            var dialog = CreateModalDialog("Groq API Key");
 
             var content = new StackPanel { Margin = new Thickness(0, 16, 0, 0) };
 
             var passwordBox = new PasswordBox
             {
-                Password = currentKey ?? "",
+                Password = _currentSettings.GroqApiKey ?? "",
                 Height = 44,
                 Padding = new Thickness(12, 12, 12, 12),
                 FontSize = 14,
@@ -316,7 +232,7 @@ namespace TalkKeys
 
             var helpLabel = new TextBlock
             {
-                Text = helpText,
+                Text = "Get your key from console.groq.com",
                 FontSize = 12,
                 Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#6B7280")),
                 Margin = new Thickness(0, 8, 0, 0)
@@ -350,14 +266,7 @@ namespace TalkKeys
             dialog.ShowDialog();
 
             // Save the key
-            if (isGroq)
-            {
-                _currentSettings.GroqApiKey = passwordBox.Password;
-            }
-            else
-            {
-                _currentSettings.OpenAIApiKey = passwordBox.Password;
-            }
+            _currentSettings.GroqApiKey = passwordBox.Password;
             UpdateApiKeyHint();
         }
 
@@ -600,30 +509,15 @@ namespace TalkKeys
 
         private void SaveClose_Click(object sender, RoutedEventArgs e)
         {
-            // Validate API keys based on selected provider
-            if (_currentSettings.TranscriptionProvider == TranscriptionProvider.OpenAI)
+            // Validate Groq API key
+            if (string.IsNullOrWhiteSpace(_currentSettings.GroqApiKey))
             {
-                if (string.IsNullOrWhiteSpace(_currentSettings.OpenAIApiKey))
-                {
-                    MessageBox.Show(
-                        "Please enter your OpenAI API key before saving.",
-                        "API Key Required",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Warning);
-                    return;
-                }
-            }
-            else if (_currentSettings.TranscriptionProvider == TranscriptionProvider.Groq)
-            {
-                if (string.IsNullOrWhiteSpace(_currentSettings.GroqApiKey))
-                {
-                    MessageBox.Show(
-                        "Please enter your Groq API key before saving.",
-                        "Groq API Key Required",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Warning);
-                    return;
-                }
+                MessageBox.Show(
+                    "Please enter your Groq API key before saving.",
+                    "Groq API Key Required",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
             }
 
             // Save plugin configurations
@@ -639,7 +533,7 @@ namespace TalkKeys
             // Save settings to disk
             if (_settingsService.SaveSettings(_currentSettings))
             {
-                _logger.Log($"[Settings] Settings saved. Provider: {_currentSettings.TranscriptionProvider}");
+                _logger.Log("[Settings] Settings saved");
                 SettingsChanged?.Invoke(this, EventArgs.Empty);
                 Close();
             }

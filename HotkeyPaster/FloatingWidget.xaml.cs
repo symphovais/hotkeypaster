@@ -489,7 +489,7 @@ namespace TalkKeys
             if (_pipelineService == null)
             {
                 _notifications.ShowError("API Key Required",
-                    "No OpenAI API key configured. Right-click the tray icon and select Settings to add your API key.");
+                    "No Groq API key configured. Right-click the tray icon and select Settings to add your API key.");
                 return;
             }
 

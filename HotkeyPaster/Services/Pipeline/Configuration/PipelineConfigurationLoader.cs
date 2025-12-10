@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using TalkKeys.Logging;
-using TalkKeys.Services.Settings;
 
 namespace TalkKeys.Services.Pipeline.Configuration
 {
@@ -111,55 +110,25 @@ namespace TalkKeys.Services.Pipeline.Configuration
         }
 
         /// <summary>
-        /// Create default configuration if none exist or if existing config has removed stages
+        /// Create default configuration using Groq APIs
         /// </summary>
-        public void EnsureDefaultConfigurations(string openAiApiKey)
-        {
-            EnsureDefaultConfigurations(openAiApiKey, null, TranscriptionProvider.OpenAI);
-        }
-
-        /// <summary>
-        /// Create default configuration based on selected transcription provider
-        /// </summary>
-        public void EnsureDefaultConfigurations(string? openAiApiKey, string? groqApiKey, TranscriptionProvider provider)
+        public void EnsureDefaultConfigurations(string groqApiKey)
         {
             // Always recreate the default pipeline to ensure it matches current app version
-            _logger?.Log($"Creating/updating default pipeline configuration with provider: {provider}");
+            _logger?.Log("Creating/updating default pipeline configuration with Groq");
 
-            PipelineConfiguration defaultPipeline;
-
-            if (provider == TranscriptionProvider.Groq && !string.IsNullOrWhiteSpace(groqApiKey))
+            var defaultPipeline = new PipelineConfiguration
             {
-                // Groq Whisper for transcription + Groq Llama for text cleaning (all Groq = fastest)
-                defaultPipeline = new PipelineConfiguration
+                Name = "Default",
+                Description = "Fast transcription and text cleaning using Groq APIs",
+                Enabled = true,
+                Stages = new List<StageConfiguration>
                 {
-                    Name = "Default",
-                    Description = "Fast transcription and text cleaning using Groq APIs",
-                    Enabled = true,
-                    Stages = new List<StageConfiguration>
-                    {
-                        new() { Type = "AudioValidation", Enabled = true },
-                        new() { Type = "GroqWhisperTranscription", Enabled = true, Settings = new() { ["ApiKey"] = groqApiKey } },
-                        new() { Type = "GroqTextCleaning", Enabled = true, Settings = new() { ["ApiKey"] = groqApiKey } }
-                    }
-                };
-            }
-            else
-            {
-                // Default: OpenAI Whisper + GPT Cleaning
-                defaultPipeline = new PipelineConfiguration
-                {
-                    Name = "Default",
-                    Description = "Cloud-based transcription using OpenAI Whisper API with GPT text cleaning",
-                    Enabled = true,
-                    Stages = new List<StageConfiguration>
-                    {
-                        new() { Type = "AudioValidation", Enabled = true },
-                        new() { Type = "OpenAIWhisperTranscription", Enabled = true, Settings = new() { ["ApiKey"] = openAiApiKey ?? "" } },
-                        new() { Type = "GPTTextCleaning", Enabled = true, Settings = new() { ["ApiKey"] = openAiApiKey ?? "" } }
-                    }
-                };
-            }
+                    new() { Type = "AudioValidation", Enabled = true },
+                    new() { Type = "GroqWhisperTranscription", Enabled = true, Settings = new() { ["ApiKey"] = groqApiKey } },
+                    new() { Type = "GroqTextCleaning", Enabled = true, Settings = new() { ["ApiKey"] = groqApiKey } }
+                }
+            };
 
             Save(defaultPipeline);
         }

@@ -243,31 +243,6 @@
                                        Foreground="#111827"
                                        Margin="0,0,0,16"/>
 
-                            <!-- Transcription Provider Card -->
-                            <Border Background="#FAFAFA" CornerRadius="10" Padding="16" Margin="0,0,0,10">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Transcription Provider"
-                                                   FontSize="15"
-                                                   FontWeight="Medium"
-                                                   Foreground="#111827"/>
-                                        <TextBlock x:Name="TranscriptionProviderHint"
-                                                   Text="OpenAI Whisper"
-                                                   FontSize="13"
-                                                   Foreground="#6B7280"
-                                                   Margin="0,4,0,0"/>
-                                    </StackPanel>
-                                    <Button Grid.Column="1"
-                                            Content="Change"
-                                            Style="{StaticResource SettingsRowButtonStyle}"
-                                            Click="ChangeProvider_Click"/>
-                                </Grid>
-                            </Border>
-
                             <!-- API Key Card -->
                             <Border x:Name="ApiKeyCard" Background="#FAFAFA" CornerRadius="10" Padding="16" Margin="0,0,0,10">
                                 <Grid>
@@ -277,7 +252,7 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                         <TextBlock x:Name="ApiKeyLabel"
-                                                   Text="OpenAI API Key"
+                                                   Text="Groq API Key"
                                                    FontSize="15"
                                                    FontWeight="Medium"
                                                    Foreground="#111827"/>
@@ -458,11 +433,4 @@
         </Grid>
     </Border>
 
-    <!-- Hidden elements for data binding -->
-    <Window.Tag>
-        <ComboBox x:Name="TranscriptionProviderComboBox" Visibility="Collapsed">
-            <ComboBoxItem Content="OpenAI Whisper" Tag="OpenAI"/>
-            <ComboBoxItem Content="Groq Whisper (Faster)" Tag="Groq"/>
-        </ComboBox>
-    </Window.Tag>
 </Window>

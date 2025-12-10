@@ -27,25 +27,12 @@ namespace TalkKeys.Services.Settings
     }
 
     /// <summary>
-    /// Transcription provider selection
-    /// </summary>
-    public enum TranscriptionProvider
-    {
-        OpenAI = 0,
-        Groq = 1
-    }
-
-    /// <summary>
     /// Application settings that can be persisted.
     /// </summary>
     public class AppSettings
     {
         // API Configuration
-        public string? OpenAIApiKey { get; set; }
         public string? GroqApiKey { get; set; }
-
-        // Transcription Provider
-        public TranscriptionProvider TranscriptionProvider { get; set; } = TranscriptionProvider.OpenAI;
 
         // Text Processing
         public bool EnableTextCleaning { get; set; } = true;

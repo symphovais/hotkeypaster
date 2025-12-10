@@ -16,9 +16,9 @@ namespace TalkKeys.Services.Transcription
         private readonly HttpClient _httpClient;
         private readonly string _apiKey;
         private const string ChatUrl = "https://api.groq.com/openai/v1/chat/completions";
-        private const string CleanupModel = "llama-3.1-8b-instant"; // Fast Llama model on Groq
+        private const string CleanupModel = "openai/gpt-oss-20b"; // Fast OpenAI open model on Groq
 
-        // Cleanup prompt - same as OpenAI version for consistency
+        // Cleanup prompt for text cleaning
         private const string CleanupPrompt =
             "You are a text cleaning assistant for a voice-to-text transcription application called TalkKeys. " +
             "The user speaks into their microphone, and the audio is transcribed to text. Your job is to clean up the raw transcription. " +
@@ -81,7 +81,7 @@ namespace TalkKeys.Services.Transcription
                 messages = new[]
                 {
                     new { role = "system", content = systemPrompt },
-                    new { role = "user", content = rawText }
+                    new { role = "user", content = $"Clean this transcription:\n\n{rawText}" }
                 },
                 temperature = 0.3,
                 max_tokens = 500,

@@ -19,11 +19,6 @@ namespace TalkKeys.Services.Pipeline
         public AppSettings? AppSettings { get; init; }
 
         /// <summary>
-        /// OpenAI API key (if available)
-        /// </summary>
-        public string? OpenAIApiKey { get; init; }
-
-        /// <summary>
         /// Groq API key (if available)
         /// </summary>
         public string? GroqApiKey { get; init; }
