@@ -1,5 +1,4 @@
 using System;
-using Velopack;
 
 namespace TalkKeys
 {
@@ -8,11 +7,8 @@ namespace TalkKeys
         [STAThread]
         public static void Main(string[] args)
         {
-            // Velopack MUST be the first thing to run in the app
-            // This handles install, uninstall, and update lifecycle events
-            VelopackApp.Build().Run();
-
-            // Now run the WPF application
+            // Run the WPF application
+            // Note: Updates are managed by Microsoft Store for packaged versions
             var app = new App();
             app.InitializeComponent();
             app.Run();

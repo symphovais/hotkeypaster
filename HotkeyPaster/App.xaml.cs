@@ -86,11 +86,25 @@ namespace TalkKeys
             var settings = _settingsService.LoadSettings();
 
             // Check if user is authenticated (either with TalkKeys account or own API key)
-            if (!IsAuthenticated(settings))
-            {
-                _logger.Log("No authentication configured - showing welcome window");
+            bool needsAuth = !IsAuthenticated(settings);
 
-                // Show welcome window for first-time setup
+            // If using TalkKeys account, validate the token is still valid
+            if (!needsAuth && settings.AuthMode == AuthMode.TalkKeysAccount)
+            {
+                if (!ValidateTalkKeysToken(settings))
+                {
+                    // Token is expired/invalid - clear it and require re-auth
+                    ClearTalkKeysAuth(settings);
+                    needsAuth = true;
+                    _notifications?.ShowInfo("Session Expired", "Your TalkKeys session has expired. Please sign in again.");
+                }
+            }
+
+            if (needsAuth)
+            {
+                _logger.Log("Authentication required - showing welcome window");
+
+                // Show welcome window for first-time setup or re-auth
                 var welcomeWindow = new WelcomeWindow(_settingsService, _logger);
                 var result = welcomeWindow.ShowDialog();
 
@@ -154,66 +168,8 @@ namespace TalkKeys
             // Auto-select Jabra Engage 50 II as audio device if enabled
             AutoSelectJabraDeviceIfEnabled(settings);
 
-            // Check for updates in the background
-            CheckForUpdatesAsync();
-        }
-
-        private async void CheckForUpdatesAsync()
-        {
-            try
-            {
-                _updateService = new UpdateService(_logger);
-
-                // Subscribe to update events
-                _updateService.UpdateAvailable += OnUpdateAvailable;
-                _updateService.UpdateDownloaded += OnUpdateDownloaded;
-                _updateService.UpdateError += (s, msg) => _logger?.Log($"[Update] Error: {msg}");
-
-                // Check for updates
-                var updateInfo = await _updateService.CheckForUpdatesAsync();
-
-                if (updateInfo?.IsUpdateAvailable == true)
-                {
-                    _logger?.Log($"[Update] New version available: {updateInfo.NewVersion}");
-
-                    // Automatically download the update in the background
-                    await _updateService.DownloadAndApplyUpdateAsync();
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger?.Log($"[Update] Failed to check for updates: {ex.Message}");
-            }
-        }
-
-        private void OnUpdateAvailable(object? sender, UpdateInfo info)
-        {
-            _logger?.Log($"[Update] Update available: {info.CurrentVersion} -> {info.NewVersion}");
-
-            // Show toast notification about the update
-            Current.Dispatcher.Invoke(() =>
-            {
-                _notifications?.ShowInfo("Update Available",
-                    $"TalkKeys {info.NewVersion} is available. It will be installed when you restart.");
-            });
-        }
-
-        private void OnUpdateDownloaded(object? sender, string version)
-        {
-            _logger?.Log($"[Update] Update downloaded: {version}");
-
-            // Show toast notification that update is ready
-            Current.Dispatcher.Invoke(() =>
-            {
-                _notifications?.ShowInfo("Update Ready",
-                    $"TalkKeys {version} has been downloaded. Restart to apply the update.");
-
-                // Add "Restart to Update" option to tray menu
-                _trayService?.AddUpdateMenuItem(() =>
-                {
-                    _updateService?.RestartAndApplyUpdate();
-                });
-            });
+            // Note: Updates are managed by Microsoft Store for packaged versions
+            _updateService = new UpdateService(_logger);
         }
 
         private void InitializeTriggerPlugins(AppSettings settings)
@@ -453,6 +409,56 @@ namespace TalkKeys
         {
             return (settings.AuthMode == AuthMode.TalkKeysAccount && !string.IsNullOrEmpty(settings.TalkKeysAccessToken)) ||
                    (settings.AuthMode == AuthMode.OwnApiKey && !string.IsNullOrEmpty(settings.GroqApiKey));
+        }
+
+        /// <summary>
+        /// Validates the TalkKeys token by making an API call.
+        /// Returns true if token is valid, false if expired/invalid.
+        /// </summary>
+        private bool ValidateTalkKeysToken(AppSettings settings)
+        {
+            if (settings.AuthMode != AuthMode.TalkKeysAccount || string.IsNullOrEmpty(settings.TalkKeysAccessToken))
+            {
+                return true; // Not using TalkKeys, skip validation
+            }
+
+            _logger?.Log("[Auth] Validating TalkKeys token...");
+
+            try
+            {
+                using var apiService = new TalkKeysApiService(_settingsService!, _logger);
+                var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                var usage = Task.Run(() => apiService.GetUsageAsync(cts.Token)).GetAwaiter().GetResult();
+
+                if (usage != null)
+                {
+                    _logger?.Log($"[Auth] Token valid - {usage.RemainingSeconds}s remaining today");
+                    return true;
+                }
+                else
+                {
+                    _logger?.Log("[Auth] Token validation failed - token may be expired");
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Log($"[Auth] Token validation error: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Clears TalkKeys authentication tokens from settings.
+        /// </summary>
+        private void ClearTalkKeysAuth(AppSettings settings)
+        {
+            settings.TalkKeysAccessToken = null;
+            settings.TalkKeysRefreshToken = null;
+            settings.TalkKeysUserEmail = null;
+            settings.TalkKeysUserName = null;
+            _settingsService?.SaveSettings(settings);
+            _logger?.Log("[Auth] Cleared expired TalkKeys credentials");
         }
 
         private IPipelineService? CreatePipelineService(AppSettings settings)

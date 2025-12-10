@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
 using TalkKeys.Logging;
+using TalkKeys.Services.Auth;
 using TalkKeys.Services.Settings;
 using TalkKeys.Services.Startup;
 using TalkKeys.Services.Triggers;
@@ -246,75 +247,141 @@ namespace TalkKeys
 
         private void ShowAccountOptionsDialog()
         {
+            var isSignedIn = !string.IsNullOrEmpty(_currentSettings.TalkKeysAccessToken);
             var dialog = CreateModalDialog("Account");
 
             var content = new StackPanel { Margin = new Thickness(0, 16, 0, 0) };
 
-            // Current account info
-            var accountInfo = new Border
+            if (isSignedIn)
             {
-                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F3E8FF")),
-                CornerRadius = new CornerRadius(8),
-                Padding = new Thickness(12),
-                Margin = new Thickness(0, 0, 0, 16)
-            };
-
-            var accountStack = new StackPanel();
-            accountStack.Children.Add(new TextBlock
-            {
-                Text = _currentSettings.TalkKeysUserName ?? "TalkKeys Account",
-                FontSize = 14,
-                FontWeight = FontWeights.SemiBold,
-                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#7C3AED"))
-            });
-            accountStack.Children.Add(new TextBlock
-            {
-                Text = _currentSettings.TalkKeysUserEmail ?? "Signed in",
-                FontSize = 12,
-                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#6B7280")),
-                Margin = new Thickness(0, 4, 0, 0)
-            });
-            accountStack.Children.Add(new TextBlock
-            {
-                Text = "Free tier: 10 minutes/day",
-                FontSize = 11,
-                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#9CA3AF")),
-                Margin = new Thickness(0, 4, 0, 0)
-            });
-            accountInfo.Child = accountStack;
-            content.Children.Add(accountInfo);
-
-            // Sign out button
-            var signOutButton = new Button
-            {
-                Content = "Sign Out",
-                Height = 38,
-                Margin = new Thickness(0, 0, 0, 12),
-                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F3F4F6")),
-                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#374151")),
-                FontSize = 14,
-                FontWeight = FontWeights.Medium,
-                BorderThickness = new Thickness(0),
-                Cursor = System.Windows.Input.Cursors.Hand
-            };
-            signOutButton.Click += (s, e) =>
-            {
-                if (MessageBox.Show("Are you sure you want to sign out?", "Sign Out",
-                    MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                // Current account info
+                var accountInfo = new Border
                 {
-                    // Clear TalkKeys credentials
-                    _currentSettings.TalkKeysAccessToken = null;
-                    _currentSettings.TalkKeysRefreshToken = null;
-                    _currentSettings.TalkKeysUserEmail = null;
-                    _currentSettings.TalkKeysUserName = null;
-                    dialog.Close();
-                    UpdateApiKeyHint();
+                    Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F3E8FF")),
+                    CornerRadius = new CornerRadius(8),
+                    Padding = new Thickness(12),
+                    Margin = new Thickness(0, 0, 0, 16)
+                };
 
-                    MessageBox.Show("You have been signed out. Please restart the app to sign in again.",
-                        "Signed Out", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-            };
-            content.Children.Add(signOutButton);
+                var accountStack = new StackPanel();
+                accountStack.Children.Add(new TextBlock
+                {
+                    Text = _currentSettings.TalkKeysUserName ?? "TalkKeys Account",
+                    FontSize = 14,
+                    FontWeight = FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#7C3AED"))
+                });
+                accountStack.Children.Add(new TextBlock
+                {
+                    Text = _currentSettings.TalkKeysUserEmail ?? "Signed in",
+                    FontSize = 12,
+                    Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#6B7280")),
+                    Margin = new Thickness(0, 4, 0, 0)
+                });
+                accountStack.Children.Add(new TextBlock
+                {
+                    Text = "Free tier: 10 minutes/day",
+                    FontSize = 11,
+                    Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#9CA3AF")),
+                    Margin = new Thickness(0, 4, 0, 0)
+                });
+                accountInfo.Child = accountStack;
+                content.Children.Add(accountInfo);
+
+                // Sign out button
+                var signOutButton = new Button
+                {
+                    Content = "Sign Out",
+                    Height = 38,
+                    Margin = new Thickness(0, 0, 0, 12),
+                    Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F3F4F6")),
+                    Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#374151")),
+                    FontSize = 14,
+                    FontWeight = FontWeights.Medium,
+                    BorderThickness = new Thickness(0),
+                    Cursor = System.Windows.Input.Cursors.Hand
+                };
+                signOutButton.Click += (s, e) =>
+                {
+                    if (MessageBox.Show("Are you sure you want to sign out?", "Sign Out",
+                        MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                    {
+                        // Clear TalkKeys credentials
+                        _currentSettings.TalkKeysAccessToken = null;
+                        _currentSettings.TalkKeysRefreshToken = null;
+                        _currentSettings.TalkKeysUserEmail = null;
+                        _currentSettings.TalkKeysUserName = null;
+                        dialog.Close();
+                        UpdateApiKeyHint();
+
+                        // Show account dialog again with sign-in option
+                        ShowAccountOptionsDialog();
+                    }
+                };
+                content.Children.Add(signOutButton);
+            }
+            else
+            {
+                // Not signed in - show sign-in option
+                var infoText = new TextBlock
+                {
+                    Text = "Sign in with Google to get 10 minutes of free transcription daily.",
+                    FontSize = 13,
+                    Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#6B7280")),
+                    TextWrapping = TextWrapping.Wrap,
+                    Margin = new Thickness(0, 0, 0, 16)
+                };
+                content.Children.Add(infoText);
+
+                // Sign in button
+                var signInButton = new Button
+                {
+                    Content = "Sign in with Google",
+                    Height = 44,
+                    Margin = new Thickness(0, 0, 0, 12),
+                    Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#7C3AED")),
+                    Foreground = Brushes.White,
+                    FontSize = 14,
+                    FontWeight = FontWeights.SemiBold,
+                    BorderThickness = new Thickness(0),
+                    Cursor = System.Windows.Input.Cursors.Hand
+                };
+                signInButton.Click += async (s, e) =>
+                {
+                    signInButton.IsEnabled = false;
+                    signInButton.Content = "Opening browser...";
+
+                    try
+                    {
+                        var authService = new TalkKeysAuthService(_settingsService, _logger);
+                        var result = await authService.LoginAsync();
+
+                        if (result != null)
+                        {
+                            _currentSettings = _settingsService.LoadSettings();
+                            dialog.Close();
+                            UpdateApiKeyHint();
+                            SettingsChanged?.Invoke(this, EventArgs.Empty);
+                            MessageBox.Show($"Welcome, {result.Name ?? result.Email}!", "Signed In",
+                                MessageBoxButton.OK, MessageBoxImage.Information);
+                        }
+                        else
+                        {
+                            signInButton.IsEnabled = true;
+                            signInButton.Content = "Sign in with Google";
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Log($"Sign-in error: {ex.Message}");
+                        signInButton.IsEnabled = true;
+                        signInButton.Content = "Sign in with Google";
+                        MessageBox.Show($"Sign-in failed: {ex.Message}", "Error",
+                            MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
+                };
+                content.Children.Add(signInButton);
+            }
 
             // Switch to own API key
             var switchButton = new Button

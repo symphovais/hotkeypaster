@@ -117,7 +117,7 @@ namespace TalkKeys.Services.Auth
                     settings.TalkKeysUserName = result.Name;
                     _settingsService.SaveSettings(settings);
 
-                    _logger?.Log($"[Auth] Login successful for {result.Email}");
+                    _logger?.Log("[Auth] Login successful");
                     AuthenticationCompleted?.Invoke(this, result);
                 }
 

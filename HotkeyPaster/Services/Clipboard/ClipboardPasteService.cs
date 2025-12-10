@@ -62,25 +62,32 @@ namespace TalkKeys.Services.Clipboard
                 throw new InvalidOperationException($"Failed to send paste command: {ex.Message}", ex);
             }
 
-            // Restore previous clipboard content after a longer delay
-            // Teams has very slow asynchronous clipboard handling and may take 2-3 seconds
-            // to fully process the paste operation. If we restore too early, Teams will
-            // paste the old clipboard content instead of our text.
-            Thread.Sleep(2500);
+            // Restore previous clipboard content asynchronously
+            // Using a background thread so we don't block the UI
             if (!string.IsNullOrEmpty(previousClipboard))
             {
-                try
+                var clipboardToRestore = previousClipboard;
+                System.Threading.Tasks.Task.Run(async () =>
                 {
-                    TryClipboardOperation(() =>
+                    // Wait for paste to complete in target app
+                    await System.Threading.Tasks.Task.Delay(300);
+
+                    // Clipboard must be accessed from STA thread
+                    var thread = new Thread(() =>
                     {
-                        System.Windows.Clipboard.SetText(previousClipboard);
-                        return true;
+                        try
+                        {
+                            System.Windows.Clipboard.SetText(clipboardToRestore);
+                        }
+                        catch
+                        {
+                            // Ignore errors when restoring - not critical
+                        }
                     });
-                }
-                catch
-                {
-                    // Ignore errors when restoring - not critical
-                }
+                    thread.SetApartmentState(ApartmentState.STA);
+                    thread.Start();
+                    thread.Join(1000); // Timeout after 1 second
+                });
             }
         }
 

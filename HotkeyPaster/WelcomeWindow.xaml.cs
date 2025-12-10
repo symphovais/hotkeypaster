@@ -54,7 +54,7 @@ namespace TalkKeys
 
                 if (result != null)
                 {
-                    _logger?.Log($"[Welcome] Sign-in successful: {result.Email}");
+                    _logger?.Log("[Welcome] Sign-in successful");
                     _userName = result.Name ?? result.Email?.Split('@')[0];
                     SelectedAuthMode = AuthMode.TalkKeysAccount;
                     ShowStep2();

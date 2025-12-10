@@ -433,7 +433,7 @@ namespace TalkKeys
                 var windowContext = _contextService.GetWindowContext(_previousWindow);
                 if (windowContext.IsValid)
                 {
-                    Logger.Log($"Window context captured - Process: '{windowContext.ProcessName}', Title: '{windowContext.WindowTitle}'");
+                    Logger.Log($"Window context captured - Process: '{windowContext.ProcessName}'");
                 }
                 else
                 {

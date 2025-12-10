@@ -931,7 +931,7 @@ namespace TalkKeys
                 var windowContext = _contextService.GetWindowContext(_previousWindow);
                 if (windowContext.IsValid)
                 {
-                    _logger.Log($"Window context captured - Process: '{windowContext.ProcessName}', Title: '{windowContext.WindowTitle}'");
+                    _logger.Log($"Window context captured - Process: '{windowContext.ProcessName}'");
                 }
 
                 // Create progress reporter (minimal - just log)
@@ -1035,15 +1035,8 @@ namespace TalkKeys
 
         private void Window_KeyDown(object sender, KeyEventArgs e)
         {
-            // Space key stops recording and starts transcription
-            if (e.Key == Key.Space && _audio.IsRecording && _isExpanded)
-            {
-                _logger.Log("Space key pressed - stopping recording");
-                _audio.StopRecording();
-                e.Handled = true;
-            }
             // Escape key closes the widget or toast
-            else if (e.Key == Key.Escape)
+            if (e.Key == Key.Escape)
             {
                 if (_isToastVisible)
                 {

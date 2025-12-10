@@ -104,7 +104,7 @@ async function createAuthTokens(
     email,
     name,
     iat: now,
-    exp: now + 3600 // 1 hour
+    exp: now + 30 * 24 * 3600 // 30 days
   };
 
   const accessToken = await signJWT(payload, env.JWT_SECRET);
@@ -113,7 +113,7 @@ async function createAuthTokens(
   return {
     access_token: accessToken,
     refresh_token: refreshToken,
-    expires_in: 3600
+    expires_in: 30 * 24 * 3600
   };
 }
 
