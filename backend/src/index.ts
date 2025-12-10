@@ -51,6 +51,18 @@ const homePage = `<!DOCTYPE html>
     .store-badge { display: flex; align-items: center; justify-content: center; gap: 8px; color: #6B7280; font-size: 14px; margin-top: 12px; }
     .store-badge svg { width: 18px; height: 18px; }
 
+    /* Developer mode note */
+    .dev-note { text-align: center; color: #6B7280; font-size: 13px; margin-top: 12px; }
+    .dev-note a { color: #A78BFA; text-decoration: none; }
+    .dev-note a:hover { text-decoration: underline; }
+
+    /* Windows Store coming soon */
+    .store-coming-soon { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 32px; padding: 20px 32px; background: linear-gradient(135deg, rgba(0, 120, 212, 0.15) 0%, rgba(99, 102, 241, 0.15) 100%); border: 1px solid rgba(0, 120, 212, 0.3); border-radius: 16px; }
+    .store-coming-soon svg { width: 36px; height: 36px; color: #60A5FA; flex-shrink: 0; }
+    .store-coming-soon > div { display: flex; flex-direction: column; gap: 2px; }
+    .store-title { font-size: 18px; font-weight: 600; color: #E5E7EB; }
+    .store-subtitle { font-size: 14px; color: #9CA3AF; }
+
     /* Screenshots */
     .screenshots { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; margin-top: 64px; }
     .screenshot { border-radius: 16px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); transition: transform 0.3s ease; }
@@ -119,9 +131,14 @@ const homePage = `<!DOCTYPE html>
         </a>
       </div>
 
-      <div class="store-badge">
+      <p class="dev-note">* Requires <a href="ms-settings:developers" style="color: #A78BFA;">Developer Mode</a> enabled in Windows Settings</p>
+
+      <div class="store-coming-soon">
         <svg viewBox="0 0 24 24"><path fill="currentColor" d="M3 12V6.75l6-1.32v6.48L3 12zm17-9v8.75l-10 .15V5.21L20 3zM3 13l6 .09v6.81l-6-1.15V13zm17 .25V22l-10-1.91V13.1l10 .15z"/></svg>
-        <span>Coming soon to Microsoft Store</span>
+        <div>
+          <span class="store-title">Coming Soon to Microsoft Store</span>
+          <span class="store-subtitle">No Developer Mode required</span>
+        </div>
       </div>
 
       <!-- Screenshots -->
