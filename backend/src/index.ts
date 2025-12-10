@@ -272,6 +272,9 @@ const privacyPage = `<!DOCTYPE html>
     .back:hover { color: #C4B5FD; }
     .back svg { width: 20px; height: 20px; fill: currentColor; }
     .updated { color: #6B7280; font-size: 14px; margin-top: 48px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.1); }
+    .page-footer { margin-top: 64px; padding-top: 32px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; flex-wrap: wrap; gap: 24px; justify-content: center; }
+    .page-footer a { color: #9CA3AF; text-decoration: none; font-size: 14px; transition: color 0.2s; }
+    .page-footer a:hover { color: #A78BFA; }
   </style>
 </head>
 <body>
@@ -314,10 +317,11 @@ const privacyPage = `<!DOCTYPE html>
     <p>For privacy concerns, contact us at: privacy@symphonytek.dk</p>
 
     <p class="updated">Last updated: December 2024</p>
-    <a href="/" class="back">
-      <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
-      Back to Home
-    </a>
+    <div class="page-footer">
+      <a href="/">Home</a>
+      <a href="/tos">Terms of Service</a>
+      <a href="https://github.com/symphovais/hotkeypaster">GitHub</a>
+    </div>
   </div>
 </body>
 </html>`;
@@ -345,6 +349,9 @@ const tosPage = `<!DOCTYPE html>
     .back:hover { color: #C4B5FD; }
     .back svg { width: 20px; height: 20px; fill: currentColor; }
     .updated { color: #6B7280; font-size: 14px; margin-top: 48px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.1); }
+    .page-footer { margin-top: 64px; padding-top: 32px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; flex-wrap: wrap; gap: 24px; justify-content: center; }
+    .page-footer a { color: #9CA3AF; text-decoration: none; font-size: 14px; transition: color 0.2s; }
+    .page-footer a:hover { color: #A78BFA; }
   </style>
 </head>
 <body>
@@ -393,10 +400,11 @@ const tosPage = `<!DOCTYPE html>
     <p>For questions about these terms, contact us at: support@symphonytek.dk</p>
 
     <p class="updated">Last updated: December 2024</p>
-    <a href="/" class="back">
-      <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
-      Back to Home
-    </a>
+    <div class="page-footer">
+      <a href="/">Home</a>
+      <a href="/privacy">Privacy Policy</a>
+      <a href="https://github.com/symphovais/hotkeypaster">GitHub</a>
+    </div>
   </div>
 </body>
 </html>`;
