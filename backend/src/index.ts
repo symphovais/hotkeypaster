@@ -29,8 +29,7 @@ const homePage = `<!DOCTYPE html>
 
     /* Logo and branding */
     .brand { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 24px; }
-    .logo { width: 72px; height: 72px; background: linear-gradient(135deg, #7C3AED 0%, #6366F1 100%); border-radius: 18px; display: flex; align-items: center; justify-content: center; box-shadow: 0 20px 40px -12px rgba(124, 58, 237, 0.5); }
-    .logo svg { width: 40px; height: 40px; fill: white; }
+    .logo { width: 72px; height: 72px; border-radius: 18px; box-shadow: 0 20px 40px -12px rgba(124, 58, 237, 0.5); }
     .brand-name { font-size: 42px; font-weight: 700; background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 
     /* Hero text */
@@ -111,9 +110,7 @@ const homePage = `<!DOCTYPE html>
   <section class="hero">
     <div class="hero-content">
       <div class="brand">
-        <div class="logo">
-          <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1 1.93c-3.94-.49-7-3.85-7-7.93h2c0 3.31 2.69 6 6 6s6-2.69 6-6h2c0 4.08-3.06 7.44-7 7.93V19h4v2H8v-2h4v-3.07z"/></svg>
-        </div>
+        <img class="logo" src="https://raw.githubusercontent.com/symphovais/hotkeypaster/master/icon-talkkeys.png" alt="TalkKeys">
         <span class="brand-name">TalkKeys</span>
       </div>
 
