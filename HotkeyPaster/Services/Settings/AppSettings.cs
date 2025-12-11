@@ -93,6 +93,9 @@ namespace TalkKeys.Services.Settings
 
         // Version tracking for "What's New" screen
         public string? LastSeenVersion { get; set; }
+
+        // General Plugin Configurations (utility plugins like Focus Timer)
+        public Dictionary<string, PluginConfiguration> Plugins { get; set; } = new();
     }
 
     /// <summary>

@@ -79,3 +79,8 @@ Some tests are skipped by default because they require hardware (microphone):
 - `StartRecording_WhenDeviceBusy_RetriesAndFails`
 
 Run these manually when testing audio recording changes.
+
+---
+
+## Code Quality
+- No warnings allowed in the codebase. All compiler warnings must be resolved or explicitly suppressed with justification.

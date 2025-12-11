@@ -176,6 +176,12 @@
                                      Style="{StaticResource SidebarButtonStyle}"
                                      GroupName="SettingsTabs"
                                      Checked="Tab_Changed"/>
+                        <RadioButton x:Name="PluginsTab"
+                                     Content="Plugins"
+                                     Tag="&#xE74C;"
+                                     Style="{StaticResource SidebarButtonStyle}"
+                                     GroupName="SettingsTabs"
+                                     Checked="Tab_Changed"/>
                     </StackPanel>
 
                     <!-- Version footer -->
@@ -354,6 +360,27 @@
                                     MinHeight="280">
                                 <!-- Plugin settings panels added dynamically -->
                             </Border>
+                    </StackPanel>
+
+                    <!-- Plugins Tab Content -->
+                    <StackPanel x:Name="PluginsTabContent"
+                                Visibility="Collapsed"
+                                Margin="28,8,28,0">
+                            <!-- Page Title -->
+                            <TextBlock Text="Plugins"
+                                       FontSize="22"
+                                       FontWeight="SemiBold"
+                                       Foreground="#111827"
+                                       Margin="0,0,0,8"/>
+                            <TextBlock Text="Enable and configure utility plugins"
+                                       FontSize="13"
+                                       Foreground="#6B7280"
+                                       Margin="0,0,0,16"/>
+
+                            <!-- Plugin list -->
+                            <StackPanel x:Name="PluginListPanel">
+                                <!-- Plugin items added dynamically -->
+                            </StackPanel>
                     </StackPanel>
                 </Grid>
 

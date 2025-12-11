@@ -20,6 +20,8 @@ using TalkKeys.Services.Settings;
 using TalkKeys.Services.RecordingMode;
 using TalkKeys.Services.Triggers;
 using TalkKeys.Services.Updates;
+using TalkKeys.Services.Plugins;
+using TalkKeys.Plugins.FocusTimer;
 
 namespace TalkKeys
 {
@@ -41,6 +43,7 @@ namespace TalkKeys
         private ClipboardPasteService? _clipboardService;
         private ActiveWindowContextService? _contextService;
         private TriggerPluginManager? _triggerPluginManager;
+        private PluginManager? _pluginManager;
         private IUpdateService? _updateService;
         private bool _mutexOwned = false;
 
@@ -133,9 +136,9 @@ namespace TalkKeys
             _pipelineService = CreatePipelineService(settings);
             if (_pipelineService == null)
             {
-                _notifications.ShowError("Configuration Error",
+                _notifications?.ShowError("Configuration Error",
                     "Failed to initialize transcription pipeline. Check logs for details.");
-                _logger.Log("App started with invalid configuration");
+                _logger?.Log("App started with invalid configuration");
             }
 
             // Initialize tray
@@ -147,10 +150,13 @@ namespace TalkKeys
             // Initialize trigger plugin system
             InitializeTriggerPlugins(settings);
 
+            // Initialize general plugin system (Focus Timer, etc.)
+            InitializePlugins(settings);
+
             // Wire tray events
             _trayService.SettingsRequested += (s, args) =>
             {
-                var settingsWindow = new SettingsWindow(_settingsService, _logger, _audioService, _triggerPluginManager);
+                var settingsWindow = new SettingsWindow(_settingsService!, _logger!, _audioService, _triggerPluginManager, _pluginManager);
                 settingsWindow.SettingsChanged += OnSettingsChanged;
                 settingsWindow.Show();
             };
@@ -173,11 +179,11 @@ namespace TalkKeys
             if (_pipelineService != null)
             {
                 var pipelineName = _pipelineService.GetDefaultPipelineName() ?? "unknown";
-                _logger.Log($"TalkKeys started with pipeline: {pipelineName}");
+                _logger?.Log($"TalkKeys started with pipeline: {pipelineName}");
             }
             else
             {
-                _logger.Log("TalkKeys started without pipeline - waiting for API key configuration");
+                _logger?.Log("TalkKeys started without pipeline - waiting for API key configuration");
             }
 
             // Auto-select Jabra Engage 50 II as audio device if enabled
@@ -209,6 +215,83 @@ namespace TalkKeys
             _triggerPluginManager.StartAll();
 
             _logger?.Log($"Trigger plugin system initialized. Plugins directory: {_triggerPluginManager.PluginsDirectory}");
+        }
+
+        private void InitializePlugins(AppSettings settings)
+        {
+            _logger?.Log($"[App] InitializePlugins - settings.Plugins count: {settings.Plugins?.Count ?? 0}");
+            if (settings.Plugins != null)
+            {
+                foreach (var kvp in settings.Plugins)
+                {
+                    _logger?.Log($"[App] Saved plugin config: '{kvp.Key}' -> Enabled={kvp.Value?.Enabled}, WidgetVisible={kvp.Value?.WidgetVisible}");
+                }
+            }
+
+            _pluginManager = new PluginManager(_logger, _positioner);
+
+            // Register built-in plugins
+            _pluginManager.RegisterPlugin(new FocusTimerPlugin(_logger));
+
+            // Subscribe to plugin events
+            _pluginManager.PluginWidgetPositionChanged += OnPluginWidgetPositionChanged;
+            _pluginManager.PluginWidgetVisibilityChanged += OnPluginWidgetVisibilityChanged;
+            _pluginManager.PluginTrayMenuChanged += OnPluginTrayMenuChanged;
+
+            // Initialize with stored configurations (or defaults)
+            _pluginManager.Initialize(settings.Plugins);
+
+            // Activate all enabled plugins
+            _pluginManager.ActivateAll();
+
+            // Set initial tray menu items
+            UpdatePluginTrayMenuItems();
+
+            _logger?.Log("[App] Plugin system initialized");
+        }
+
+        private void OnPluginWidgetPositionChanged(object? sender, PluginWidgetPositionChangedEventArgs e)
+        {
+            // Save position to settings
+            var settings = _settingsService!.LoadSettings();
+            if (!settings.Plugins.TryGetValue(e.PluginId, out var config))
+            {
+                // Create config if it doesn't exist
+                config = _pluginManager?.GetPlugin(e.PluginId)?.GetConfiguration() ?? new PluginConfiguration { PluginId = e.PluginId };
+                settings.Plugins[e.PluginId] = config;
+            }
+            config.WidgetX = e.X;
+            config.WidgetY = e.Y;
+            _settingsService.SaveSettings(settings);
+        }
+
+        private void OnPluginWidgetVisibilityChanged(object? sender, PluginWidgetVisibilityChangedEventArgs e)
+        {
+            // Save visibility to settings
+            var settings = _settingsService!.LoadSettings();
+            if (!settings.Plugins.TryGetValue(e.PluginId, out var config))
+            {
+                // Create config if it doesn't exist
+                config = _pluginManager?.GetPlugin(e.PluginId)?.GetConfiguration() ?? new PluginConfiguration { PluginId = e.PluginId };
+                settings.Plugins[e.PluginId] = config;
+            }
+            config.WidgetVisible = e.IsVisible;
+            _settingsService.SaveSettings(settings);
+            _logger?.Log($"[App] Plugin '{e.PluginId}' widget visibility saved: {e.IsVisible}");
+        }
+
+        private void OnPluginTrayMenuChanged(object? sender, PluginTrayMenuChangedEventArgs e)
+        {
+            // Refresh tray menu when plugin state changes
+            UpdatePluginTrayMenuItems();
+        }
+
+        private void UpdatePluginTrayMenuItems()
+        {
+            if (_pluginManager == null || _trayService == null) return;
+
+            var menuItems = _pluginManager.GetAllTrayMenuItems();
+            _trayService.SetPluginMenuItems(menuItems);
         }
 
         private void OnTriggerActivated(object? sender, TriggerEventArgs e)
@@ -399,6 +482,23 @@ namespace TalkKeys
                 }
 
                 _logger?.Log("Trigger plugin configurations reloaded");
+            }
+
+            // Reload general plugin configurations
+            if (_pluginManager != null && _settingsService != null)
+            {
+                var settings = _settingsService.LoadSettings();
+
+                // Update each plugin's configuration
+                foreach (var kvp in settings.Plugins)
+                {
+                    _pluginManager.UpdatePluginConfiguration(kvp.Key, kvp.Value);
+                }
+
+                // Refresh tray menu
+                UpdatePluginTrayMenuItems();
+
+                _logger?.Log("General plugin configurations reloaded");
             }
 
             // Update hotkey hints in the floating widget
@@ -682,6 +782,7 @@ namespace TalkKeys
             try
             {
                 // Dispose services
+                _pluginManager?.Dispose();
                 _triggerPluginManager?.Dispose();
                 _talkKeysApiService?.Dispose();
                 (_hotkeyService as IDisposable)?.Dispose();
