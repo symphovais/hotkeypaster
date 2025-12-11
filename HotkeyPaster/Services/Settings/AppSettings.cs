@@ -90,6 +90,9 @@ namespace TalkKeys.Services.Settings
 
         // Trigger Plugin Configurations (new system)
         public Dictionary<string, TriggerPluginConfiguration> TriggerPlugins { get; set; } = new();
+
+        // General Plugin Configurations (utility plugins like Focus Timer)
+        public Dictionary<string, PluginConfiguration> Plugins { get; set; } = new();
     }
 
     /// <summary>

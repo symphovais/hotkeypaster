@@ -11,6 +11,8 @@ using TalkKeys.Services.Auth;
 using TalkKeys.Services.Settings;
 using TalkKeys.Services.Startup;
 using TalkKeys.Services.Triggers;
+using TalkKeys.Services.Plugins;
+using TalkKeys.PluginSdk;
 
 namespace TalkKeys
 {
@@ -21,6 +23,7 @@ namespace TalkKeys
         private readonly Services.Audio.IAudioRecordingService _audioService;
         private readonly IStartupService _startupService;
         private readonly TriggerPluginManager? _triggerPluginManager;
+        private readonly PluginManager? _pluginManager;
         private AppSettings _currentSettings;
         private bool _isInitializing = true;
         private string[] _audioDevices = Array.Empty<string>();
@@ -37,7 +40,8 @@ namespace TalkKeys
             SettingsService settingsService,
             ILogger logger,
             Services.Audio.IAudioRecordingService audioService,
-            TriggerPluginManager? triggerPluginManager = null)
+            TriggerPluginManager? triggerPluginManager = null,
+            PluginManager? pluginManager = null)
         {
             InitializeComponent();
 
@@ -46,11 +50,13 @@ namespace TalkKeys
             _audioService = audioService ?? throw new ArgumentNullException(nameof(audioService));
             _startupService = new StartupService();
             _triggerPluginManager = triggerPluginManager;
+            _pluginManager = pluginManager;
 
             _currentSettings = _settingsService.LoadSettings();
 
             LoadSettings();
             LoadTriggerPlugins();
+            LoadPlugins();
             UpdateVersion();
 
             _isInitializing = false;
@@ -154,6 +160,150 @@ namespace TalkKeys
             }
         }
 
+        private void LoadPlugins()
+        {
+            if (_pluginManager == null) return;
+
+            var plugins = _pluginManager.GetPlugins();
+            if (!plugins.Any()) return;
+
+            PluginListPanel.Children.Clear();
+
+            foreach (var plugin in plugins)
+            {
+                var pluginCard = CreatePluginCard(plugin);
+                PluginListPanel.Children.Add(pluginCard);
+            }
+        }
+
+        private Border CreatePluginCard(IPlugin plugin)
+        {
+            var config = plugin.GetConfiguration();
+
+            var card = new Border
+            {
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FAFAFA")),
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(16),
+                Margin = new Thickness(0, 0, 0, 12)
+            };
+
+            var mainGrid = new Grid();
+            mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            // Left side: Icon, Name, Description
+            var infoPanel = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+
+            var headerPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
+            headerPanel.Children.Add(new TextBlock
+            {
+                Text = plugin.Icon,
+                FontSize = 18,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 8, 0)
+            });
+            headerPanel.Children.Add(new TextBlock
+            {
+                Text = plugin.DisplayName,
+                FontSize = 15,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#111827")),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            infoPanel.Children.Add(headerPanel);
+
+            infoPanel.Children.Add(new TextBlock
+            {
+                Text = plugin.Description,
+                FontSize = 12,
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#6B7280")),
+                TextWrapping = TextWrapping.Wrap
+            });
+
+            Grid.SetColumn(infoPanel, 0);
+            mainGrid.Children.Add(infoPanel);
+
+            // Right side: Enable toggle
+            var togglePanel = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            var enableToggle = new CheckBox
+            {
+                IsChecked = config.Enabled,
+                Content = config.Enabled ? "Enabled" : "Disabled",
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#6B7280")),
+                FontSize = 12,
+                Tag = plugin.PluginId
+            };
+
+            enableToggle.Checked += (s, e) =>
+            {
+                if (_isInitializing) return;
+                OnPluginEnabledChanged(plugin.PluginId, true);
+                enableToggle.Content = "Enabled";
+            };
+
+            enableToggle.Unchecked += (s, e) =>
+            {
+                if (_isInitializing) return;
+                OnPluginEnabledChanged(plugin.PluginId, false);
+                enableToggle.Content = "Disabled";
+            };
+
+            togglePanel.Children.Add(enableToggle);
+            Grid.SetColumn(togglePanel, 1);
+            mainGrid.Children.Add(togglePanel);
+
+            // Add settings panel if plugin has one
+            var settingsPanel = plugin.CreateSettingsPanel();
+            if (settingsPanel != null)
+            {
+                var outerStack = new StackPanel();
+                outerStack.Children.Add(mainGrid);
+
+                var separator = new Border
+                {
+                    Height = 1,
+                    Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E5E7EB")),
+                    Margin = new Thickness(0, 12, 0, 12)
+                };
+                outerStack.Children.Add(separator);
+
+                settingsPanel.Margin = new Thickness(0, 0, 0, 0);
+                outerStack.Children.Add(settingsPanel);
+
+                card.Child = outerStack;
+            }
+            else
+            {
+                card.Child = mainGrid;
+            }
+
+            return card;
+        }
+
+        private void OnPluginEnabledChanged(string pluginId, bool enabled)
+        {
+            // Update configuration
+            if (!_currentSettings.Plugins.TryGetValue(pluginId, out var config))
+            {
+                config = _pluginManager?.GetPlugin(pluginId)?.GetDefaultConfiguration() ?? new PluginConfiguration();
+                _currentSettings.Plugins[pluginId] = config;
+            }
+
+            config.Enabled = enabled;
+
+            // When enabling a plugin, also show its widget (user-friendly default)
+            if (enabled)
+            {
+                config.WidgetVisible = true;
+            }
+
+            _settingsService.SaveSettings(_currentSettings);
+            SettingsChanged?.Invoke(this, EventArgs.Empty);
+
+            _logger.Log($"[Settings] Plugin '{pluginId}' {(enabled ? "enabled (widget visible)" : "disabled")}");
+        }
+
         private Style CreatePluginTabStyle()
         {
             var style = new Style(typeof(RadioButton));
@@ -213,16 +363,23 @@ namespace TalkKeys
         {
             if (_isInitializing) return;
 
+            // Hide all tabs first
+            GeneralTabContent.Visibility = Visibility.Collapsed;
+            TriggersTabContent.Visibility = Visibility.Collapsed;
+            PluginsTabContent.Visibility = Visibility.Collapsed;
+
             if (GeneralTab.IsChecked == true)
             {
                 GeneralTabContent.Visibility = Visibility.Visible;
-                TriggersTabContent.Visibility = Visibility.Collapsed;
             }
             else if (TriggersTab.IsChecked == true)
             {
-                GeneralTabContent.Visibility = Visibility.Collapsed;
                 TriggersTabContent.Visibility = Visibility.Visible;
                 UpdatePluginContentArea();
+            }
+            else if (PluginsTab.IsChecked == true)
+            {
+                PluginsTabContent.Visibility = Visibility.Visible;
             }
         }
 
@@ -735,6 +892,12 @@ namespace TalkKeys
             if (_triggerPluginManager != null)
             {
                 _currentSettings.TriggerPlugins = _triggerPluginManager.GetAllConfigurations();
+            }
+
+            // Save general plugin configurations
+            if (_pluginManager != null)
+            {
+                _currentSettings.Plugins = _pluginManager.GetAllConfigurations();
             }
 
             // Update startup registry setting

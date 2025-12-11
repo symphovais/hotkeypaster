@@ -241,7 +241,7 @@ namespace TalkKeys.Services.Windowing
         {
             // Check if the window's position is on any valid screen
             bool isVisible = false;
-            
+
             foreach (var screen in Screen.AllScreens)
             {
                 if (!IsScreenValid(screen)) continue;
@@ -282,6 +282,150 @@ namespace TalkKeys.Services.Windowing
                     window.Top = (SystemParameters.VirtualScreenHeight - window.Height) / 2;
                 }
             }
+        }
+
+        public void PositionTopRight(Window window, double marginRight = 20, double marginTop = 20)
+        {
+            if (window == null) return;
+
+            var screen = Screen.PrimaryScreen ?? Screen.AllScreens.FirstOrDefault(IsScreenValid);
+            if (screen == null)
+            {
+                // Fallback to WPF SystemParameters
+                var wa = SystemParameters.WorkArea;
+                window.Left = wa.Right - window.Width - marginRight;
+                window.Top = wa.Top + marginTop;
+                return;
+            }
+
+            var workingArea = screen.WorkingArea;
+            double dpiScale = GetDpiScale(window);
+
+            // Convert to logical coordinates
+            double logicalRight = (workingArea.Left + workingArea.Width) / dpiScale;
+            double logicalTop = workingArea.Top / dpiScale;
+
+            window.Left = logicalRight - window.Width - marginRight;
+            window.Top = logicalTop + marginTop;
+
+            EnsureVisible(window);
+        }
+
+        public void PositionAt(Window window, double? x, double? y, DefaultWindowPosition defaultPosition = DefaultWindowPosition.TopRight)
+        {
+            if (window == null) return;
+
+            // If both coordinates provided and valid, use them
+            if (x.HasValue && y.HasValue && x >= 0 && y >= 0)
+            {
+                window.Left = x.Value;
+                window.Top = y.Value;
+
+                // Validate position is on a visible screen
+                if (IsWindowOnValidScreen(window))
+                {
+                    return;
+                }
+                // Position is off-screen, fall through to default positioning
+            }
+
+            // Use default position
+            switch (defaultPosition)
+            {
+                case DefaultWindowPosition.BottomCenter:
+                    PositionBottomCenter(window);
+                    break;
+                case DefaultWindowPosition.TopRight:
+                    PositionTopRight(window);
+                    break;
+                case DefaultWindowPosition.TopLeft:
+                    PositionTopLeft(window);
+                    break;
+                case DefaultWindowPosition.Center:
+                    PositionCenter(window);
+                    break;
+            }
+        }
+
+        public void EnsureVisible(Window window)
+        {
+            if (window == null) return;
+
+            if (!IsWindowOnValidScreen(window))
+            {
+                // Reposition to primary screen top-right
+                PositionTopRight(window);
+            }
+        }
+
+        private void PositionTopLeft(Window window, double marginLeft = 20, double marginTop = 20)
+        {
+            var screen = Screen.PrimaryScreen ?? Screen.AllScreens.FirstOrDefault(IsScreenValid);
+            if (screen == null)
+            {
+                window.Left = marginLeft;
+                window.Top = marginTop;
+                return;
+            }
+
+            var workingArea = screen.WorkingArea;
+            double dpiScale = GetDpiScale(window);
+
+            double logicalLeft = workingArea.Left / dpiScale;
+            double logicalTop = workingArea.Top / dpiScale;
+
+            window.Left = logicalLeft + marginLeft;
+            window.Top = logicalTop + marginTop;
+        }
+
+        private void PositionCenter(Window window)
+        {
+            var screen = Screen.PrimaryScreen ?? Screen.AllScreens.FirstOrDefault(IsScreenValid);
+            if (screen == null)
+            {
+                var wa = SystemParameters.WorkArea;
+                window.Left = wa.Left + (wa.Width - window.Width) / 2;
+                window.Top = wa.Top + (wa.Height - window.Height) / 2;
+                return;
+            }
+
+            var workingArea = screen.WorkingArea;
+            double dpiScale = GetDpiScale(window);
+
+            double logicalLeft = workingArea.Left / dpiScale;
+            double logicalTop = workingArea.Top / dpiScale;
+            double logicalWidth = workingArea.Width / dpiScale;
+            double logicalHeight = workingArea.Height / dpiScale;
+
+            window.Left = logicalLeft + (logicalWidth - window.Width) / 2;
+            window.Top = logicalTop + (logicalHeight - window.Height) / 2;
+        }
+
+        private bool IsWindowOnValidScreen(Window window)
+        {
+            foreach (var screen in Screen.AllScreens)
+            {
+                if (!IsScreenValid(screen)) continue;
+
+                var bounds = screen.Bounds;
+                var windowRect = new System.Drawing.Rectangle(
+                    (int)window.Left,
+                    (int)window.Top,
+                    (int)window.Width,
+                    (int)window.Height
+                );
+
+                // Check if at least 50% of the window is visible on this screen
+                var intersection = System.Drawing.Rectangle.Intersect(bounds, windowRect);
+                double visibleArea = intersection.Width * intersection.Height;
+                double totalArea = window.Width * window.Height;
+
+                if (visibleArea >= totalArea * 0.5)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 }

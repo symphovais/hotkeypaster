@@ -37,7 +37,9 @@ namespace TalkKeys.Services.Triggers
 
         public event EventHandler<TriggerEventArgs>? TriggerActivated;
         public event EventHandler<TriggerEventArgs>? TriggerDeactivated;
+#pragma warning disable CS0067 // Event required by ITriggerPlugin interface but keyboard is always available
         public event EventHandler<EventArgs>? AvailabilityChanged;
+#pragma warning restore CS0067
 
         public KeyboardTriggerPlugin(ILogger? logger = null)
         {

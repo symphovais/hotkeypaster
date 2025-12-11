@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Windows.Forms;
+using TalkKeys.PluginSdk;
 
 namespace TalkKeys.Services.Tray
 {
@@ -10,6 +12,8 @@ namespace TalkKeys.Services.Tray
         void InitializeTray();
         void DisposeTray();
         void AddUpdateMenuItem(Action onUpdate);
+        void SetPluginMenuItems(IReadOnlyList<PluginMenuItem> items);
+        void RefreshPluginMenuItems(IReadOnlyList<PluginMenuItem> items);
     }
 
     public sealed class TrayService : ITrayService, IDisposable
@@ -18,6 +22,8 @@ namespace TalkKeys.Services.Tray
         public event EventHandler? ExitRequested;
 
         private NotifyIcon? _notifyIcon;
+        private readonly List<ToolStripItem> _pluginMenuItems = new();
+        private int _pluginMenuInsertIndex = -1;
 
         public void InitializeTray()
         {
@@ -68,6 +74,82 @@ namespace TalkKeys.Services.Tray
 
             menu.Items.Insert(0, updateItem);
             menu.Items.Insert(1, new ToolStripSeparator());
+        }
+
+        public void SetPluginMenuItems(IReadOnlyList<PluginMenuItem> items)
+        {
+            if (_notifyIcon?.ContextMenuStrip == null) return;
+
+            var menu = _notifyIcon.ContextMenuStrip;
+
+            // Remove existing plugin items
+            foreach (var item in _pluginMenuItems)
+            {
+                menu.Items.Remove(item);
+            }
+            _pluginMenuItems.Clear();
+
+            if (items == null || items.Count == 0) return;
+
+            // Find insert position (before Settings, after any update items)
+            _pluginMenuInsertIndex = 0;
+            for (int i = 0; i < menu.Items.Count; i++)
+            {
+                if (menu.Items[i].Text == "Settings")
+                {
+                    _pluginMenuInsertIndex = i;
+                    break;
+                }
+            }
+
+            // Add plugin items
+            int insertAt = _pluginMenuInsertIndex;
+
+            // Add separator before plugin items if we have any
+            var separator = new ToolStripSeparator();
+            menu.Items.Insert(insertAt++, separator);
+            _pluginMenuItems.Add(separator);
+
+            foreach (var pluginItem in items)
+            {
+                var menuItem = CreateToolStripItem(pluginItem);
+                menu.Items.Insert(insertAt++, menuItem);
+                _pluginMenuItems.Add(menuItem);
+            }
+        }
+
+        public void RefreshPluginMenuItems(IReadOnlyList<PluginMenuItem> items)
+        {
+            // Simply re-set the items - this handles all updates
+            SetPluginMenuItems(items);
+        }
+
+        private ToolStripItem CreateToolStripItem(PluginMenuItem item)
+        {
+            if (item.IsSeparator)
+                return new ToolStripSeparator();
+
+            var text = string.IsNullOrEmpty(item.Icon) ? item.Text : $"{item.Icon} {item.Text}";
+            var menuItem = new ToolStripMenuItem(text)
+            {
+                Enabled = item.IsEnabled
+            };
+
+            if (item.OnClick != null)
+            {
+                menuItem.Click += (s, e) => item.OnClick();
+            }
+
+            // Handle sub-items
+            if (item.SubItems != null && item.SubItems.Count > 0)
+            {
+                foreach (var subItem in item.SubItems)
+                {
+                    menuItem.DropDownItems.Add(CreateToolStripItem(subItem));
+                }
+            }
+
+            return menuItem;
         }
 
         public void DisposeTray()
