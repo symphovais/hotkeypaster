@@ -1,52 +1,124 @@
 # TalkKeys
 
-A simple Windows desktop application for voice-to-text transcription. Press a hotkey, speak, and your words are transcribed and pasted into any application.
+A Windows desktop application for voice-to-text transcription. Press a hotkey, speak, and your words are transcribed and pasted into any application.
+
+[![Get it from Microsoft Store](https://img.shields.io/badge/Microsoft%20Store-Download-blue?logo=microsoft)](https://apps.microsoft.com/detail/9P2D7DZQS61J)
+[![GitHub release](https://img.shields.io/github/v/release/symphovais/hotkeypaster)](https://github.com/symphovais/hotkeypaster/releases)
 
 ## Features
 
-- **Global Hotkey**: Press `Ctrl+Alt+Q` to start recording from anywhere
+- **Free Tier**: 10 minutes of transcription per day with a free TalkKeys account
+- **Global Hotkey**: Press `Ctrl+Shift+Space` to start recording from anywhere
+- **Push-to-Talk or Toggle**: Hold hotkey to record, or press once to start/stop
 - **Floating Widget**: Draggable, always-on-top widget shows recording status
 - **Automatic Pasting**: Transcribed text is automatically pasted into your active window
+- **AI Text Cleaning**: Automatic punctuation, capitalization, and filler word removal
 - **System Tray Integration**: Runs quietly in the background
 - **Multi-Monitor Support**: Widget stays on the correct screen
-- **Text Cleaning**: Optional GPT-4 powered text cleaning (removes filler words, fixes grammar)
+
+## Installation
+
+### Microsoft Store (Recommended)
+
+[![Get it from Microsoft Store](https://get.microsoft.com/images/en-us%20dark.svg)](https://apps.microsoft.com/detail/9P2D7DZQS61J)
+
+The easiest way to install TalkKeys. Automatic updates included.
+
+### GitHub Releases
+
+Download the latest `.msix` package from the [Releases](https://github.com/symphovais/hotkeypaster/releases) page.
+
+> **Note**: Installing from GitHub requires [Developer Mode](ms-settings:developers) enabled in Windows Settings.
 
 ## How It Works
 
-1. Press `Ctrl+Alt+Q` or click the floating widget to start recording
+1. Press `Ctrl+Shift+Space` or click the floating widget to start recording
 2. Speak into your microphone
-3. Press `Space` to stop recording (or `Escape` to cancel)
-4. Audio is processed through the transcription pipeline:
-   - Speech-to-Text (OpenAI Whisper API)
-   - Text Cleaning (optional, GPT-4)
-5. Text is automatically pasted into your previously active window
+3. Release the hotkey (push-to-talk) or press again (toggle mode) to stop
+4. Audio is transcribed using AI and automatically pasted into your active window
+
+## Getting Started
+
+1. Install TalkKeys from the Microsoft Store or GitHub
+2. Launch the app - you'll see the Welcome screen
+3. Sign in with Google to create your free TalkKeys account
+4. Start transcribing! You get 10 minutes free every day
+
+### Using Your Own API Key
+
+If you prefer to use your own Groq API key (unlimited usage):
+
+1. Open Settings from the system tray
+2. Switch to "Use your own API key"
+3. Enter your [Groq API key](https://console.groq.com/keys)
+4. Save settings
+
+## Usage
+
+| Action | Method |
+|--------|--------|
+| Start recording | Press `Ctrl+Shift+Space` or click the widget |
+| Stop recording | Release hotkey (push-to-talk) or press again (toggle) |
+| Cancel recording | Press `Escape` |
+| Move widget | Drag the widget to any position |
+| Open settings | Right-click tray icon → Settings |
+| Sign out | Right-click tray icon → Sign Out |
+| Exit application | Right-click tray icon → Exit |
+
+## Settings
+
+Access settings by right-clicking the system tray icon.
+
+| Setting | Description |
+|---------|-------------|
+| Recording Mode | Push-to-talk (hold) or Toggle (press to start/stop) |
+| Audio Device | Select your microphone |
+| Start with Windows | Launch TalkKeys automatically on login |
+| Auth Mode | TalkKeys account (free tier) or own API key |
 
 ## Requirements
 
 - Windows 10/11
-- .NET 8.0 Runtime
-- OpenAI API key
 - Microphone
+- Internet connection
 
-## Quick Start
+## Privacy
 
-### Option 1: Installer (Recommended)
+- Audio is processed and immediately discarded
+- We never store your recordings or transcribed text
+- See our [Privacy Policy](https://talkkeys-api.ahmed-ovais.workers.dev/privacy)
 
-1. Download the latest `TalkKeys-Setup-x.x.x.exe` from the [Releases](https://github.com/yourusername/talkkeys/releases) page
-2. Run the installer
-3. TalkKeys will start automatically and appear in your system tray
+## Technologies
 
-The installer will:
-- Install TalkKeys to your Program Files
-- Add TalkKeys to Windows startup (can be disabled in Settings)
-- Create a desktop shortcut (optional)
+- **.NET 8.0** with WPF
+- **NAudio** for audio recording
+- **Groq API** for fast AI transcription
+- **Cloudflare Workers** for backend services
 
-### Option 2: Build from Source
+## Troubleshooting
+
+### Widget not appearing
+- Check the system tray for the TalkKeys icon
+- Press `Ctrl+Shift+Space` to show the widget
+
+### Transcription not working
+- Check your internet connection
+- Verify you're signed in (check system tray menu)
+- Check your daily usage limit in Settings
+
+### Audio issues
+- Open Settings and select the correct audio device
+- Check Windows microphone permissions
+
+### "Session Expired" message
+- Sign out and sign in again from the system tray menu
+
+## Build from Source
 
 1. Clone the repository
    ```bash
-   git clone https://github.com/yourusername/talkkeys.git
-   cd talkkeys
+   git clone https://github.com/symphovais/hotkeypaster.git
+   cd hotkeypaster
    ```
 
 2. Build the project
@@ -60,98 +132,18 @@ The installer will:
    dotnet run
    ```
 
-### Building the Installer
-
-To build the installer yourself:
-
-1. Install [Inno Setup 6](https://jrsoftware.org/isinfo.php)
-2. Run the build script:
-   ```cmd
-   build-installer.cmd
-   ```
-3. The installer will be created in `installer\output\`
-
-### First-Time Setup
-
-1. The floating widget will appear showing "API key required"
-2. Right-click the system tray icon and select **Settings**
-3. Enter your OpenAI API key
-4. Click **Save**
-5. The widget will now show "Ready to record"
-
-## Usage
-
-| Action | Method |
-|--------|--------|
-| Start recording | Press `Ctrl+Alt+Q` or click the widget |
-| Stop recording | Press `Space` |
-| Cancel recording | Press `Escape` |
-| Move widget | Drag the widget to any position |
-| Hide widget | Click the X button on the widget |
-| Show widget | Press `Ctrl+Alt+Q` |
-| Open settings | Right-click tray icon → Settings |
-| Exit application | Right-click tray icon → Exit |
-
-## Settings
-
-Settings are stored in: `%APPDATA%\TalkKeys\settings.json`
-
-| Setting | Description |
-|---------|-------------|
-| OpenAI API Key | Required for transcription |
-| Audio Device | Select your microphone |
-| Start with Windows | Launch TalkKeys automatically on login |
-
-## Architecture
-
-```
-HotkeyPaster/
-├── Services/
-│   ├── Audio/           # Audio recording (NAudio)
-│   ├── Clipboard/       # Clipboard paste operations
-│   ├── Hotkey/          # Global hotkey registration
-│   ├── Notifications/   # Toast notifications
-│   ├── Pipeline/        # Transcription pipeline
-│   │   ├── Stages/      # Whisper, Text Cleaning
-│   │   └── Configuration/
-│   ├── Settings/        # Configuration persistence
-│   ├── Tray/            # System tray integration
-│   └── Windowing/       # Window context service
-├── FloatingWidget.xaml  # Main floating UI
-└── SettingsWindow.xaml  # Settings UI
-```
-
-## Technologies
-
-- **.NET 8.0** with WPF
-- **NAudio** for audio recording
-- **OpenAI Whisper API** for transcription
-- **OpenAI GPT-4** for text cleaning (optional)
-
-## Troubleshooting
-
-### Widget not appearing
-- Check the system tray for the TalkKeys icon
-- Press `Ctrl+Alt+Q` to show the widget
-
-### Transcription not working
-- Verify your OpenAI API key is correct
-- Check your internet connection
-- Ensure your microphone is working
-
-### Audio issues
-- Open Settings and select the correct audio device
-- Check Windows microphone permissions
-
-### Hotkey not working
-- Another application may be using `Ctrl+Alt+Q`
-- Restart TalkKeys
-
 ## License
 
 MIT License
 
+## Links
+
+- [Website](https://talkkeys-api.ahmed-ovais.workers.dev)
+- [Microsoft Store](https://apps.microsoft.com/detail/9P2D7DZQS61J)
+- [Privacy Policy](https://talkkeys-api.ahmed-ovais.workers.dev/privacy)
+- [Terms of Service](https://talkkeys-api.ahmed-ovais.workers.dev/tos)
+
 ## Acknowledgments
 
 - [NAudio](https://github.com/naudio/NAudio) by Mark Heath
-- [OpenAI](https://openai.com) for Whisper and GPT APIs
+- [Groq](https://groq.com) for fast AI inference
