@@ -93,10 +93,9 @@ namespace TalkKeys
             // Update compact status based on pipeline availability
             UpdateCompactStatus();
 
-            // Cache visualizer bars and start ambient animation
+            // Cache visualizer bars (no ambient animation - static when idle)
             _visualizerBars = new Border[] { Bar1, Bar2, Bar3, Bar4, Bar5 };
             _levelBars = new Border[] { LevelBar1, LevelBar2, LevelBar3, LevelBar4, LevelBar5 };
-            _visualizerTimer?.Start();
 
             // Update hotkey hints from settings
             UpdateHotkeyHints();
@@ -714,9 +713,6 @@ namespace TalkKeys
                     return;
                 }
 
-                // Play system beep
-                System.Media.SystemSounds.Beep.Play();
-
                 // Start recording timer
                 _recordingStartTime = DateTime.Now;
                 RecordingTimer.Text = "0:00";
@@ -872,18 +868,8 @@ namespace TalkKeys
 
         private void OnVisualizerTimerTick(object? sender, EventArgs e)
         {
-            // Only animate when in compact mode and not recording
-            if (_isExpanded || _audio.IsRecording || _visualizerBars == null) return;
-
-            // Animate each bar with random heights for subtle ambient "alive" effect
-            double[] baseHeights = { 6, 10, 5, 12, 8 };
-            for (int i = 0; i < _visualizerBars.Length; i++)
-            {
-                // Small random variation of +/- 2 pixels from base for subtle movement
-                double variation = _random.NextDouble() * 4 - 2;
-                double newHeight = Math.Max(3, Math.Min(14, baseHeights[i] + variation));
-                _visualizerBars[i].Height = newHeight;
-            }
+            // Disabled: No animation in idle state - just show static bars
+            // The widget is ready when visible, no need for ambient movement
         }
 
         private void CopyButton_Click(object sender, RoutedEventArgs e)
