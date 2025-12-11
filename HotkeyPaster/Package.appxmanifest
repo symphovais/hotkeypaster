@@ -55,6 +55,13 @@
 
       <!-- Desktop Extensions -->
       <Extensions>
+        <!-- URL Protocol Handler: allows launching via talkkeys:// URLs -->
+        <uap:Extension Category="windows.protocol">
+          <uap:Protocol Name="talkkeys">
+            <uap:DisplayName>TalkKeys Protocol</uap:DisplayName>
+          </uap:Protocol>
+        </uap:Extension>
+
         <!-- Optional: Auto-start with Windows (disabled by default) -->
         <desktop:Extension Category="windows.startupTask" Executable="TalkKeys.exe" EntryPoint="Windows.FullTrustApplication">
           <desktop:StartupTask TaskId="TalkKeysStartup" Enabled="false" DisplayName="TalkKeys"/>
