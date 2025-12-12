@@ -71,6 +71,7 @@ namespace TalkKeys
             _audio.RecordingStopped += OnRecordingStopped;
             _audio.NoAudioDetected += OnNoAudioDetected;
             _audio.AudioLevelChanged += OnAudioLevelChanged;
+            _audio.RecordingFailed += OnRecordingFailed;
 
             // Initialize recording timer
             _recordingTimer = new System.Windows.Threading.DispatcherTimer();
@@ -730,6 +731,24 @@ namespace TalkKeys
                 // Start pulse animation on recording dot
                 var pulseAnimation = (Storyboard)this.Resources["PulseAnimation"];
                 pulseAnimation.Begin(RecordingPulse);
+            });
+        }
+
+        private void OnRecordingFailed(object? sender, Services.Audio.RecordingFailedEventArgs e)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                _logger.Log($"OnRecordingFailed: {e.TechnicalError}");
+
+                // Collapse widget since recording couldn't start
+                if (_isExpanded)
+                {
+                    CollapseWidget();
+                }
+
+                // Clear mode handler since we're not recording
+                _currentModeHandler = null;
+                _currentRecordingPath = null;
             });
         }
 

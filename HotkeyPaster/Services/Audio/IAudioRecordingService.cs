@@ -15,6 +15,7 @@ namespace TalkKeys.Services.Audio
         event EventHandler? RecordingStopped;
         event EventHandler? NoAudioDetected;
         event EventHandler<AudioLevelEventArgs>? AudioLevelChanged;
+        event EventHandler<RecordingFailedEventArgs>? RecordingFailed;
     }
 
     public class AudioLevelEventArgs : EventArgs

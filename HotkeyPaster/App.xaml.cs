@@ -77,6 +77,7 @@ namespace TalkKeys
             _positioner = new WindowPositionService(_logger);
             _clipboardService = new ClipboardPasteService();
             _audioService = new AudioRecordingService(_logger);
+            _audioService.RecordingFailed += OnRecordingFailed;
             _hotkeyService = new Win32HotkeyService();
             _trayService = new TrayService();
             _contextService = new ActiveWindowContextService();
@@ -233,6 +234,19 @@ namespace TalkKeys
                 {
                     HandlePushToTalkStop();
                 }
+            });
+        }
+
+        private void OnRecordingFailed(object? sender, Services.Audio.RecordingFailedEventArgs e)
+        {
+            _logger?.Log($"Recording failed: {e.TechnicalError}");
+
+            Current.Dispatcher.Invoke(() =>
+            {
+                _notifications?.ShowError("Microphone Error", e.UserMessage);
+
+                // Collapse widget if it was expanded
+                // The widget will handle its own state via the lack of RecordingStarted event
             });
         }
 

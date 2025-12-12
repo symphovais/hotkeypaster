@@ -12,6 +12,7 @@ namespace TalkKeys.Services.Audio
         public event EventHandler? RecordingStopped;
         public event EventHandler? NoAudioDetected;
         public event EventHandler<AudioLevelEventArgs>? AudioLevelChanged;
+        public event EventHandler<RecordingFailedEventArgs>? RecordingFailed;
 
         private readonly ILogger? _logger;
         private WaveInEvent? _waveIn;
@@ -103,21 +104,61 @@ namespace TalkKeys.Services.Audio
             _recordingStartTime = DateTime.Now;
             _hasNonZeroSample = false;
             _totalBytesRecorded = 0;
-            _waveIn = new WaveInEvent
+
+            try
             {
-                DeviceNumber = _currentDeviceIndex,
-                WaveFormat = new WaveFormat(16000, 16, 1) // 16kHz, 16-bit, mono (required for Whisper.net)
-            };
+                _waveIn = new WaveInEvent
+                {
+                    DeviceNumber = _currentDeviceIndex,
+                    WaveFormat = new WaveFormat(16000, 16, 1) // 16kHz, 16-bit, mono (required for Whisper.net)
+                };
 
-            _writer = new WaveFileWriter(_currentFilePath, _waveIn.WaveFormat);
-            _waveIn.DataAvailable += OnDataAvailable;
-            _waveIn.RecordingStopped += OnRecordingStopped;
+                _writer = new WaveFileWriter(_currentFilePath, _waveIn.WaveFormat);
+                _waveIn.DataAvailable += OnDataAvailable;
+                _waveIn.RecordingStopped += OnRecordingStopped;
 
-            _waveIn.StartRecording();
-            var logMsg = $"Started audio recording to {Path.GetFileName(filePath)} at {_recordingStartTime:HH:mm:ss.fff}";
-            _logger?.Log(logMsg);
-            Debug.WriteLine($"[AudioRecording] {logMsg}");
-            RecordingStarted?.Invoke(this, EventArgs.Empty);
+                _waveIn.StartRecording();
+                var logMsg = $"Started audio recording to {Path.GetFileName(filePath)} at {_recordingStartTime:HH:mm:ss.fff}";
+                _logger?.Log(logMsg);
+                Debug.WriteLine($"[AudioRecording] {logMsg}");
+                RecordingStarted?.Invoke(this, EventArgs.Empty);
+            }
+            catch (Exception ex)
+            {
+                // Clean up any partial initialization
+                _writer?.Dispose();
+                _writer = null;
+                _waveIn?.Dispose();
+                _waveIn = null;
+
+                var errorMsg = $"Failed to start recording: {ex.Message}";
+                _logger?.Log(errorMsg);
+                Debug.WriteLine($"[AudioRecording] {errorMsg}");
+
+                // Fire failure event instead of crashing
+                RecordingFailed?.Invoke(this, new RecordingFailedEventArgs(ex.Message, GetUserFriendlyErrorMessage(ex)));
+            }
+        }
+
+        private static string GetUserFriendlyErrorMessage(Exception ex)
+        {
+            // NAudio throws MmException with "UnspecifiedError" for various audio device issues
+            if (ex.Message.Contains("waveInOpen") || ex.Message.Contains("UnspecifiedError"))
+            {
+                return "Could not access the microphone. Please check that:\n" +
+                       "• Your microphone is connected\n" +
+                       "• No other app is using the microphone exclusively\n" +
+                       "• Microphone permissions are enabled in Windows Settings";
+            }
+            if (ex.Message.Contains("NoDriver"))
+            {
+                return "No audio recording device found. Please connect a microphone.";
+            }
+            if (ex.Message.Contains("BadDeviceId"))
+            {
+                return "The selected microphone is no longer available. Please check Settings.";
+            }
+            return $"Microphone error: {ex.Message}";
         }
 
         public void StopRecording()
@@ -203,6 +244,18 @@ namespace TalkKeys.Services.Audio
         public void Dispose()
         {
             StopRecording();
+        }
+    }
+
+    public class RecordingFailedEventArgs : EventArgs
+    {
+        public string TechnicalError { get; }
+        public string UserMessage { get; }
+
+        public RecordingFailedEventArgs(string technicalError, string userMessage)
+        {
+            TechnicalError = technicalError;
+            UserMessage = userMessage;
         }
     }
 }
