@@ -16,9 +16,9 @@
     <StartupObject>TalkKeys.Program</StartupObject>
 
     <!-- Version for Store (4-part format required) -->
-    <Version>1.0.7.0</Version>
-    <FileVersion>1.0.7.0</FileVersion>
-    <AssemblyVersion>1.0.7.0</AssemblyVersion>
+    <Version>1.0.8.0</Version>
+    <FileVersion>1.0.8.0</FileVersion>
+    <AssemblyVersion>1.0.8.0</AssemblyVersion>
   </PropertyGroup>
 
   <ItemGroup>
