@@ -978,16 +978,14 @@ namespace TalkKeys
                 }
 
                 // Wait a moment before handling transcription
-                await System.Threading.Tasks.Task.Delay(300);
+                await System.Threading.Tasks.Task.Delay(200);
 
                 // CRITICAL: Return focus to the previous window BEFORE pasting
                 // The paste command (Ctrl+V) needs to go to the target window, not this widget
-                if (_previousWindow != IntPtr.Zero)
+                bool focusRestored = await RestoreFocusWithRetryAsync(_previousWindow);
+                if (!focusRestored)
                 {
-                    Win32Helper.SetForegroundWindow(_previousWindow);
-                    _logger.Log($"Returned focus to previous window: {_previousWindow}");
-                    // Give Windows time to complete the focus switch
-                    await System.Threading.Tasks.Task.Delay(150);
+                    _logger.Log("WARNING: Could not restore focus to previous window - paste may fail");
                 }
 
                 // Handle transcription using mode handler (paste to clipboard)
@@ -1064,6 +1062,65 @@ namespace TalkKeys
             }
         }
 
+        /// <summary>
+        /// Attempts to restore focus to the specified window with retry logic.
+        /// Returns true if focus was successfully restored.
+        /// </summary>
+        private async System.Threading.Tasks.Task<bool> RestoreFocusWithRetryAsync(IntPtr targetWindow)
+        {
+            if (targetWindow == IntPtr.Zero)
+            {
+                _logger.Log("RestoreFocus: No target window specified");
+                return false;
+            }
+
+            const int maxRetries = 3;
+            const int retryDelayMs = 50;
+            const int postFocusDelayMs = 100;
+
+            for (int attempt = 1; attempt <= maxRetries; attempt++)
+            {
+                // Check if window handle is still valid
+                if (!Win32Helper.IsWindow(targetWindow))
+                {
+                    _logger.Log($"RestoreFocus: Target window {targetWindow} is no longer valid");
+                    return false;
+                }
+
+                // Attempt to set focus
+                bool success = Win32Helper.SetForegroundWindow(targetWindow);
+
+                if (success)
+                {
+                    // Verify the focus was actually set
+                    await System.Threading.Tasks.Task.Delay(postFocusDelayMs);
+                    var currentFocus = Win32Helper.GetForegroundWindow();
+
+                    if (currentFocus == targetWindow)
+                    {
+                        _logger.Log($"RestoreFocus: Successfully restored focus to {targetWindow} on attempt {attempt}");
+                        return true;
+                    }
+                    else
+                    {
+                        _logger.Log($"RestoreFocus: SetForegroundWindow returned true but focus is {currentFocus}, not {targetWindow}");
+                    }
+                }
+                else
+                {
+                    _logger.Log($"RestoreFocus: SetForegroundWindow returned false on attempt {attempt}");
+                }
+
+                if (attempt < maxRetries)
+                {
+                    await System.Threading.Tasks.Task.Delay(retryDelayMs);
+                }
+            }
+
+            _logger.Log($"RestoreFocus: Failed after {maxRetries} attempts");
+            return false;
+        }
+
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
             // Unsubscribe from events
@@ -1080,5 +1137,8 @@ namespace TalkKeys
 
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         internal static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        internal static extern bool IsWindow(IntPtr hWnd);
     }
 }

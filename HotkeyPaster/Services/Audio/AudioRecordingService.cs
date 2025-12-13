@@ -15,12 +15,14 @@ namespace TalkKeys.Services.Audio
         public event EventHandler<RecordingFailedEventArgs>? RecordingFailed;
 
         private readonly ILogger? _logger;
+        private readonly object _recordingLock = new();
         private WaveInEvent? _waveIn;
         private WaveFileWriter? _writer;
         private string? _currentFilePath;
         private DateTime _recordingStartTime;
         private bool _hasNonZeroSample;
         private int _totalBytesRecorded;
+        private volatile bool _isRecording;  // Thread-safe flag
 
         private int _currentDeviceIndex = 0;
 
@@ -29,7 +31,7 @@ namespace TalkKeys.Services.Audio
             _logger = logger;
         }
 
-        public bool IsRecording => _waveIn != null;
+        public bool IsRecording => _isRecording;
         
         public int CurrentDeviceIndex => _currentDeviceIndex;
 
@@ -98,45 +100,55 @@ namespace TalkKeys.Services.Audio
 
         public void StartRecording(string filePath)
         {
-            if (IsRecording) return;
-
-            _currentFilePath = filePath;
-            _recordingStartTime = DateTime.Now;
-            _hasNonZeroSample = false;
-            _totalBytesRecorded = 0;
-
-            try
+            lock (_recordingLock)
             {
-                _waveIn = new WaveInEvent
+                if (_isRecording)
                 {
-                    DeviceNumber = _currentDeviceIndex,
-                    WaveFormat = new WaveFormat(16000, 16, 1) // 16kHz, 16-bit, mono (required for Whisper.net)
-                };
+                    _logger?.Log("[AudioRecording] StartRecording called but already recording - ignoring");
+                    return;
+                }
 
-                _writer = new WaveFileWriter(_currentFilePath, _waveIn.WaveFormat);
-                _waveIn.DataAvailable += OnDataAvailable;
-                _waveIn.RecordingStopped += OnRecordingStopped;
+                _currentFilePath = filePath;
+                _recordingStartTime = DateTime.Now;
+                _hasNonZeroSample = false;
+                _totalBytesRecorded = 0;
 
-                _waveIn.StartRecording();
-                var logMsg = $"Started audio recording to {Path.GetFileName(filePath)} at {_recordingStartTime:HH:mm:ss.fff}";
-                _logger?.Log(logMsg);
-                Debug.WriteLine($"[AudioRecording] {logMsg}");
-                RecordingStarted?.Invoke(this, EventArgs.Empty);
-            }
-            catch (Exception ex)
-            {
-                // Clean up any partial initialization
-                _writer?.Dispose();
-                _writer = null;
-                _waveIn?.Dispose();
-                _waveIn = null;
+                try
+                {
+                    _waveIn = new WaveInEvent
+                    {
+                        DeviceNumber = _currentDeviceIndex,
+                        WaveFormat = new WaveFormat(16000, 16, 1) // 16kHz, 16-bit, mono (required for Whisper.net)
+                    };
 
-                var errorMsg = $"Failed to start recording: {ex.Message}";
-                _logger?.Log(errorMsg);
-                Debug.WriteLine($"[AudioRecording] {errorMsg}");
+                    _writer = new WaveFileWriter(_currentFilePath, _waveIn.WaveFormat);
+                    _waveIn.DataAvailable += OnDataAvailable;
+                    _waveIn.RecordingStopped += OnRecordingStopped;
 
-                // Fire failure event instead of crashing
-                RecordingFailed?.Invoke(this, new RecordingFailedEventArgs(ex.Message, GetUserFriendlyErrorMessage(ex)));
+                    _waveIn.StartRecording();
+                    _isRecording = true;  // Set AFTER successful start
+
+                    var logMsg = $"Started audio recording to {Path.GetFileName(filePath)} at {_recordingStartTime:HH:mm:ss.fff}";
+                    _logger?.Log(logMsg);
+                    Debug.WriteLine($"[AudioRecording] {logMsg}");
+                    RecordingStarted?.Invoke(this, EventArgs.Empty);
+                }
+                catch (Exception ex)
+                {
+                    // Clean up any partial initialization
+                    _writer?.Dispose();
+                    _writer = null;
+                    _waveIn?.Dispose();
+                    _waveIn = null;
+                    _isRecording = false;
+
+                    var errorMsg = $"Failed to start recording: {ex.Message}";
+                    _logger?.Log(errorMsg);
+                    Debug.WriteLine($"[AudioRecording] {errorMsg}");
+
+                    // Fire failure event instead of crashing
+                    RecordingFailed?.Invoke(this, new RecordingFailedEventArgs(ex.Message, GetUserFriendlyErrorMessage(ex)));
+                }
             }
         }
 
@@ -163,18 +175,26 @@ namespace TalkKeys.Services.Audio
 
         public void StopRecording()
         {
-            if (!IsRecording) return;
+            lock (_recordingLock)
+            {
+                if (!_isRecording)
+                {
+                    _logger?.Log("[AudioRecording] StopRecording called but not recording - ignoring");
+                    return;
+                }
 
-            var duration = DateTime.Now - _recordingStartTime;
-            var stackTrace = new StackTrace(true);
-            var callingMethod = stackTrace.GetFrame(1)?.GetMethod();
-            var callerInfo = callingMethod != null ? $"{callingMethod.DeclaringType?.Name}.{callingMethod.Name}" : "Unknown";
+                var duration = DateTime.Now - _recordingStartTime;
+                var stackTrace = new StackTrace(true);
+                var callingMethod = stackTrace.GetFrame(1)?.GetMethod();
+                var callerInfo = callingMethod != null ? $"{callingMethod.DeclaringType?.Name}.{callingMethod.Name}" : "Unknown";
 
-            var logMsg = $"Stopping audio recording after {duration.TotalSeconds:F2}s (called from: {callerInfo})";
-            _logger?.Log(logMsg);
-            Debug.WriteLine($"[AudioRecording] {logMsg}");
+                var logMsg = $"Stopping audio recording after {duration.TotalSeconds:F2}s (called from: {callerInfo})";
+                _logger?.Log(logMsg);
+                Debug.WriteLine($"[AudioRecording] {logMsg}");
 
-            _waveIn?.StopRecording();
+                _waveIn?.StopRecording();
+                // Note: _isRecording will be set to false in OnRecordingStopped callback
+            }
         }
 
         private void OnDataAvailable(object? sender, WaveInEventArgs e)
@@ -221,10 +241,12 @@ namespace TalkKeys.Services.Audio
 
         private void OnRecordingStopped(object? sender, StoppedEventArgs e)
         {
+            // Clean up resources
             _writer?.Dispose();
             _writer = null;
             _waveIn?.Dispose();
             _waveIn = null;
+            _isRecording = false;  // Mark as not recording BEFORE firing events
 
             bool noAudio = !_hasNonZeroSample || _totalBytesRecorded <= 0;
 

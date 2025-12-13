@@ -43,6 +43,10 @@ namespace TalkKeys
         private IUpdateService? _updateService;
         private bool _mutexOwned = false;
 
+        // Debouncing for hotkey triggers - prevent rapid re-triggering
+        private DateTime _lastTriggerTime = DateTime.MinValue;
+        private const int TriggerDebounceMs = 300;  // Minimum ms between triggers
+
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
@@ -199,6 +203,16 @@ namespace TalkKeys
 
         private void OnTriggerActivated(object? sender, TriggerEventArgs e)
         {
+            // Debounce: ignore triggers that come too quickly after the last one
+            var now = DateTime.Now;
+            var timeSinceLastTrigger = (now - _lastTriggerTime).TotalMilliseconds;
+            if (timeSinceLastTrigger < TriggerDebounceMs)
+            {
+                _logger?.Log($"Trigger debounced: {e.TriggerId} (only {timeSinceLastTrigger:F0}ms since last trigger)");
+                return;
+            }
+            _lastTriggerTime = now;
+
             _logger?.Log($"Trigger activated: {e.TriggerId}, Action: {e.Action}");
 
             Current.Dispatcher.Invoke(() =>
