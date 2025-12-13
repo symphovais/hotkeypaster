@@ -317,9 +317,26 @@ namespace TalkKeys.Services.Triggers
         private void ApplyConfiguration()
         {
             var triggerConfig = GetTriggerConfig();
-            if (triggerConfig?.Settings.TryGetValue("Hotkey", out var hotkeyObj) == true && hotkeyObj is string hotkey)
+            if (triggerConfig?.Settings.TryGetValue("Hotkey", out var hotkeyObj) == true)
             {
-                ParseHotkey(hotkey, out _currentKey, out _currentModifiers);
+                string? hotkey = null;
+
+                // Handle both string and JsonElement (from deserialized settings)
+                if (hotkeyObj is string hotkeyStr)
+                {
+                    hotkey = hotkeyStr;
+                }
+                else if (hotkeyObj is System.Text.Json.JsonElement jsonElement &&
+                         jsonElement.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    hotkey = jsonElement.GetString();
+                }
+
+                if (!string.IsNullOrEmpty(hotkey))
+                {
+                    ParseHotkey(hotkey, out _currentKey, out _currentModifiers);
+                    _logger?.Log($"[KeyboardTrigger] Applied hotkey from config: {hotkey}");
+                }
             }
         }
 
