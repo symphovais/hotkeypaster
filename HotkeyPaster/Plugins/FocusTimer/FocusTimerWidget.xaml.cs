@@ -1,5 +1,6 @@
 using System;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
@@ -110,6 +111,7 @@ namespace TalkKeys.Plugins.FocusTimer
                 case WidgetState.Focus:
                     ActivePanel.Visibility = Visibility.Visible;
                     ModeIndicator.Fill = FocusColor;
+                    if (ProgressRing != null) ProgressRing.Stroke = FocusColor;
                     StartPulseAnimation();
                     break;
 
@@ -121,6 +123,7 @@ namespace TalkKeys.Plugins.FocusTimer
                 case WidgetState.Break:
                     ActivePanel.Visibility = Visibility.Visible;
                     ModeIndicator.Fill = BreakColor;
+                    if (ProgressRing != null) ProgressRing.Stroke = BreakColor;
                     StartPulseAnimation();
                     break;
 
@@ -136,11 +139,35 @@ namespace TalkKeys.Plugins.FocusTimer
         }
 
         /// <summary>
-        /// Update the timer display.
+        /// Update the timer display and progress ring.
         /// </summary>
         public void UpdateTimerDisplay(TimeSpan remaining)
         {
             TimerDisplay.Text = $"{(int)remaining.TotalMinutes}:{remaining.Seconds:D2}";
+            UpdateProgressRing(remaining);
+        }
+
+        /// <summary>
+        /// Update the progress ring based on remaining time.
+        /// </summary>
+        private void UpdateProgressRing(TimeSpan remaining)
+        {
+            if (ProgressRing == null) return;
+
+            // Get total session duration based on current mode
+            var totalDuration = _currentState == WidgetState.Focus 
+                ? TimeSpan.FromMinutes(_plugin.GetFocusDuration())
+                : TimeSpan.FromMinutes(_plugin.GetBreakDuration());
+
+            // Calculate progress percentage (0-1)
+            var elapsed = totalDuration - remaining;
+            var progressPercentage = Math.Max(0, Math.Min(1, elapsed.TotalSeconds / totalDuration.TotalSeconds));
+
+            // Update stroke dash offset for progress ring
+            // Circumference = 2 * π * r = 2 * π * 55 ≈ 346
+            var circumference = 346.0;
+            var offset = circumference * (1 - progressPercentage);
+            ProgressRing.StrokeDashOffset = offset;
         }
 
         /// <summary>
@@ -184,6 +211,13 @@ namespace TalkKeys.Plugins.FocusTimer
             }
         }
 
+        private void Window_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            // Update context menu based on current state
+            UpdateContextMenu();
+            e.Handled = true;
+        }
+
         private void StartFocusButton_Click(object sender, RoutedEventArgs e)
         {
             _plugin.StartFocus();
@@ -213,6 +247,74 @@ namespace TalkKeys.Plugins.FocusTimer
             // Only BreakComplete uses this now (session-based flow)
             // "Done" → End the session
             _plugin.Stop();
+        }
+
+        // Context Menu Handlers
+        
+        private void UpdateContextMenu()
+        {
+            // Update menu visibility based on current state
+            bool isActive = _currentState == WidgetState.Focus || _currentState == WidgetState.Break;
+            
+            MenuPauseResume.Visibility = isActive ? Visibility.Visible : Visibility.Collapsed;
+            MenuStop.Visibility = isActive ? Visibility.Visible : Visibility.Collapsed;
+            ControlSeparator.Visibility = isActive ? Visibility.Visible : Visibility.Collapsed;
+            
+            // Update quick start availability
+            QuickStart15.IsEnabled = !isActive;
+            QuickStart25.IsEnabled = !isActive;
+            QuickStart45.IsEnabled = !isActive;
+            QuickStart90.IsEnabled = !isActive;
+        }
+
+        private void QuickStart_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem menuItem && menuItem.Tag is string durationStr)
+            {
+                if (int.TryParse(durationStr, out int minutes))
+                {
+                    // Temporarily override focus duration
+                    var originalDuration = _plugin.GetFocusDuration();
+                    _plugin.GetConfiguration().SetSetting(FocusTimerPlugin.SettingFocusDuration, minutes);
+                    _plugin.StartFocus();
+                    
+                    // Restore original duration after starting (for next time)
+                    _plugin.GetConfiguration().SetSetting(FocusTimerPlugin.SettingFocusDuration, originalDuration);
+                }
+            }
+        }
+
+        private void PauseResume_Click(object sender, RoutedEventArgs e)
+        {
+            // TODO: Implement pause/resume functionality in Phase 2
+            // For now, just show a notification
+            System.Windows.MessageBox.Show("Pause/Resume functionality coming soon!", "Focus Timer", 
+                MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void Stop_Click(object sender, RoutedEventArgs e)
+        {
+            _plugin.Stop();
+        }
+
+        private void Settings_Click(object sender, RoutedEventArgs e)
+        {
+            // TODO: Open timer settings directly
+            System.Windows.MessageBox.Show("Open Settings → Plugins → Focus Timer to configure timer settings.", 
+                "Timer Settings", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void Stats_Click(object sender, RoutedEventArgs e)
+        {
+            var todayMinutes = _plugin.GetTodayMinutes();
+            var formattedTime = FocusStatsService.FormatMinutes(todayMinutes);
+            System.Windows.MessageBox.Show($"Today's Focus Time: {formattedTime}\n\nDetailed stats coming soon!", 
+                "Focus Stats", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void Hide_Click(object sender, RoutedEventArgs e)
+        {
+            _plugin.HideWidget();
         }
 
         #endregion

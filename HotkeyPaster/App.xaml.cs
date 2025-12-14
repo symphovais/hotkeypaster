@@ -231,7 +231,7 @@ namespace TalkKeys
             _pluginManager = new PluginManager(_logger, _positioner);
 
             // Register built-in plugins
-            _pluginManager.RegisterPlugin(new FocusTimerPlugin(_logger));
+            _pluginManager.RegisterPlugin(new FocusTimerPlugin(_logger, _notifications));
 
             // Subscribe to plugin events
             _pluginManager.PluginWidgetPositionChanged += OnPluginWidgetPositionChanged;

@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Threading;
 using TalkKeys.Logging;
 using TalkKeys.PluginSdk;
+using TalkKeys.Services.Notifications;
 
 namespace TalkKeys.Plugins.FocusTimer
 {
@@ -24,6 +25,7 @@ namespace TalkKeys.Plugins.FocusTimer
     public class FocusTimerPlugin : IWidgetPlugin, ITrayMenuPlugin
     {
         private readonly ILogger? _logger;
+        private readonly INotificationService? _notifications;
         private readonly FocusStatsService _statsService;
         private FocusTimerWidget? _widget;
         private PluginConfiguration _configuration;
@@ -58,9 +60,10 @@ namespace TalkKeys.Plugins.FocusTimer
         public event EventHandler<WidgetVisibilityChangedEventArgs>? WidgetVisibilityChanged;
         public event EventHandler? TrayMenuItemsChanged;
 
-        public FocusTimerPlugin(ILogger? logger = null)
+        public FocusTimerPlugin(ILogger? logger = null, INotificationService? notifications = null)
         {
             _logger = logger;
+            _notifications = notifications;
             _statsService = new FocusStatsService(logger);
             _configuration = GetDefaultConfiguration();
         }
@@ -417,6 +420,11 @@ namespace TalkKeys.Plugins.FocusTimer
             UpdateWidgetState();
             TrayMenuItemsChanged?.Invoke(this, EventArgs.Empty);
 
+            // Show start notification
+            _notifications?.ShowInfo("Focus Session Started 🎯", 
+                $"Time to focus! {GetFocusDuration()} minutes on the clock.\n" +
+                "Minimize distractions and dive deep into your work.");
+
             _logger?.Log($"[FocusTimer] Session started - focus period ({GetFocusDuration()} min)");
         }
 
@@ -483,7 +491,13 @@ namespace TalkKeys.Plugins.FocusTimer
 
                 _logger?.Log("[FocusTimer] Focus session complete - auto-starting break");
 
-                // Opinionated: Automatically start break (no prompt)
+                // Show enhanced notification for focus completion
+                var todayTotal = FocusStatsService.FormatMinutes(GetTodayMinutes());
+                _notifications?.ShowSuccess("Focus Session Complete! 🎉", 
+                    $"Great job! You focused for {GetFocusDuration()} minutes.\n" +
+                    $"Today's total: {todayTotal}\n" +
+                    $"Taking a {GetBreakDuration()}-minute break...");
+
                 // Play notification sound before break
                 _widget?.PlayNotificationSound();
 
@@ -499,6 +513,12 @@ namespace TalkKeys.Plugins.FocusTimer
                 // Break is over - ask if user wants to continue
                 _widget?.SetState(WidgetState.BreakComplete);
                 _widget?.PlayNotificationSound();
+
+                // Show break completion notification
+                _notifications?.ShowInfo("Break Complete ⏰", 
+                    "Break time is over!\n" +
+                    "Ready for another focus session?\n" +
+                    "Click the widget to continue or take a longer break.");
 
                 _logger?.Log("[FocusTimer] Break complete");
                 _currentMode = TimerMode.Idle;
