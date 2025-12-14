@@ -92,8 +92,11 @@ Access settings by right-clicking the system tray icon.
 
 - **.NET 8.0** with WPF
 - **NAudio** for audio recording
-- **Groq API** for fast AI transcription
-- **Cloudflare Workers** for backend services
+- **H.Hooks** for global keyboard hooks
+- **H.InputSimulator** for keyboard input simulation
+- **Polly** for HTTP resilience and retry policies
+- **Groq API** for fast AI transcription (Whisper)
+- **Cloudflare Workers + D1** for backend services
 
 ## Troubleshooting
 
@@ -113,25 +116,6 @@ Access settings by right-clicking the system tray icon.
 ### "Session Expired" message
 - Sign out and sign in again from the system tray menu
 
-## Build from Source
-
-1. Clone the repository
-   ```bash
-   git clone https://github.com/symphovais/hotkeypaster.git
-   cd hotkeypaster
-   ```
-
-2. Build the project
-   ```bash
-   cd HotkeyPaster
-   dotnet build
-   ```
-
-3. Run the application
-   ```bash
-   dotnet run
-   ```
-
 ## License
 
 MIT License
@@ -143,7 +127,30 @@ MIT License
 - [Privacy Policy](https://talkkeys-api.ahmed-ovais.workers.dev/privacy)
 - [Terms of Service](https://talkkeys-api.ahmed-ovais.workers.dev/tos)
 
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+### Development Setup
+
+1. Install [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+2. Clone and build:
+   ```bash
+   git clone https://github.com/symphovais/hotkeypaster.git
+   cd hotkeypaster
+   dotnet build
+   ```
+3. Run tests:
+   ```bash
+   dotnet test TalkKeys.Tests
+   ```
+
+See [CLAUDE.md](CLAUDE.md) for development guidelines.
+
 ## Acknowledgments
 
-- [NAudio](https://github.com/naudio/NAudio) by Mark Heath
-- [Groq](https://groq.com) for fast AI inference
+- [NAudio](https://github.com/naudio/NAudio) - Audio recording and processing
+- [H.Hooks](https://github.com/HavenDV/H.Hooks) - Global keyboard hooks
+- [H.InputSimulator](https://github.com/HavenDV/H.InputSimulator) - Keyboard simulation
+- [Polly](https://github.com/App-vNext/Polly) - Resilience and transient fault handling
+- [Groq](https://groq.com) - Fast AI inference
