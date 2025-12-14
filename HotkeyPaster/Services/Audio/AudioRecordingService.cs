@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Threading;
 using NAudio.Wave;
 using TalkKeys.Logging;
 
@@ -113,42 +114,68 @@ namespace TalkKeys.Services.Audio
                 _hasNonZeroSample = false;
                 _totalBytesRecorded = 0;
 
-                try
+                // Retry logic - Windows sometimes doesn't release the audio device immediately
+                const int maxRetries = 3;
+                const int retryDelayMs = 200;
+                Exception? lastException = null;
+
+                for (int attempt = 1; attempt <= maxRetries; attempt++)
                 {
-                    _waveIn = new WaveInEvent
+                    try
                     {
-                        DeviceNumber = _currentDeviceIndex,
-                        WaveFormat = new WaveFormat(16000, 16, 1) // 16kHz, 16-bit, mono (required for Whisper.net)
-                    };
+                        _waveIn = new WaveInEvent
+                        {
+                            DeviceNumber = _currentDeviceIndex,
+                            WaveFormat = new WaveFormat(16000, 16, 1) // 16kHz, 16-bit, mono (required for Whisper.net)
+                        };
 
-                    _writer = new WaveFileWriter(_currentFilePath, _waveIn.WaveFormat);
-                    _waveIn.DataAvailable += OnDataAvailable;
-                    _waveIn.RecordingStopped += OnRecordingStopped;
+                        _writer = new WaveFileWriter(_currentFilePath, _waveIn.WaveFormat);
+                        _waveIn.DataAvailable += OnDataAvailable;
+                        _waveIn.RecordingStopped += OnRecordingStopped;
 
-                    _waveIn.StartRecording();
-                    _isRecording = true;  // Set AFTER successful start
+                        _waveIn.StartRecording();
+                        _isRecording = true;  // Set AFTER successful start
 
-                    var logMsg = $"Started audio recording to {Path.GetFileName(filePath)} at {_recordingStartTime:HH:mm:ss.fff}";
-                    _logger?.Log(logMsg);
-                    Debug.WriteLine($"[AudioRecording] {logMsg}");
-                    RecordingStarted?.Invoke(this, EventArgs.Empty);
+                        var logMsg = $"Started audio recording to {Path.GetFileName(filePath)} at {_recordingStartTime:HH:mm:ss.fff}";
+                        if (attempt > 1) logMsg += $" (succeeded on attempt {attempt})";
+                        _logger?.Log(logMsg);
+                        Debug.WriteLine($"[AudioRecording] {logMsg}");
+                        RecordingStarted?.Invoke(this, EventArgs.Empty);
+                        return; // Success - exit the method
+                    }
+                    catch (Exception ex)
+                    {
+                        lastException = ex;
+
+                        // Clean up any partial initialization
+                        if (_waveIn != null)
+                        {
+                            _waveIn.DataAvailable -= OnDataAvailable;
+                            _waveIn.RecordingStopped -= OnRecordingStopped;
+                        }
+                        _writer?.Dispose();
+                        _writer = null;
+                        _waveIn?.Dispose();
+                        _waveIn = null;
+
+                        if (attempt < maxRetries)
+                        {
+                            _logger?.Log($"[AudioRecording] Attempt {attempt} failed: {ex.Message}. Retrying in {retryDelayMs}ms...");
+                            Thread.Sleep(retryDelayMs);
+                        }
+                    }
                 }
-                catch (Exception ex)
-                {
-                    // Clean up any partial initialization
-                    _writer?.Dispose();
-                    _writer = null;
-                    _waveIn?.Dispose();
-                    _waveIn = null;
-                    _isRecording = false;
 
-                    var errorMsg = $"Failed to start recording: {ex.Message}";
-                    _logger?.Log(errorMsg);
-                    Debug.WriteLine($"[AudioRecording] {errorMsg}");
+                // All retries exhausted
+                _isRecording = false;
+                var errorMsg = $"Failed to start recording after {maxRetries} attempts: {lastException?.Message}";
+                _logger?.Log(errorMsg);
+                Debug.WriteLine($"[AudioRecording] {errorMsg}");
 
-                    // Fire failure event instead of crashing
-                    RecordingFailed?.Invoke(this, new RecordingFailedEventArgs(ex.Message, GetUserFriendlyErrorMessage(ex)));
-                }
+                // Fire failure event instead of crashing
+                RecordingFailed?.Invoke(this, new RecordingFailedEventArgs(
+                    lastException?.Message ?? "Unknown error",
+                    GetUserFriendlyErrorMessage(lastException ?? new Exception("Unknown error"))));
             }
         }
 
@@ -241,6 +268,13 @@ namespace TalkKeys.Services.Audio
 
         private void OnRecordingStopped(object? sender, StoppedEventArgs e)
         {
+            // Unsubscribe from events BEFORE disposing (helps Windows release the device)
+            if (_waveIn != null)
+            {
+                _waveIn.DataAvailable -= OnDataAvailable;
+                _waveIn.RecordingStopped -= OnRecordingStopped;
+            }
+
             // Clean up resources
             _writer?.Dispose();
             _writer = null;

@@ -8,7 +8,7 @@ echo ========================================
 echo.
 
 :: Configuration
-set VERSION=1.0.8.0
+set VERSION=1.1.0.0
 set APP_NAME=TalkKeys
 set PROJECT_PATH=HotkeyPaster\HotkeyPaster.csproj
 set PUBLISH_DIR=HotkeyPaster\bin\msix-publish

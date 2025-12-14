@@ -4,8 +4,6 @@ VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HotkeyPaster", "HotkeyPaster\HotkeyPaster.csproj", "{2952911F-DB21-EAED-20D5-EBFF9D7E66B1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TranscriptionComparisonTest", "TranscriptionComparisonTest\TranscriptionComparisonTest.csproj", "{5F2B379B-2A0B-05FC-23E5-8407AD955BE3}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -16,10 +14,6 @@ Global
 		{2952911F-DB21-EAED-20D5-EBFF9D7E66B1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2952911F-DB21-EAED-20D5-EBFF9D7E66B1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2952911F-DB21-EAED-20D5-EBFF9D7E66B1}.Release|Any CPU.Build.0 = Release|Any CPU
-		{5F2B379B-2A0B-05FC-23E5-8407AD955BE3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{5F2B379B-2A0B-05FC-23E5-8407AD955BE3}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{5F2B379B-2A0B-05FC-23E5-8407AD955BE3}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{5F2B379B-2A0B-05FC-23E5-8407AD955BE3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

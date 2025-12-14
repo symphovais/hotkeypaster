@@ -1,0 +1,155 @@
+<Window x:Class="TalkKeys.AboutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="About TalkKeys"
+        Height="540"
+        Width="420"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        AllowsTransparency="True"
+        Background="Transparent"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown">
+
+    <Border Background="White" CornerRadius="12" BorderBrush="#E5E7EB" BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect Color="#000000" Opacity="0.15" BlurRadius="20" ShadowDepth="0"/>
+        </Border.Effect>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Header -->
+            <Border Grid.Row="0" Background="#7C3AED" CornerRadius="12,12,0,0" Padding="24,20">
+                <StackPanel HorizontalAlignment="Center">
+                    <TextBlock Text="TalkKeys"
+                               FontSize="28"
+                               FontWeight="Bold"
+                               Foreground="White"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock x:Name="VersionText"
+                               Text="Version 1.0.0"
+                               FontSize="13"
+                               Foreground="#E9D5FF"
+                               HorizontalAlignment="Center"
+                               Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Content -->
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="24,20">
+                <StackPanel>
+                    <!-- Description -->
+                    <TextBlock Text="A voice-to-text application for Windows"
+                               FontSize="14"
+                               Foreground="#4B5563"
+                               TextWrapping="Wrap"
+                               TextAlignment="Center"
+                               Margin="0,0,0,20"/>
+
+                    <!-- Made with love section -->
+                    <Border Background="#F9FAFB" CornerRadius="8" Padding="16" Margin="0,0,0,20">
+                        <StackPanel>
+                            <TextBlock Text="Made with love"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       Foreground="#7C3AED"
+                                       Margin="0,0,0,8"/>
+                            <TextBlock Text="This app was built purely for the joy of creating software. It's a passion project exploring voice recognition, WPF, and modern .NET development."
+                                       FontSize="12"
+                                       Foreground="#6B7280"
+                                       TextWrapping="Wrap"
+                                       LineHeight="18"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Libraries section -->
+                    <TextBlock Text="Built with these amazing libraries:"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               Foreground="#374151"
+                               Margin="0,0,0,12"/>
+
+                    <StackPanel Margin="0,0,0,16">
+                        <TextBlock FontSize="12" Foreground="#4B5563" Margin="0,4">
+                            <Run FontWeight="SemiBold" Foreground="#7C3AED">NAudio</Run>
+                            <Run> - Audio recording and processing</Run>
+                        </TextBlock>
+                        <TextBlock FontSize="12" Foreground="#4B5563" Margin="0,4">
+                            <Run FontWeight="SemiBold" Foreground="#7C3AED">H.Hooks</Run>
+                            <Run> - Global keyboard hooks</Run>
+                        </TextBlock>
+                        <TextBlock FontSize="12" Foreground="#4B5563" Margin="0,4">
+                            <Run FontWeight="SemiBold" Foreground="#7C3AED">H.InputSimulator</Run>
+                            <Run> - Keyboard input simulation</Run>
+                        </TextBlock>
+                        <TextBlock FontSize="12" Foreground="#4B5563" Margin="0,4">
+                            <Run FontWeight="SemiBold" Foreground="#7C3AED">HidSharp</Run>
+                            <Run> - USB HID device support</Run>
+                        </TextBlock>
+                        <TextBlock FontSize="12" Foreground="#4B5563" Margin="0,4">
+                            <Run FontWeight="SemiBold" Foreground="#7C3AED">Polly</Run>
+                            <Run> - Resilience and retry patterns</Run>
+                        </TextBlock>
+                        <TextBlock FontSize="12" Foreground="#4B5563" Margin="0,4">
+                            <Run FontWeight="SemiBold" Foreground="#7C3AED">Groq</Run>
+                            <Run> - Fast AI inference (Whisper)</Run>
+                        </TextBlock>
+                    </StackPanel>
+
+                    <!-- Links section -->
+                    <Border Background="#F3E8FF" CornerRadius="8" Padding="16">
+                        <StackPanel>
+                            <TextBlock FontSize="12" Margin="0,0,0,8">
+                                <Hyperlink x:Name="ReleaseNotesLink" Click="ReleaseNotesLink_Click" Foreground="#7C3AED" TextDecorations="None">
+                                    <Run Text="View Release Notes"/>
+                                </Hyperlink>
+                                <Run Foreground="#6B7280"> - See what's new in this version</Run>
+                            </TextBlock>
+                            <TextBlock FontSize="12">
+                                <Hyperlink x:Name="WebsiteLink" Click="WebsiteLink_Click" Foreground="#7C3AED" TextDecorations="None">
+                                    <Run Text="Visit Website"/>
+                                </Hyperlink>
+                                <Run Foreground="#6B7280"> - Learn more about TalkKeys</Run>
+                            </TextBlock>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Footer -->
+            <Border Grid.Row="2" BorderBrush="#E5E7EB" BorderThickness="0,1,0,0" Padding="24,16">
+                <Button x:Name="CloseButton"
+                        Content="Close"
+                        Click="CloseButton_Click"
+                        Background="#7C3AED"
+                        Foreground="White"
+                        FontSize="13"
+                        FontWeight="Medium"
+                        Padding="24,10"
+                        Cursor="Hand"
+                        HorizontalAlignment="Center">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="bg"
+                                    Background="{TemplateBinding Background}"
+                                    CornerRadius="8"
+                                    Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="bg" Property="Background" Value="#6D28D9"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

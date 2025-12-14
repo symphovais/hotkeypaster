@@ -16,12 +16,12 @@
         KeyDown="Window_KeyDown"
         Focusable="True">
     <Window.Resources>
-        <!-- Fade In Animation -->
+        <!-- Fade In Animation - instant for responsiveness -->
         <Storyboard x:Key="FadeIn">
-            <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.3"/>
+            <DoubleAnimation Storyboard.TargetProperty="Opacity" From="1" To="1" Duration="0:0:0"/>
         </Storyboard>
-        
-        <!-- Pulse Animation for Recording -->
+
+        <!-- Pulse Animation for Recording (visual feedback only, doesn't block) -->
         <Storyboard x:Key="PulseAnimation" RepeatBehavior="Forever" AutoReverse="True">
             <DoubleAnimation Storyboard.TargetProperty="Opacity" From="1" To="0.5" Duration="0:0:1"/>
         </Storyboard>

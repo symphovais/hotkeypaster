@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -45,7 +46,7 @@ namespace TalkKeys
 
         // Debouncing for hotkey triggers - prevent rapid re-triggering
         private DateTime _lastTriggerTime = DateTime.MinValue;
-        private const int TriggerDebounceMs = 300;  // Minimum ms between triggers
+        private const int TriggerDebounceMs = 200;  // Minimum ms between triggers (balanced responsiveness vs stability)
 
         protected override void OnStartup(StartupEventArgs e)
         {
@@ -125,6 +126,9 @@ namespace TalkKeys
                 settings = _settingsService.LoadSettings();
             }
 
+            // Check for version change and show What's New screen
+            ShowWhatsNewIfVersionChanged(settings);
+
             // Create pipeline service based on auth mode
             _pipelineService = CreatePipelineService(settings);
             if (_pipelineService == null)
@@ -157,6 +161,12 @@ namespace TalkKeys
                 _hotkeyService.UnregisterAllHotkeys();
                 _trayService.DisposeTray();
                 Current.Shutdown();
+            };
+
+            _trayService.AboutRequested += (s, args) =>
+            {
+                var aboutWindow = new AboutWindow();
+                aboutWindow.Show();
             };
 
             // Log startup
@@ -428,6 +438,42 @@ namespace TalkKeys
             // Always show widget on startup
             _floatingWidget.Show();
             _logger?.Log("FloatingWidget shown on startup");
+        }
+
+        /// <summary>
+        /// Shows the What's New window if this is a new install or version update.
+        /// </summary>
+        private void ShowWhatsNewIfVersionChanged(AppSettings settings)
+        {
+            var currentVersion = GetCurrentVersion();
+            var lastSeenVersion = settings.LastSeenVersion;
+
+            // Check if this is first install or version changed
+            bool isFirstInstall = string.IsNullOrEmpty(lastSeenVersion);
+            bool isVersionChanged = !isFirstInstall && lastSeenVersion != currentVersion;
+
+            if (isFirstInstall || isVersionChanged)
+            {
+                _logger?.Log($"Showing What's New screen. Current: {currentVersion}, Last seen: {lastSeenVersion ?? "none"}");
+
+                var whatsNewWindow = new WhatsNewWindow(isFirstInstall);
+                whatsNewWindow.ShowDialog();
+
+                // Update last seen version
+                settings.LastSeenVersion = currentVersion;
+                _settingsService?.SaveSettings(settings);
+            }
+        }
+
+        /// <summary>
+        /// Gets the current app version as a string (e.g., "1.1.0").
+        /// </summary>
+        private static string GetCurrentVersion()
+        {
+            var version = Assembly.GetExecutingAssembly().GetName().Version;
+            return version != null
+                ? $"{version.Major}.{version.Minor}.{version.Build}"
+                : "1.0.0";
         }
 
         /// <summary>

@@ -1,17 +1,23 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using System.Windows.Media;
+using H.Hooks;
 using TalkKeys.Logging;
-using TalkKeys.Services.Hotkey;
+using TalkKeys.PluginSdk;
+using Key = System.Windows.Input.Key;
+using ModifierKeys = System.Windows.Input.ModifierKeys;
+using Keyboard = System.Windows.Input.Keyboard;
+using Cursors = System.Windows.Input.Cursors;
 
 namespace TalkKeys.Services.Triggers
 {
     /// <summary>
     /// Trigger plugin for keyboard hotkey-based recording activation.
     /// Supports both toggle mode and push-to-talk mode.
+    /// Uses H.Hooks library for global keyboard hook.
     /// </summary>
     public class KeyboardTriggerPlugin : ITriggerPlugin
     {
@@ -21,12 +27,15 @@ namespace TalkKeys.Services.Triggers
         private TriggerPluginConfiguration _configuration;
         private bool _isRunning;
         private bool _disposed;
+        private bool _isKeyCurrentlyDown;
 
         // UI elements for settings panel
         private ComboBox? _modeComboBox;
         private TextBox? _hotkeyTextBox;
-        private System.Windows.Forms.Keys _currentKey = System.Windows.Forms.Keys.Space;
-        private System.Windows.Forms.Keys _currentModifiers = System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.Shift;
+
+        // Current hotkey configuration (using WPF Key/ModifierKeys)
+        private Key _currentKey = Key.Space;
+        private ModifierKeys _currentModifiers = ModifierKeys.Control | ModifierKeys.Shift;
 
         public string PluginId => "keyboard";
         public string DisplayName => "Keyboard Hotkey";
@@ -72,13 +81,19 @@ namespace TalkKeys.Services.Triggers
 
             try
             {
-                _keyboardHook = new LowLevelKeyboardHook();
-                _keyboardHook.SetTargetKey(_currentKey, _currentModifiers);
-                _keyboardHook.KeyDown += OnKeyDown;
-                _keyboardHook.KeyUp += OnKeyUp;
+                _keyboardHook = new LowLevelKeyboardHook
+                {
+                    IsExtendedMode = true,       // Support key combinations like Ctrl+Shift+Space
+                    HandleModifierKeys = true,    // Process modifier keys in events
+                    IsLeftRightGranularity = false // Treat Left/Right modifiers the same
+                };
+
+                _keyboardHook.Down += OnKeyDown;
+                _keyboardHook.Up += OnKeyUp;
                 _keyboardHook.Start();
+
                 _isRunning = true;
-                _logger?.Log($"[KeyboardTrigger] Started with hotkey: {FormatHotkey(_currentModifiers, _currentKey)}");
+                _logger?.Log($"[KeyboardTrigger] Started with hotkey: {FormatHotkey(_currentModifiers, _currentKey)} (using H.Hooks)");
             }
             catch (Exception ex)
             {
@@ -92,13 +107,13 @@ namespace TalkKeys.Services.Triggers
 
             if (_keyboardHook != null)
             {
-                _keyboardHook.KeyDown -= OnKeyDown;
-                _keyboardHook.KeyUp -= OnKeyUp;
-                _keyboardHook.Stop();
+                _keyboardHook.Down -= OnKeyDown;
+                _keyboardHook.Up -= OnKeyUp;
                 _keyboardHook.Dispose();
                 _keyboardHook = null;
             }
             _isRunning = false;
+            _isKeyCurrentlyDown = false;
             _logger?.Log("[KeyboardTrigger] Stopped");
         }
 
@@ -202,7 +217,7 @@ namespace TalkKeys.Services.Triggers
 
             var hotkeyHint = new TextBlock
             {
-                Text = "Click and press a key combination",
+                Text = "Click and press a key combination (supports Win key)",
                 FontSize = 11,
                 Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#6B7280")),
                 Margin = new Thickness(0, 0, 0, 15)
@@ -243,7 +258,7 @@ namespace TalkKeys.Services.Triggers
             return panel;
         }
 
-        private void OnHotkeyCapture(object sender, KeyEventArgs e)
+        private void OnHotkeyCapture(object sender, System.Windows.Input.KeyEventArgs e)
         {
             e.Handled = true;
 
@@ -264,32 +279,19 @@ namespace TalkKeys.Services.Triggers
                 return;
             }
 
-            var modifiers = System.Windows.Forms.Keys.None;
-            if ((System.Windows.Input.Keyboard.Modifiers & ModifierKeys.Control) != 0)
-                modifiers |= System.Windows.Forms.Keys.Control;
-            if ((System.Windows.Input.Keyboard.Modifiers & ModifierKeys.Shift) != 0)
-                modifiers |= System.Windows.Forms.Keys.Shift;
-            if ((System.Windows.Input.Keyboard.Modifiers & ModifierKeys.Alt) != 0)
-                modifiers |= System.Windows.Forms.Keys.Alt;
-            if ((System.Windows.Input.Keyboard.Modifiers & ModifierKeys.Windows) != 0)
-                modifiers |= System.Windows.Forms.Keys.LWin;
-
-            // Convert WPF key to WinForms key
-            var formsKey = (System.Windows.Forms.Keys)KeyInterop.VirtualKeyFromKey(key);
-
-            _currentKey = formsKey;
-            _currentModifiers = modifiers;
+            _currentModifiers = System.Windows.Input.Keyboard.Modifiers;
+            _currentKey = key;
 
             if (_hotkeyTextBox != null)
             {
-                _hotkeyTextBox.Text = FormatHotkey(modifiers, formsKey);
+                _hotkeyTextBox.Text = FormatHotkey(_currentModifiers, _currentKey);
             }
 
             // Update configuration
             var triggerConfig = GetTriggerConfig();
             if (triggerConfig != null)
             {
-                triggerConfig.Settings["Hotkey"] = FormatHotkey(modifiers, formsKey);
+                triggerConfig.Settings["Hotkey"] = FormatHotkey(_currentModifiers, _currentKey);
             }
 
             OnConfigurationChanged();
@@ -340,26 +342,104 @@ namespace TalkKeys.Services.Triggers
             }
         }
 
-        private void OnKeyDown(object? sender, KeyboardHookEventArgs e)
+        private void OnKeyDown(object? sender, H.Hooks.KeyboardEventArgs args)
         {
+            if (!IsTargetHotkey(args)) return;
+            if (_isKeyCurrentlyDown) return; // Prevent repeated key-down events
+
             var triggerConfig = GetTriggerConfig();
             if (triggerConfig == null || !triggerConfig.Enabled) return;
 
-            _logger?.Log($"[KeyboardTrigger] Key down: {e.Key}");
+            _isKeyCurrentlyDown = true;
+            _logger?.Log($"[KeyboardTrigger] Hotkey pressed: {FormatHotkey(_currentModifiers, _currentKey)}");
             TriggerActivated?.Invoke(this, new TriggerEventArgs(TRIGGER_ID, triggerConfig.Action));
         }
 
-        private void OnKeyUp(object? sender, KeyboardHookEventArgs e)
+        private void OnKeyUp(object? sender, H.Hooks.KeyboardEventArgs args)
         {
+            if (!_isKeyCurrentlyDown) return;
+
+            // Check if the main key was released OR if any required modifier was released
+            // Convert WPF Key to H.Hooks Key by name (enum values don't match!)
+            bool mainKeyReleased = false;
+            if (Enum.TryParse<H.Hooks.Key>(_currentKey.ToString(), out var targetKey))
+            {
+                mainKeyReleased = args.CurrentKey == targetKey;
+            }
+            bool modifierReleased = IsModifierReleased(args);
+
+            if (!mainKeyReleased && !modifierReleased) return;
+
             var triggerConfig = GetTriggerConfig();
             if (triggerConfig == null || !triggerConfig.Enabled) return;
+
+            _isKeyCurrentlyDown = false;
 
             // Only fire deactivated for push-to-talk mode
             if (triggerConfig.Action == RecordingTriggerAction.PushToTalk)
             {
-                _logger?.Log($"[KeyboardTrigger] Key up: {e.Key}");
+                _logger?.Log($"[KeyboardTrigger] Hotkey released");
                 TriggerDeactivated?.Invoke(this, new TriggerEventArgs(TRIGGER_ID, triggerConfig.Action));
             }
+        }
+
+        private bool IsTargetHotkey(H.Hooks.KeyboardEventArgs args)
+        {
+            // Convert WPF Key to H.Hooks Key by name (enum values don't match!)
+            if (!Enum.TryParse<H.Hooks.Key>(_currentKey.ToString(), out var targetKey))
+            {
+                return false;
+            }
+
+            // Get pressed keys as a HashSet for efficient lookup
+            var pressedKeys = args.Keys.Values.ToHashSet();
+
+            // Check if the main key is currently pressed
+            if (!pressedKeys.Contains(targetKey))
+            {
+                return false;
+            }
+
+            // Check modifiers - accept both left and right variants
+            bool ctrlRequired = (_currentModifiers & ModifierKeys.Control) != 0;
+            bool shiftRequired = (_currentModifiers & ModifierKeys.Shift) != 0;
+            bool altRequired = (_currentModifiers & ModifierKeys.Alt) != 0;
+            bool winRequired = (_currentModifiers & ModifierKeys.Windows) != 0;
+
+            // H.Hooks may report generic (Control/Shift) or specific (LeftCtrl/RightCtrl) keys - check all variants
+            bool ctrlPressed = pressedKeys.Contains(H.Hooks.Key.LeftCtrl) || pressedKeys.Contains(H.Hooks.Key.RightCtrl) || pressedKeys.Contains(H.Hooks.Key.Control);
+            bool shiftPressed = pressedKeys.Contains(H.Hooks.Key.LeftShift) || pressedKeys.Contains(H.Hooks.Key.RightShift) || pressedKeys.Contains(H.Hooks.Key.Shift);
+            bool altPressed = pressedKeys.Contains(H.Hooks.Key.LeftAlt) || pressedKeys.Contains(H.Hooks.Key.RightAlt) || pressedKeys.Contains(H.Hooks.Key.Alt);
+            bool winPressed = pressedKeys.Contains(H.Hooks.Key.LWin) || pressedKeys.Contains(H.Hooks.Key.RWin);
+
+            // All required modifiers must be pressed, and no extra modifiers
+            if (ctrlRequired != ctrlPressed) return false;
+            if (shiftRequired != shiftPressed) return false;
+            if (altRequired != altPressed) return false;
+            if (winRequired != winPressed) return false;
+
+            return true;
+        }
+
+        private bool IsModifierReleased(H.Hooks.KeyboardEventArgs args)
+        {
+            var releasedKey = args.CurrentKey;
+
+            // Check if any required modifier was released (check both specific and generic variants)
+            if ((_currentModifiers & ModifierKeys.Control) != 0 &&
+                (releasedKey == H.Hooks.Key.LeftCtrl || releasedKey == H.Hooks.Key.RightCtrl || releasedKey == H.Hooks.Key.Control))
+                return true;
+            if ((_currentModifiers & ModifierKeys.Shift) != 0 &&
+                (releasedKey == H.Hooks.Key.LeftShift || releasedKey == H.Hooks.Key.RightShift || releasedKey == H.Hooks.Key.Shift))
+                return true;
+            if ((_currentModifiers & ModifierKeys.Alt) != 0 &&
+                (releasedKey == H.Hooks.Key.LeftAlt || releasedKey == H.Hooks.Key.RightAlt || releasedKey == H.Hooks.Key.Alt))
+                return true;
+            if ((_currentModifiers & ModifierKeys.Windows) != 0 &&
+                (releasedKey == H.Hooks.Key.LWin || releasedKey == H.Hooks.Key.RWin))
+                return true;
+
+            return false;
         }
 
         private void OnConfigurationChanged()
@@ -372,21 +452,21 @@ namespace TalkKeys.Services.Triggers
             }
         }
 
-        private static string FormatHotkey(System.Windows.Forms.Keys modifiers, System.Windows.Forms.Keys key)
+        private static string FormatHotkey(ModifierKeys modifiers, Key key)
         {
             var parts = new List<string>();
-            if ((modifiers & System.Windows.Forms.Keys.Control) != 0) parts.Add("Ctrl");
-            if ((modifiers & System.Windows.Forms.Keys.Alt) != 0) parts.Add("Alt");
-            if ((modifiers & System.Windows.Forms.Keys.Shift) != 0) parts.Add("Shift");
-            if ((modifiers & System.Windows.Forms.Keys.LWin) != 0) parts.Add("Win");
+            if ((modifiers & ModifierKeys.Control) != 0) parts.Add("Ctrl");
+            if ((modifiers & ModifierKeys.Alt) != 0) parts.Add("Alt");
+            if ((modifiers & ModifierKeys.Shift) != 0) parts.Add("Shift");
+            if ((modifiers & ModifierKeys.Windows) != 0) parts.Add("Win");
             parts.Add(key.ToString());
             return string.Join("+", parts);
         }
 
-        private static void ParseHotkey(string hotkey, out System.Windows.Forms.Keys key, out System.Windows.Forms.Keys modifiers)
+        private static void ParseHotkey(string hotkey, out Key key, out ModifierKeys modifiers)
         {
-            key = System.Windows.Forms.Keys.Q;
-            modifiers = System.Windows.Forms.Keys.None;
+            key = Key.Q;
+            modifiers = ModifierKeys.None;
 
             var parts = hotkey.Split('+');
             foreach (var part in parts)
@@ -396,20 +476,20 @@ namespace TalkKeys.Services.Triggers
                 {
                     case "ctrl":
                     case "control":
-                        modifiers |= System.Windows.Forms.Keys.Control;
+                        modifiers |= ModifierKeys.Control;
                         break;
                     case "alt":
-                        modifiers |= System.Windows.Forms.Keys.Alt;
+                        modifiers |= ModifierKeys.Alt;
                         break;
                     case "shift":
-                        modifiers |= System.Windows.Forms.Keys.Shift;
+                        modifiers |= ModifierKeys.Shift;
                         break;
                     case "win":
                     case "windows":
-                        modifiers |= System.Windows.Forms.Keys.LWin;
+                        modifiers |= ModifierKeys.Windows;
                         break;
                     default:
-                        if (Enum.TryParse<System.Windows.Forms.Keys>(trimmed, true, out var parsed))
+                        if (Enum.TryParse<Key>(trimmed, true, out var parsed))
                         {
                             key = parsed;
                         }

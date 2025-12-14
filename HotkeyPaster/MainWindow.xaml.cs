@@ -353,6 +353,14 @@ namespace TalkKeys
                 // Capture the currently focused window so we can return focus later
                 _previousWindow = GetForegroundWindow();
 
+                // IMPORTANT: Start recording FIRST to minimize audio loss at the beginning
+                // The audio device needs time to initialize, so we start it before UI work
+                if (!_audio.IsRecording)
+                {
+                    _currentRecordingPath = Path.Combine(Path.GetTempPath(), $"TalkKeys_{DateTime.Now:yyyyMMdd_HHmmss}.wav");
+                    _audio.StartRecording(_currentRecordingPath);
+                }
+
                 // Position at bottom center of the screen where user is working BEFORE showing
                 // This ensures the window is positioned correctly even if screen config changed
                 PositionWindowAtBottom(_previousWindow);
@@ -377,13 +385,6 @@ namespace TalkKeys
                 this.Focus();
 
                 Logger.Log($"ShowWindow: mode={modeHandler.GetType().Name}, positioned at Left={this.Left}, Top={this.Top}, Width={this.Width}, Height={this.Height}, Opacity={this.Opacity}, Visibility={this.Visibility}, Handle={hwnd}");
-
-                // Start recording if not already
-                if (!_audio.IsRecording)
-                {
-                    _currentRecordingPath = Path.Combine(Path.GetTempPath(), $"TalkKeys_{DateTime.Now:yyyyMMdd_HHmmss}.wav");
-                    _audio.StartRecording(_currentRecordingPath);
-                }
             }
             catch (Exception ex)
             {
@@ -516,14 +517,8 @@ namespace TalkKeys
                     System.Windows.Media.Color.FromRgb(22, 163, 74)
                 );
 
-                // Wait a moment to show success
-                await System.Threading.Tasks.Task.Delay(600);
-
-                // Hide window only on success
+                // Hide window immediately
                 HideWindow();
-
-                // Small delay to let window hide
-                await System.Threading.Tasks.Task.Delay(100);
 
                 // Handle transcription using mode handler
                 if (_currentModeHandler != null)

@@ -272,19 +272,20 @@ namespace TalkKeys
                 throw new ArgumentNullException(nameof(modeHandler));
 
             _currentModeHandler = modeHandler;
-            
+
             // Capture the currently focused window
             _previousWindow = Win32Helper.GetForegroundWindow();
 
-            // Expand widget
-            ExpandWidget();
-
-            // Start recording if not already
+            // IMPORTANT: Start recording FIRST to minimize audio loss at the beginning
+            // The audio device needs time to initialize, so we start it before UI work
             if (!_audio.IsRecording)
             {
                 _currentRecordingPath = Path.Combine(Path.GetTempPath(), $"TalkKeys_{DateTime.Now:yyyyMMdd_HHmmss}.wav");
                 _audio.StartRecording(_currentRecordingPath);
             }
+
+            // Then expand widget (UI work happens while audio is already recording)
+            ExpandWidget();
         }
 
         private void ExpandWidget()
@@ -977,9 +978,6 @@ namespace TalkKeys
                         bar.Background = greenBrush;
                 }
 
-                // Wait a moment before handling transcription
-                await System.Threading.Tasks.Task.Delay(200);
-
                 // CRITICAL: Return focus to the previous window BEFORE pasting
                 // The paste command (Ctrl+V) needs to go to the target window, not this widget
                 bool focusRestored = await RestoreFocusWithRetryAsync(_previousWindow);
@@ -999,8 +997,7 @@ namespace TalkKeys
                     _logger.Log("Warning: No mode handler available to process transcription result");
                 }
 
-                // Brief green flash then collapse - text is already pasted
-                await System.Threading.Tasks.Task.Delay(200);
+                // Collapse immediately - text is already pasted
                 CollapseWidget();
             }
             catch (Exception ex)

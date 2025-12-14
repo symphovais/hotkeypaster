@@ -6,7 +6,9 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Polly;
 using TalkKeys.Logging;
+using TalkKeys.Services.Resilience;
 using TalkKeys.Services.Settings;
 
 namespace TalkKeys.Services.Auth
@@ -128,7 +130,8 @@ namespace TalkKeys.Services.Auth
         }
 
         /// <summary>
-        /// Transcribe audio using the TalkKeys proxy
+        /// Transcribe audio using the TalkKeys proxy.
+        /// Uses Polly resilience pipeline with retry and exponential backoff.
         /// </summary>
         public async Task<TranscriptionResult> TranscribeAsync(
             Stream audioStream,
@@ -143,30 +146,38 @@ namespace TalkKeys.Services.Auth
                 await audioStream.CopyToAsync(memoryStream, cancellationToken);
                 var audioBytes = memoryStream.ToArray();
 
-                using var content = new MultipartFormDataContent();
-                var fileContent = new ByteArrayContent(audioBytes);
-                fileContent.Headers.ContentType = new MediaTypeHeaderValue("audio/wav");
-                fileContent.Headers.ContentDisposition = new ContentDispositionHeaderValue("form-data")
-                {
-                    Name = "\"file\"",
-                    FileName = $"\"{fileName}\""
-                };
-                content.Add(fileContent);
-
-                if (!string.IsNullOrEmpty(language))
-                {
-                    content.Add(new StringContent(language), "language");
-                }
-
-                var request = new HttpRequestMessage(HttpMethod.Post, "/api/whisper")
-                {
-                    Content = content
-                };
-                SetAuthHeader(request);
-
                 _logger?.Log("[API] Sending transcription request...");
 
-                var response = await _httpClient.SendAsync(request, cancellationToken);
+                // Use Polly resilience pipeline for transient error handling
+                var response = await HttpResilience.ExecuteTranscriptionWithRetryAsync(
+                    async ct =>
+                    {
+                        using var content = new MultipartFormDataContent();
+                        var fileContent = new ByteArrayContent(audioBytes);
+                        fileContent.Headers.ContentType = new MediaTypeHeaderValue("audio/wav");
+                        fileContent.Headers.ContentDisposition = new ContentDispositionHeaderValue("form-data")
+                        {
+                            Name = "\"file\"",
+                            FileName = $"\"{fileName}\""
+                        };
+                        content.Add(fileContent);
+
+                        if (!string.IsNullOrEmpty(language))
+                        {
+                            content.Add(new StringContent(language), "language");
+                        }
+
+                        var request = new HttpRequestMessage(HttpMethod.Post, "/api/whisper")
+                        {
+                            Content = content
+                        };
+                        SetAuthHeader(request);
+
+                        return await _httpClient.SendAsync(request, ct);
+                    },
+                    _logger,
+                    cancellationToken);
+
                 var responseJson = await response.Content.ReadAsStringAsync();
 
                 _logger?.Log($"[API] Transcription response: {response.StatusCode}");
@@ -195,7 +206,8 @@ namespace TalkKeys.Services.Auth
         }
 
         /// <summary>
-        /// Clean/format text using the TalkKeys proxy
+        /// Clean/format text using the TalkKeys proxy.
+        /// Uses Polly resilience pipeline with retry and exponential backoff.
         /// </summary>
         public async Task<CleaningResult> CleanTextAsync(
             string text,
@@ -204,24 +216,32 @@ namespace TalkKeys.Services.Auth
         {
             try
             {
-                var requestBody = new
-                {
-                    text = text,
-                    context = context
-                };
-
-                var json = JsonSerializer.Serialize(requestBody);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-                var request = new HttpRequestMessage(HttpMethod.Post, "/api/clean")
-                {
-                    Content = content
-                };
-                SetAuthHeader(request);
-
                 _logger?.Log("[API] Sending text cleaning request...");
 
-                var response = await _httpClient.SendAsync(request, cancellationToken);
+                // Use Polly resilience pipeline for transient error handling
+                var response = await HttpResilience.ExecuteWithRetryAsync(
+                    async ct =>
+                    {
+                        var requestBody = new
+                        {
+                            text = text,
+                            context = context
+                        };
+
+                        var json = JsonSerializer.Serialize(requestBody);
+                        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                        var request = new HttpRequestMessage(HttpMethod.Post, "/api/clean")
+                        {
+                            Content = content
+                        };
+                        SetAuthHeader(request);
+
+                        return await _httpClient.SendAsync(request, ct);
+                    },
+                    _logger,
+                    cancellationToken);
+
                 var responseJson = await response.Content.ReadAsStringAsync();
 
                 _logger?.Log($"[API] Clean response: {response.StatusCode}");

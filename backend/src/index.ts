@@ -231,6 +231,7 @@ const homePage = `<!DOCTYPE html>
   <!-- Footer -->
   <footer>
     <div class="footer-links">
+      <a href="/releases">Release Notes</a>
       <a href="/privacy">Privacy Policy</a>
       <a href="/tos">Terms of Service</a>
       <a href="https://github.com/symphovais/hotkeypaster">GitHub</a>
@@ -311,6 +312,152 @@ const privacyPage = `<!DOCTYPE html>
     <p class="updated">Last updated: December 2024</p>
     <div class="page-footer">
       <a href="/">Home</a>
+      <a href="/releases">Release Notes</a>
+      <a href="/tos">Terms of Service</a>
+      <a href="https://github.com/symphovais/hotkeypaster">GitHub</a>
+    </div>
+  </div>
+</body>
+</html>`;
+
+const releasesPage = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Release Notes - TalkKeys</title>
+  <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/symphovais/hotkeypaster/master/icon-talkkeys.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0F0F1A; color: #E5E7EB; line-height: 1.7; }
+    .header { background: linear-gradient(135deg, rgba(124, 58, 237, 0.3) 0%, rgba(99, 102, 241, 0.2) 100%); padding: 64px 24px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
+    .header h1 { font-size: 36px; margin-bottom: 8px; background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .header p { color: #9CA3AF; }
+    .content { max-width: 800px; margin: 0 auto; padding: 64px 24px; }
+    .release { margin-bottom: 48px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 32px; }
+    .release:hover { border-color: rgba(124, 58, 237, 0.3); }
+    .release-header { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+    .version { font-size: 24px; font-weight: 700; color: #E5E7EB; }
+    .date { color: #6B7280; font-size: 14px; }
+    .tag { background: linear-gradient(135deg, #7C3AED 0%, #6366F1 100%); color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .tag.new { background: linear-gradient(135deg, #059669 0%, #10B981 100%); }
+    .tag.fix { background: linear-gradient(135deg, #D97706 0%, #F59E0B 100%); }
+    h3 { color: #A78BFA; font-size: 16px; margin: 20px 0 12px; }
+    ul { margin: 0 0 0 24px; color: #9CA3AF; }
+    li { margin-bottom: 8px; }
+    .page-footer { margin-top: 64px; padding-top: 32px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; flex-wrap: wrap; gap: 24px; justify-content: center; }
+    .page-footer a { color: #9CA3AF; text-decoration: none; font-size: 14px; transition: color 0.2s; }
+    .page-footer a:hover { color: #A78BFA; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Release Notes</h1>
+    <p>What's new in TalkKeys</p>
+  </div>
+  <div class="content">
+    <div class="release">
+      <div class="release-header">
+        <span class="version">v1.1.0</span>
+        <span class="tag new">Latest</span>
+        <span class="date">December 2024</span>
+      </div>
+      <h3>Bug Fixes</h3>
+      <ul>
+        <li><strong>Hotkeys now persist</strong> - Your custom hotkey settings are saved correctly and won't reset after restarting the app</li>
+        <li><strong>More reliable pasting</strong> - Text now pastes correctly in more applications including Excel, browsers, and code editors</li>
+      </ul>
+      <h3>Improvements</h3>
+      <ul>
+        <li><strong>Stable recording</strong> - No more accidental double-triggers when pressing hotkeys</li>
+        <li><strong>Better error messages</strong> - Clear feedback when microphone access is blocked or unavailable</li>
+        <li><strong>Network resilience</strong> - Automatic retry if your network connection is briefly interrupted</li>
+        <li><strong>What's New screen</strong> - See what changed after app updates</li>
+      </ul>
+    </div>
+
+    <div class="release">
+      <div class="release-header">
+        <span class="version">v1.0.8</span>
+        <span class="date">December 2024</span>
+      </div>
+      <h3>Bug Fixes</h3>
+      <ul>
+        <li>Improved microphone access error handling with user-friendly messages</li>
+        <li>Better recovery when microphone permissions are denied</li>
+      </ul>
+    </div>
+
+    <div class="release">
+      <div class="release-header">
+        <span class="version">v1.0.7</span>
+        <span class="date">December 2024</span>
+      </div>
+      <h3>New Features</h3>
+      <ul>
+        <li>Added talkkeys:// URL protocol handler for seamless OAuth sign-in</li>
+        <li>One-click sign-in from browser back to the app</li>
+      </ul>
+    </div>
+
+    <div class="release">
+      <div class="release-header">
+        <span class="version">v1.0.6</span>
+        <span class="date">December 2024</span>
+      </div>
+      <h3>New Features</h3>
+      <ul>
+        <li>Microsoft Store release</li>
+        <li>Dynamic hotkey hints on floating widget (shows current shortcut)</li>
+        <li>Improved setup wizard with step indicators</li>
+      </ul>
+      <h3>Bug Fixes</h3>
+      <ul>
+        <li>Fixed 2.5s paste delay - clipboard restore now runs asynchronously</li>
+        <li>Fixed recording stopping immediately on hotkey press</li>
+        <li>Fixed sign-out requiring app restart</li>
+        <li>Added token validation on startup to detect expired sessions</li>
+        <li>Extended JWT token expiry from 1 hour to 30 days</li>
+      </ul>
+    </div>
+
+    <div class="release">
+      <div class="release-header">
+        <span class="version">v1.0.5</span>
+        <span class="date">December 2024</span>
+      </div>
+      <h3>New Features</h3>
+      <ul>
+        <li>TalkKeys Account system with Google OAuth</li>
+        <li>Free tier: 10 minutes of transcription per day</li>
+        <li>Welcome wizard for easy setup</li>
+      </ul>
+      <h3>Improvements</h3>
+      <ul>
+        <li>Changed default hotkey to Ctrl+Shift+Space</li>
+        <li>Simplified architecture using Groq exclusively for transcription</li>
+      </ul>
+    </div>
+
+    <div class="release">
+      <div class="release-header">
+        <span class="version">v1.0.0</span>
+        <span class="date">November 2024</span>
+      </div>
+      <h3>Initial Release</h3>
+      <ul>
+        <li>Voice-to-text transcription using Groq Whisper</li>
+        <li>Global hotkey support (push-to-talk and toggle modes)</li>
+        <li>AI-powered text cleanup and formatting</li>
+        <li>Floating recording widget</li>
+        <li>System tray integration</li>
+        <li>Privacy-first: no audio or text storage</li>
+      </ul>
+    </div>
+
+    <div class="page-footer">
+      <a href="/">Home</a>
+      <a href="/privacy">Privacy Policy</a>
       <a href="/tos">Terms of Service</a>
       <a href="https://github.com/symphovais/hotkeypaster">GitHub</a>
     </div>
@@ -394,6 +541,7 @@ const tosPage = `<!DOCTYPE html>
     <p class="updated">Last updated: December 2024</p>
     <div class="page-footer">
       <a href="/">Home</a>
+      <a href="/releases">Release Notes</a>
       <a href="/privacy">Privacy Policy</a>
       <a href="https://github.com/symphovais/hotkeypaster">GitHub</a>
     </div>
@@ -444,6 +592,13 @@ export default {
       // Terms of Service
       if (path === '/tos') {
         return new Response(tosPage, {
+          headers: { 'Content-Type': 'text/html; charset=utf-8' }
+        });
+      }
+
+      // Release Notes
+      if (path === '/releases') {
+        return new Response(releasesPage, {
           headers: { 'Content-Type': 'text/html; charset=utf-8' }
         });
       }

@@ -16,39 +16,31 @@
         Focusable="True">
 
     <Window.Resources>
-        <!-- Pulse Animation for Recording -->
+        <!-- Pulse Animation for Recording (visual feedback only, doesn't block) -->
         <Storyboard x:Key="PulseAnimation" RepeatBehavior="Forever" AutoReverse="True">
             <DoubleAnimation Storyboard.TargetProperty="Opacity" From="1" To="0.5" Duration="0:0:1"/>
         </Storyboard>
 
-        <!-- Slide In Animation for Toast -->
+        <!-- Slide In Animation for Toast - instant -->
         <Storyboard x:Key="SlideInAnimation">
             <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
-                             From="20" To="0" Duration="0:0:0.3">
-                <DoubleAnimation.EasingFunction>
-                    <CubicEase EasingMode="EaseOut"/>
-                </DoubleAnimation.EasingFunction>
-            </DoubleAnimation>
+                             From="0" To="0" Duration="0:0:0"/>
             <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                             From="0" To="1" Duration="0:0:0.25"/>
+                             From="1" To="1" Duration="0:0:0"/>
         </Storyboard>
 
-        <!-- Slide Out Animation for Toast -->
+        <!-- Slide Out Animation for Toast - instant -->
         <Storyboard x:Key="SlideOutAnimation">
             <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
-                             From="0" To="20" Duration="0:0:0.2">
-                <DoubleAnimation.EasingFunction>
-                    <CubicEase EasingMode="EaseIn"/>
-                </DoubleAnimation.EasingFunction>
-            </DoubleAnimation>
+                             From="0" To="0" Duration="0:0:0"/>
             <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                             From="1" To="0" Duration="0:0:0.2"/>
+                             From="0" To="0" Duration="0:0:0"/>
         </Storyboard>
 
-        <!-- Expand Animation -->
+        <!-- Expand Animation - instant -->
         <Storyboard x:Key="ExpandAnimation">
             <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                             From="0" To="1" Duration="0:0:0.2"/>
+                             From="1" To="1" Duration="0:0:0"/>
         </Storyboard>
     </Window.Resources>
 

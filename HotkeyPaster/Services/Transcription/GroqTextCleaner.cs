@@ -2,7 +2,9 @@ using System;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
+using TalkKeys.Services.Resilience;
 using TalkKeys.Services.Windowing;
 
 namespace TalkKeys.Services.Transcription
@@ -74,35 +76,42 @@ namespace TalkKeys.Services.Transcription
                 }
             }
 
-            // Build JSON request for Groq with streaming
-            var requestBody = new
-            {
-                model = CleanupModel,
-                messages = new[]
+            // Use Polly resilience pipeline for transient error handling
+            var response = await HttpResilience.ExecuteWithRetryAsync(
+                async ct =>
                 {
-                    new { role = "system", content = systemPrompt },
-                    new { role = "user", content = $"Clean this transcription:\n\n{rawText}" }
+                    // Build JSON request for Groq with streaming (must be inside retry lambda - HttpContent is single-use)
+                    var requestBody = new
+                    {
+                        model = CleanupModel,
+                        messages = new[]
+                        {
+                            new { role = "system", content = systemPrompt },
+                            new { role = "user", content = $"Clean this transcription:\n\n{rawText}" }
+                        },
+                        temperature = 0.3,
+                        max_tokens = 500,
+                        stream = true
+                    };
+
+                    var jsonContent = new StringContent(
+                        JsonSerializer.Serialize(requestBody),
+                        System.Text.Encoding.UTF8,
+                        "application/json"
+                    );
+
+                    // Send request with streaming
+                    var request = new HttpRequestMessage(HttpMethod.Post, ChatUrl)
+                    {
+                        Content = jsonContent
+                    };
+
+                    return await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
                 },
-                temperature = 0.3,
-                max_tokens = 500,
-                stream = true
-            };
+                logger: null,
+                CancellationToken.None);
 
-            var jsonContent = new StringContent(
-                JsonSerializer.Serialize(requestBody),
-                System.Text.Encoding.UTF8,
-                "application/json"
-            );
-
-            // Send request with streaming
-            var request = new HttpRequestMessage(HttpMethod.Post, ChatUrl)
-            {
-                Content = jsonContent
-            };
-
-            var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-
-            // Handle errors
+            // Handle errors (non-transient errors that weren't retried)
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();

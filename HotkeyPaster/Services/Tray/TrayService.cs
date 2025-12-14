@@ -6,6 +6,7 @@ namespace TalkKeys.Services.Tray
     public interface ITrayService
     {
         event EventHandler? SettingsRequested;
+        event EventHandler? AboutRequested;
         event EventHandler? ExitRequested;
         void InitializeTray();
         void DisposeTray();
@@ -15,6 +16,7 @@ namespace TalkKeys.Services.Tray
     public sealed class TrayService : ITrayService, IDisposable
     {
         public event EventHandler? SettingsRequested;
+        public event EventHandler? AboutRequested;
         public event EventHandler? ExitRequested;
 
         private NotifyIcon? _notifyIcon;
@@ -39,6 +41,7 @@ namespace TalkKeys.Services.Tray
             var contextMenu = new ContextMenuStrip();
 
             contextMenu.Items.Add("Settings", null, (s, e) => SettingsRequested?.Invoke(this, EventArgs.Empty));
+            contextMenu.Items.Add("About", null, (s, e) => AboutRequested?.Invoke(this, EventArgs.Empty));
             contextMenu.Items.Add(new ToolStripSeparator());
             contextMenu.Items.Add("Exit", null, (s, e) => ExitRequested?.Invoke(this, EventArgs.Empty));
 

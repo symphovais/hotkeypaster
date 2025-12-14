@@ -90,6 +90,9 @@ namespace TalkKeys.Services.Settings
 
         // Trigger Plugin Configurations (new system)
         public Dictionary<string, TriggerPluginConfiguration> TriggerPlugins { get; set; } = new();
+
+        // Version tracking for "What's New" screen
+        public string? LastSeenVersion { get; set; }
     }
 
     /// <summary>
