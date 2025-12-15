@@ -454,9 +454,9 @@ namespace TalkKeys
 
         private bool _isToastVisible = false;
 
-        private void ShowSuccessToast(string text)
+        private void ShowTextView(string text)
         {
-            _logger.Log($"Showing success toast. IsExpanded={_isExpanded}");
+            _logger.Log($"Showing text view. IsExpanded={_isExpanded}");
             _isToastVisible = true;
 
             // Set transcribed text
@@ -470,23 +470,45 @@ namespace TalkKeys
             var pulseAnimation = (Storyboard)this.Resources["PulseAnimation"];
             pulseAnimation.Stop(RecordingPulse);
 
-            // Hide expanded panel, show compact panel
+            // Hide other panels
             ExpandedPanel.Visibility = Visibility.Collapsed;
-            CompactPanel.Visibility = Visibility.Visible;
+            CompactPanel.Visibility = Visibility.Collapsed;
             _isExpanded = false;
 
-            // Position toast below compact widget
-            SuccessToast.Margin = new Thickness(0, 40, 0, 0); // Below the 32px compact widget + 8px gap
+            // Show text view panel
+            TextViewPanel.Visibility = Visibility.Visible;
 
-            // Show toast
-            SuccessToast.Visibility = Visibility.Visible;
+            // Calculate dynamic height based on text length
+            const double textViewWidth = 280;
+            const double headerHeight = 28;     // Header row
+            const double headerMargin = 10;     // Margin below header
+            const double textAreaPadding = 20;  // Padding inside text area (10 each side)
+            const double textMargin = 8;        // Margin below text area
+            const double buttonHeight = 24;     // Copy button height
+            const double gridMargin = 24;       // Grid margin (12 each side)
 
-            // Fixed toast height - content is: header(28) + text area(~80) + button(30) + margins(24) = ~162
-            const double toastHeight = 170;
+            // Calculate text area height based on content
+            // Text area inner width: 280 - 24 (grid margin) - 20 (border padding) = 236px
+            // At 13px font, ~35-40 chars per line
+            const double charsPerLine = 38;
+            const double lineHeight = 18;
+            const double minTextAreaHeight = 36;  // ~2 lines
+            const double maxTextAreaHeight = 100; // ~5-6 lines
 
-            // Resize window to fit both compact widget and toast
-            this.Width = 260; // Toast is wider
-            this.Height = 40 + toastHeight; // 32px compact + 8px gap + toast
+            int lineCount = (int)Math.Ceiling(text.Length / charsPerLine);
+            lineCount = Math.Max(1, lineCount); // At least 1 line
+            double calculatedTextHeight = lineCount * lineHeight;
+            double textAreaHeight = Math.Max(minTextAreaHeight, Math.Min(maxTextAreaHeight, calculatedTextHeight));
+
+            // Set text area border height
+            TextAreaBorder.Height = textAreaHeight + textAreaPadding;
+
+            // Calculate total window height
+            double textViewHeight = gridMargin + headerHeight + headerMargin + textAreaHeight + textAreaPadding + textMargin + buttonHeight;
+
+            // Resize window to fit text view
+            this.Width = textViewWidth;
+            this.Height = textViewHeight;
 
             // Restore to saved compact position first
             this.Left = _compactPositionX;
@@ -494,8 +516,8 @@ namespace TalkKeys
 
             // Now check screen bounds using the correct screen for this position
             var dpiScale = GetDpiScale();
-            var centerXPixels = (_compactPositionX + 75) * dpiScale;
-            var centerYPixels = (_compactPositionY + 36) * dpiScale;
+            var centerXPixels = (_compactPositionX + textViewWidth / 2) * dpiScale;
+            var centerYPixels = (_compactPositionY + textViewHeight / 2) * dpiScale;
             var screen = GetScreenForPoint(centerXPixels, centerYPixels);
 
             // Convert screen bounds to WPF units
@@ -505,7 +527,7 @@ namespace TalkKeys
                 screen.WorkingArea.Width / dpiScale,
                 screen.WorkingArea.Height / dpiScale);
 
-            // Adjust if toast would go off screen
+            // Adjust if text view would go off screen
             if (this.Left + this.Width > workingArea.Right)
             {
                 this.Left = workingArea.Right - this.Width - 10;
@@ -515,52 +537,52 @@ namespace TalkKeys
                 this.Top = workingArea.Bottom - this.Height - 10;
             }
 
-            _logger.Log($"Toast position: {this.Left}, {this.Top}, size: {this.Width}x{this.Height}");
+            _logger.Log($"Text view position: {this.Left}, {this.Top}, size: {this.Width}x{this.Height}, text length: {text.Length}, lines: {lineCount}");
 
-            // Animate toast in
-            var slideIn = (Storyboard)this.Resources["SlideInAnimation"];
-            slideIn.Begin(SuccessToast);
-
-            // Start auto-collapse timer
-            _collapseSecondsRemaining = 5;
-            AutoCollapseText.Text = "• 5s";
+            // Start auto-collapse timer (10 seconds)
+            _collapseSecondsRemaining = 10;
+            AutoCollapseText.Text = "10s";
             _autoCollapseTimer?.Start();
         }
 
-        private void HideSuccessToast()
+        // Keep old method name for compatibility
+        private void ShowSuccessToast(string text) => ShowTextView(text);
+
+        private void HideTextView()
         {
             if (!_isToastVisible) return;
 
-            _logger.Log("Hiding success toast");
+            _logger.Log("Hiding text view");
             _isToastVisible = false;
 
             // Stop auto-collapse timer
             _autoCollapseTimer?.Stop();
 
-            // Animate toast out then clean up
-            var slideOut = (Storyboard)this.Resources["SlideOutAnimation"];
+            // Hide text view panel
+            TextViewPanel.Visibility = Visibility.Collapsed;
 
-            // Create a one-time handler
-            EventHandler? handler = null;
-            handler = (s, e) =>
-            {
-                slideOut.Completed -= handler;
+            // Reset text area height and copy button for next use
+            TextAreaBorder.Height = double.NaN; // Auto
+            CopyButton.Content = "📋 Copy";
+            CopyButton.Foreground = new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromRgb(156, 163, 175)); // Reset to gray #9CA3AF
 
-                SuccessToast.Visibility = Visibility.Collapsed;
+            // Show compact panel
+            CompactPanel.Visibility = Visibility.Visible;
 
-                // Reset window to compact size (minimal pill dimensions)
-                this.Width = 90;
-                this.Height = 32;
+            // Reset window to compact size (minimal pill dimensions)
+            this.Width = 90;
+            this.Height = 32;
 
-                // Restore compact position
-                this.Left = _compactPositionX;
-                this.Top = _compactPositionY;
+            // Restore compact position
+            this.Left = _compactPositionX;
+            this.Top = _compactPositionY;
 
-                _logger.Log($"Toast hidden, restored to: {_compactPositionX}, {_compactPositionY}");
-            };
-            slideOut.Completed += handler;
-            slideOut.Begin(SuccessToast);
+            _logger.Log($"Text view hidden, restored to: {_compactPositionX}, {_compactPositionY}");
         }
+
+        // Keep old method name for compatibility
+        private void HideSuccessToast() => HideTextView();
 
         private void CollapseToast_Click(object sender, RoutedEventArgs e)
         {
@@ -870,14 +892,14 @@ namespace TalkKeys
         private void OnAutoCollapseTimerTick(object? sender, EventArgs e)
         {
             _collapseSecondsRemaining--;
-            AutoCollapseText.Text = $"• {_collapseSecondsRemaining}s";
+            AutoCollapseText.Text = $"{_collapseSecondsRemaining}s";
 
             if (_collapseSecondsRemaining <= 0)
             {
                 _autoCollapseTimer?.Stop();
                 if (_isToastVisible)
                 {
-                    HideSuccessToast();
+                    HideTextView();
                 }
                 else
                 {
@@ -897,21 +919,21 @@ namespace TalkKeys
             try
             {
                 System.Windows.Clipboard.SetText(TranscribedText.Text);
-                // Change button text briefly to indicate success
-                CopyButton.Content = "✓ Copied!";
+                // Change button text to indicate success
+                // Subtle feedback - green text, no filled background
+                CopyButton.Content = "✓ Copied";
+                CopyButton.Foreground = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(34, 197, 94)); // Green text
 
-                var timer = new System.Windows.Threading.DispatcherTimer();
-                timer.Interval = TimeSpan.FromSeconds(1.5);
-                timer.Tick += (s, args) =>
-                {
-                    CopyButton.Content = "📋 Copy to clipboard";
-                    timer.Stop();
-                };
-                timer.Start();
+                // Auto-dismiss after 2 seconds
+                _collapseSecondsRemaining = 2;
+                AutoCollapseText.Text = "2s";
+
+                _logger.Log("Copied transcribed text to clipboard, will dismiss in 2s");
             }
-            catch
+            catch (Exception ex)
             {
-                // Silently fail if clipboard access fails
+                _logger.Log($"Failed to copy to clipboard: {ex.Message}");
             }
         }
 
@@ -997,8 +1019,8 @@ namespace TalkKeys
                     _logger.Log("Warning: No mode handler available to process transcription result");
                 }
 
-                // Collapse immediately - text is already pasted
-                CollapseWidget();
+                // Show text view with transcribed text (user can copy if paste didn't work)
+                ShowTextView(result.Text);
             }
             catch (Exception ex)
             {

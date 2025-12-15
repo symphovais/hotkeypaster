@@ -7,7 +7,7 @@ namespace TalkKeys.Services.Clipboard
 {
     public interface IClipboardPasteService
     {
-        void PasteText(string text);
+        PasteResult PasteText(string text);
     }
 
     public sealed class ClipboardPasteService : IClipboardPasteService
@@ -17,7 +17,7 @@ namespace TalkKeys.Services.Clipboard
 
         private readonly InputSimulator _inputSimulator = new();
 
-        public void PasteText(string text)
+        public PasteResult PasteText(string text)
         {
             // Store current clipboard content
             string previousClipboard = string.Empty;
@@ -46,12 +46,12 @@ namespace TalkKeys.Services.Clipboard
             }
             catch (Exception ex)
             {
-                throw new InvalidOperationException($"Failed to set clipboard text after {MaxRetries} attempts: {ex.Message}", ex);
+                return PasteResult.Fail($"Failed to set clipboard text after {MaxRetries} attempts: {ex.Message}");
             }
 
             if (!clipboardSet)
             {
-                throw new InvalidOperationException("Failed to set clipboard text - clipboard may be locked by another application");
+                return PasteResult.Fail("Failed to set clipboard text - clipboard may be locked by another application");
             }
 
             // Simulate Ctrl+V using InputSimulator library (well-tested, widely used)
@@ -63,7 +63,7 @@ namespace TalkKeys.Services.Clipboard
             }
             catch (Exception ex)
             {
-                throw new InvalidOperationException($"Failed to send paste command: {ex.Message}", ex);
+                return PasteResult.Fail($"Failed to send paste command: {ex.Message}");
             }
 
             // Restore previous clipboard content asynchronously
@@ -93,6 +93,8 @@ namespace TalkKeys.Services.Clipboard
                     thread.Join(1000); // Timeout after 1 second
                 });
             }
+
+            return PasteResult.Ok();
         }
 
         private T TryClipboardOperation<T>(Func<T> operation)

@@ -34,8 +34,17 @@ namespace TalkKeys.Services.RecordingMode
             }
 
             // Paste to clipboard - must run on UI thread (STA mode required)
-            _clipboardService.PasteText(result.Text);
-            _logger.Log($"Clipboard mode: Pasted {result.WordCount} words");
+            var pasteResult = _clipboardService.PasteText(result.Text);
+
+            if (pasteResult.Success)
+            {
+                _logger.Log($"Clipboard mode: Pasted {result.WordCount} words");
+            }
+            else
+            {
+                // Don't throw - text view will show and user can copy manually
+                _logger.Log($"Clipboard mode: Paste failed - {pasteResult.ErrorMessage}. User can copy from text view.");
+            }
 
             return Task.CompletedTask;
         }
