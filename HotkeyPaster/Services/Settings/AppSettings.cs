@@ -96,6 +96,10 @@ namespace TalkKeys.Services.Settings
 
         // General Plugin Configurations (utility plugins like Focus Timer)
         public Dictionary<string, PluginConfiguration> Plugins { get; set; } = new();
+
+        // Remote Control API Settings
+        public bool RemoteControlEnabled { get; set; } = true;
+        public int RemoteControlPort { get; set; } = 38450;
     }
 
     /// <summary>

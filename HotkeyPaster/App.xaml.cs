@@ -21,6 +21,8 @@ using TalkKeys.Services.RecordingMode;
 using TalkKeys.Services.Triggers;
 using TalkKeys.Services.Updates;
 using TalkKeys.Services.Plugins;
+using TalkKeys.Services.Controller;
+using TalkKeys.Services.RemoteControl;
 using TalkKeys.Plugins.Explainer;
 
 namespace TalkKeys
@@ -45,6 +47,8 @@ namespace TalkKeys
         private TriggerPluginManager? _triggerPluginManager;
         private PluginManager? _pluginManager;
         private IUpdateService? _updateService;
+        private TalkKeysController? _controller;
+        private RemoteControlServer? _remoteControlServer;
         private bool _mutexOwned = false;
 
         // Debouncing for hotkey triggers - prevent rapid re-triggering
@@ -144,8 +148,22 @@ namespace TalkKeys
             // Initialize tray
             _trayService.InitializeTray();
 
+            // Create controller first (before widget so we can wire it up)
+            _controller = new TalkKeysController(
+                _logger!,
+                _audioService!,
+                _clipboardService!,
+                _notifications!,
+                _settingsService!);
+
+            // Set pipeline service if available
+            _controller.SetPipelineService(_pipelineService);
+
             // Always create FloatingWidget (it will show "API Key Required" message if not configured)
             CreateFloatingWidget();
+
+            // Wire up controller to widget
+            _controller.SetFloatingWidget(_floatingWidget!);
 
             // Initialize trigger plugin system
             InitializeTriggerPlugins(settings);
@@ -189,8 +207,46 @@ namespace TalkKeys
             // Auto-select Jabra Engage 50 II as audio device if enabled
             AutoSelectJabraDeviceIfEnabled(settings);
 
+            // Initialize Remote Control API server
+            InitializeRemoteControl(settings);
+
             // Note: Updates are managed by Microsoft Store for packaged versions
             _updateService = new UpdateService(_logger);
+        }
+
+        private void InitializeRemoteControl(AppSettings settings)
+        {
+            if (!settings.RemoteControlEnabled)
+            {
+                _logger?.Log("[RemoteControl] Remote control is disabled in settings");
+                return;
+            }
+
+            if (_controller == null)
+            {
+                _logger?.Log("[RemoteControl] Controller not available, skipping remote control initialization");
+                return;
+            }
+
+            try
+            {
+                _remoteControlServer = new RemoteControlServer(_controller, settings.RemoteControlPort, _logger!);
+                _remoteControlServer.Start();
+
+                if (_remoteControlServer.IsRunning)
+                {
+                    _logger?.Log($"[RemoteControl] Server started on port {settings.RemoteControlPort}");
+                }
+                else
+                {
+                    _logger?.Log("[RemoteControl] Server failed to start - continuing without remote control");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Log($"[RemoteControl] Failed to initialize: {ex.Message}");
+                // Continue without remote control - not critical
+            }
         }
 
         private void InitializeTriggerPlugins(AppSettings settings)
@@ -364,69 +420,55 @@ namespace TalkKeys
 
         private void HandleToggleRecording()
         {
-            if (_floatingWidget == null || _pipelineService == null)
+            if (_controller == null)
             {
-                _notifications?.ShowError("API Key Required",
-                    "No API key configured. Right-click the tray icon and select Settings to add your API key.");
+                _logger?.Log("Toggle: Controller not available");
                 return;
             }
 
-            // Toggle recording
+            // Toggle recording via controller (consistent with API behavior)
             if (_audioService?.IsRecording == true)
             {
                 // Stop recording
-                _logger?.Log("Toggle: Stopping recording");
-                _audioService.StopRecording();
+                _logger?.Log("Toggle: Stopping recording via controller");
+                _ = _controller.StopTranscriptionAsync();
             }
             else
             {
                 // Start recording
-                _logger?.Log("Toggle: Starting recording");
-
-                // Show widget if hidden
-                if (!_floatingWidget.IsVisible)
-                {
-                    _floatingWidget.Show();
-                }
-
-                // Start recording with clipboard mode
-                var clipboardHandler = new ClipboardModeHandler(_clipboardService!, _logger!);
-                _floatingWidget.StartRecording(clipboardHandler);
+                _logger?.Log("Toggle: Starting recording via controller");
+                _ = _controller.StartTranscriptionAsync();
             }
         }
 
         private void HandlePushToTalkStart()
         {
-            if (_floatingWidget == null || _pipelineService == null)
+            if (_controller == null)
             {
-                _notifications?.ShowError("API Key Required",
-                    "No API key configured. Right-click the tray icon and select Settings to add your API key.");
+                _logger?.Log("Push-to-talk: Controller not available");
                 return;
             }
 
             // Only start if not already recording
             if (_audioService?.IsRecording != true)
             {
-                _logger?.Log("Push-to-talk: Starting recording");
-
-                // Show widget if hidden
-                if (!_floatingWidget.IsVisible)
-                {
-                    _floatingWidget.Show();
-                }
-
-                // Start recording with clipboard mode
-                var clipboardHandler = new ClipboardModeHandler(_clipboardService!, _logger!);
-                _floatingWidget.StartRecording(clipboardHandler);
+                _logger?.Log("Push-to-talk: Starting recording via controller");
+                _ = _controller.StartTranscriptionAsync();
             }
         }
 
         private void HandlePushToTalkStop()
         {
+            if (_controller == null)
+            {
+                _logger?.Log("Push-to-talk: Controller not available");
+                return;
+            }
+
             if (_audioService?.IsRecording == true)
             {
-                _logger?.Log("Push-to-talk: Stopping recording");
-                _audioService.StopRecording();
+                _logger?.Log("Push-to-talk: Stopping recording via controller");
+                _ = _controller.StopTranscriptionAsync();
             }
         }
 
@@ -769,11 +811,8 @@ namespace TalkKeys
                 _pipelineService = newService;
                 _logger?.Log($"Pipeline service reloaded with pipeline: {newService.GetDefaultPipelineName()}");
 
-                // Update the floating widget with the new pipeline service
-                if (_floatingWidget != null)
-                {
-                    _floatingWidget.UpdatePipelineService(newService);
-                }
+                // Update the controller (which will also update the widget)
+                _controller?.SetPipelineService(newService);
             }
             else
             {
@@ -786,6 +825,10 @@ namespace TalkKeys
         {
             try
             {
+                // Stop remote control server
+                _remoteControlServer?.Stop();
+                _remoteControlServer?.Dispose();
+
                 // Dispose services
                 _pluginManager?.Dispose();
                 _triggerPluginManager?.Dispose();
