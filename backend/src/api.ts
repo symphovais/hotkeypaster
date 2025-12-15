@@ -300,6 +300,98 @@ Output ONLY the cleaned text, nothing else.`;
   }
 }
 
+// Proxy text explanation to Groq (Plain English Explainer)
+export async function handleExplainProxy(
+  request: Request,
+  env: Env,
+  user: JWTPayload
+): Promise<Response> {
+  try {
+    const body = await request.json() as {
+      text: string;
+    };
+
+    if (!body.text) {
+      return errorResponse('No text provided');
+    }
+
+    // Limit text length to prevent abuse
+    if (body.text.length > 2000) {
+      return errorResponse('Text too long (max 2000 characters)');
+    }
+
+    const systemPrompt = `You're a brutally honest translator of bullshit.
+
+Your job: Tell the user what this text ACTUALLY means in 10 words or less.
+
+Rules:
+- Cut through corporate speak, jargon, and fluff
+- Be blunt. Be direct. No softening.
+- If someone's being passive-aggressive, call it out
+- If it's bad news wrapped in nice words, unwrap it
+- Match the energy: if text is hostile, your translation can be too
+- Never start with "This means" or "They're saying" - just say it
+- One sentence max. Shorter is better.
+
+Examples:
+"We need to align on the go-forward strategy" → "Let's have another pointless meeting"
+"Per my last email" → "I already told you this, read your damn inbox"
+"We're pivoting to focus on core competencies" → "We failed, back to basics"
+"I'll take that under advisement" → "No"`;
+
+    const groqBody = {
+      model: 'llama-3.1-8b-instant',  // Use same model as text cleaning
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: body.text }
+      ],
+      temperature: 0.7,
+      max_tokens: 100,
+      stream: false
+    };
+
+    console.log('Explain request:', { textLength: body.text.length });
+
+    const groqResponse = await fetch(GROQ_CHAT_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.GROQ_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(groqBody)
+    });
+
+    if (!groqResponse.ok) {
+      const error = await groqResponse.text();
+      console.error('Groq Chat error (explain):', groqResponse.status, error);
+      return errorResponse(`Explanation failed: ${groqResponse.status}`, 502);
+    }
+
+    const result = await groqResponse.json() as {
+      choices: Array<{ message: { content: string } }>;
+    };
+
+    console.log('Groq explain response:', JSON.stringify(result).substring(0, 200));
+
+    const explanation = result.choices?.[0]?.message?.content?.trim();
+
+    if (!explanation) {
+      console.error('No explanation in Groq response:', result);
+      return errorResponse('No explanation generated', 500);
+    }
+
+    return jsonResponse({
+      success: true,
+      data: { explanation }
+    });
+
+  } catch (err) {
+    console.error('Explain proxy error:', err);
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return errorResponse(`Explanation error: ${message}`, 500);
+  }
+}
+
 // Get user profile
 export async function handleGetProfile(
   request: Request,

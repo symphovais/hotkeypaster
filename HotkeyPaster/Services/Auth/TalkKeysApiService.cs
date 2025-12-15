@@ -45,6 +45,16 @@ namespace TalkKeys.Services.Auth
     }
 
     /// <summary>
+    /// Plain English explanation result from the API
+    /// </summary>
+    public class ExplanationResult
+    {
+        public bool Success { get; set; }
+        public string? Explanation { get; set; }
+        public string? Error { get; set; }
+    }
+
+    /// <summary>
     /// Service for making authenticated API calls to the TalkKeys backend
     /// </summary>
     public class TalkKeysApiService : IDisposable
@@ -266,6 +276,64 @@ namespace TalkKeys.Services.Auth
             {
                 _logger?.Log($"[API] Clean error: {ex.Message}");
                 return new CleaningResult { Success = false, Error = ex.Message };
+            }
+        }
+
+        /// <summary>
+        /// Get a plain English explanation of text using the TalkKeys proxy.
+        /// Uses Polly resilience pipeline with retry and exponential backoff.
+        /// </summary>
+        public async Task<ExplanationResult> ExplainTextAsync(
+            string text,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                _logger?.Log("[API] Sending explanation request...");
+
+                // Use Polly resilience pipeline for transient error handling
+                var response = await HttpResilience.ExecuteWithRetryAsync(
+                    async ct =>
+                    {
+                        var requestBody = new { text = text };
+                        var json = JsonSerializer.Serialize(requestBody);
+                        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                        var request = new HttpRequestMessage(HttpMethod.Post, "/api/explain")
+                        {
+                            Content = content
+                        };
+                        SetAuthHeader(request);
+
+                        return await _httpClient.SendAsync(request, ct);
+                    },
+                    _logger,
+                    cancellationToken);
+
+                var responseJson = await response.Content.ReadAsStringAsync();
+
+                _logger?.Log($"[API] Explain response: {response.StatusCode}");
+
+                using var doc = JsonDocument.Parse(responseJson);
+                var root = doc.RootElement;
+
+                var success = root.TryGetProperty("success", out var successProp) && successProp.GetBoolean();
+
+                if (success && root.TryGetProperty("data", out var data))
+                {
+                    var explanation = data.TryGetProperty("explanation", out var textProp) ? textProp.GetString() : null;
+                    return new ExplanationResult { Success = true, Explanation = explanation };
+                }
+                else
+                {
+                    var error = root.TryGetProperty("error", out var errorProp) ? errorProp.GetString() : "Unknown error";
+                    return new ExplanationResult { Success = false, Error = error };
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Log($"[API] Explain error: {ex.Message}");
+                return new ExplanationResult { Success = false, Error = ex.Message };
             }
         }
 

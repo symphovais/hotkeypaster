@@ -21,7 +21,7 @@ using TalkKeys.Services.RecordingMode;
 using TalkKeys.Services.Triggers;
 using TalkKeys.Services.Updates;
 using TalkKeys.Services.Plugins;
-using TalkKeys.Plugins.FocusTimer;
+using TalkKeys.Plugins.Explainer;
 
 namespace TalkKeys
 {
@@ -230,8 +230,13 @@ namespace TalkKeys
 
             _pluginManager = new PluginManager(_logger, _positioner);
 
-            // Register built-in plugins
-            _pluginManager.RegisterPlugin(new FocusTimerPlugin(_logger, _notifications));
+            // Register Explainer plugin (requires TalkKeys API service)
+            // Create API service if not already created (for non-TalkKeys mode, it just won't have auth)
+            if (_talkKeysApiService == null)
+            {
+                _talkKeysApiService = new TalkKeysApiService(_settingsService!, _logger);
+            }
+            _pluginManager.RegisterPlugin(new ExplainerPlugin(_talkKeysApiService, _settingsService!, _positioner, _logger));
 
             // Subscribe to plugin events
             _pluginManager.PluginWidgetPositionChanged += OnPluginWidgetPositionChanged;

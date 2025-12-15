@@ -6,6 +6,7 @@ import {
   handleGetUsage,
   handleWhisperProxy,
   handleCleanProxy,
+  handleExplainProxy,
   handleGetProfile
 } from './api';
 
@@ -651,6 +652,11 @@ export default {
       // Text cleaning proxy
       if (path === '/api/clean' && method === 'POST') {
         return handleCleanProxy(request, env, user);
+      }
+
+      // Plain English explainer proxy
+      if (path === '/api/explain' && method === 'POST') {
+        return handleExplainProxy(request, env, user);
       }
 
       // 404 for unknown routes

@@ -35,6 +35,16 @@ namespace TalkKeys.Services.Windowing
         /// </summary>
         /// <param name="window">The window to validate</param>
         void EnsureVisible(Window window);
+
+        /// <summary>
+        /// Positions the window near the cursor position, ensuring it stays on the screen.
+        /// </summary>
+        /// <param name="window">The window to position</param>
+        /// <param name="cursorX">Cursor X position in screen coordinates (physical pixels)</param>
+        /// <param name="cursorY">Cursor Y position in screen coordinates (physical pixels)</param>
+        /// <param name="offsetX">Horizontal offset from cursor (default 15)</param>
+        /// <param name="offsetY">Vertical offset from cursor (default 15)</param>
+        void PositionNearCursor(Window window, double cursorX, double cursorY, double offsetX = 15, double offsetY = 15);
     }
 
     /// <summary>

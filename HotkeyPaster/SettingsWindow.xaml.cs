@@ -4,15 +4,17 @@ using System.Linq;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
 using TalkKeys.Logging;
 using TalkKeys.Services.Auth;
+using TalkKeys.Services.Plugins;
 using TalkKeys.Services.Settings;
 using TalkKeys.Services.Startup;
 using TalkKeys.Services.Triggers;
-using TalkKeys.Services.Plugins;
 using TalkKeys.PluginSdk;
+using TalkKeys.Plugins.Explainer;
 
 namespace TalkKeys
 {
@@ -33,6 +35,9 @@ namespace TalkKeys
         private readonly Dictionary<string, RadioButton> _pluginTabButtons = new();
         private readonly Dictionary<string, FrameworkElement> _pluginSettingsPanels = new();
         private string? _selectedPluginId;
+
+        // Explainer hotkey state
+        private string _explainerHotkey = "Ctrl+Win+E";
 
         public event EventHandler? SettingsChanged;
 
@@ -56,7 +61,7 @@ namespace TalkKeys
 
             LoadSettings();
             LoadTriggerPlugins();
-            LoadPlugins();
+            LoadExplainerSettings();
             UpdateVersion();
 
             _isInitializing = false;
@@ -76,6 +81,9 @@ namespace TalkKeys
             // Load API key hint
             UpdateApiKeyHint();
 
+            // Load account card display
+            UpdateAccountCard();
+
             // Load Audio Devices
             _audioDevices = _audioService.GetAvailableDevices();
             _selectedAudioDeviceIndex = _currentSettings.AudioDeviceIndex;
@@ -92,6 +100,16 @@ namespace TalkKeys
 
             // Load startup setting
             StartWithWindowsCheckBox.IsChecked = _startupService.IsStartupEnabled;
+        }
+
+        private void LoadExplainerSettings()
+        {
+            // Load explainer hotkey from settings
+            if (_currentSettings.Plugins.TryGetValue("explainer", out var config))
+            {
+                _explainerHotkey = config.GetSetting(ExplainerPlugin.SettingHotkey, "Ctrl+Win+E");
+            }
+            ExplainerHotkeyTextBox.Text = _explainerHotkey;
         }
 
         private void UpdateApiKeyHint()
@@ -137,7 +155,7 @@ namespace TalkKeys
                     Content = $"{plugin.Icon} {plugin.DisplayName}",
                     GroupName = "TriggerPluginTabs",
                     Tag = plugin.PluginId,
-                    Padding = new Thickness(16, 10, 16, 10),
+                    Padding = new Thickness(12, 8, 12, 8),
                     Margin = new Thickness(0, 0, 8, 0),
                     Cursor = System.Windows.Input.Cursors.Hand,
                     Style = CreatePluginTabStyle()
@@ -160,150 +178,6 @@ namespace TalkKeys
             }
         }
 
-        private void LoadPlugins()
-        {
-            if (_pluginManager == null) return;
-
-            var plugins = _pluginManager.GetPlugins();
-            if (!plugins.Any()) return;
-
-            PluginListPanel.Children.Clear();
-
-            foreach (var plugin in plugins)
-            {
-                var pluginCard = CreatePluginCard(plugin);
-                PluginListPanel.Children.Add(pluginCard);
-            }
-        }
-
-        private Border CreatePluginCard(IPlugin plugin)
-        {
-            var config = plugin.GetConfiguration();
-
-            var card = new Border
-            {
-                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FAFAFA")),
-                CornerRadius = new CornerRadius(12),
-                Padding = new Thickness(16),
-                Margin = new Thickness(0, 0, 0, 12)
-            };
-
-            var mainGrid = new Grid();
-            mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-            // Left side: Icon, Name, Description
-            var infoPanel = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-
-            var headerPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
-            headerPanel.Children.Add(new TextBlock
-            {
-                Text = plugin.Icon,
-                FontSize = 18,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 8, 0)
-            });
-            headerPanel.Children.Add(new TextBlock
-            {
-                Text = plugin.DisplayName,
-                FontSize = 15,
-                FontWeight = FontWeights.SemiBold,
-                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#111827")),
-                VerticalAlignment = VerticalAlignment.Center
-            });
-            infoPanel.Children.Add(headerPanel);
-
-            infoPanel.Children.Add(new TextBlock
-            {
-                Text = plugin.Description,
-                FontSize = 12,
-                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#6B7280")),
-                TextWrapping = TextWrapping.Wrap
-            });
-
-            Grid.SetColumn(infoPanel, 0);
-            mainGrid.Children.Add(infoPanel);
-
-            // Right side: Enable toggle
-            var togglePanel = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-            var enableToggle = new CheckBox
-            {
-                IsChecked = config.Enabled,
-                Content = config.Enabled ? "Enabled" : "Disabled",
-                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#6B7280")),
-                FontSize = 12,
-                Tag = plugin.PluginId
-            };
-
-            enableToggle.Checked += (s, e) =>
-            {
-                if (_isInitializing) return;
-                OnPluginEnabledChanged(plugin.PluginId, true);
-                enableToggle.Content = "Enabled";
-            };
-
-            enableToggle.Unchecked += (s, e) =>
-            {
-                if (_isInitializing) return;
-                OnPluginEnabledChanged(plugin.PluginId, false);
-                enableToggle.Content = "Disabled";
-            };
-
-            togglePanel.Children.Add(enableToggle);
-            Grid.SetColumn(togglePanel, 1);
-            mainGrid.Children.Add(togglePanel);
-
-            // Add settings panel if plugin has one
-            var settingsPanel = plugin.CreateSettingsPanel();
-            if (settingsPanel != null)
-            {
-                var outerStack = new StackPanel();
-                outerStack.Children.Add(mainGrid);
-
-                var separator = new Border
-                {
-                    Height = 1,
-                    Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E5E7EB")),
-                    Margin = new Thickness(0, 12, 0, 12)
-                };
-                outerStack.Children.Add(separator);
-
-                settingsPanel.Margin = new Thickness(0, 0, 0, 0);
-                outerStack.Children.Add(settingsPanel);
-
-                card.Child = outerStack;
-            }
-            else
-            {
-                card.Child = mainGrid;
-            }
-
-            return card;
-        }
-
-        private void OnPluginEnabledChanged(string pluginId, bool enabled)
-        {
-            // Update configuration
-            if (!_currentSettings.Plugins.TryGetValue(pluginId, out var config))
-            {
-                config = _pluginManager?.GetPlugin(pluginId)?.GetDefaultConfiguration() ?? new PluginConfiguration();
-                _currentSettings.Plugins[pluginId] = config;
-            }
-
-            config.Enabled = enabled;
-
-            // When enabling a plugin, also show its widget (user-friendly default)
-            if (enabled)
-            {
-                config.WidgetVisible = true;
-            }
-
-            _settingsService.SaveSettings(_currentSettings);
-            SettingsChanged?.Invoke(this, EventArgs.Empty);
-
-            _logger.Log($"[Settings] Plugin '{pluginId}' {(enabled ? "enabled (widget visible)" : "disabled")}");
-        }
-
         private Style CreatePluginTabStyle()
         {
             var style = new Style(typeof(RadioButton));
@@ -312,8 +186,8 @@ namespace TalkKeys
             var borderFactory = new FrameworkElementFactory(typeof(Border));
             borderFactory.Name = "TabBorder";
             borderFactory.SetValue(Border.BackgroundProperty, new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F3F4F6")));
-            borderFactory.SetValue(Border.CornerRadiusProperty, new CornerRadius(8));
-            borderFactory.SetValue(Border.PaddingProperty, new Thickness(16, 10, 16, 10));
+            borderFactory.SetValue(Border.CornerRadiusProperty, new CornerRadius(6));
+            borderFactory.SetValue(Border.PaddingProperty, new Thickness(12, 8, 12, 8));
 
             var contentFactory = new FrameworkElementFactory(typeof(ContentPresenter));
             contentFactory.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center);
@@ -332,7 +206,7 @@ namespace TalkKeys
             template.Triggers.Add(hoverTrigger);
 
             style.Setters.Add(new Setter(Control.TemplateProperty, template));
-            style.Setters.Add(new Setter(Control.FontSizeProperty, 13.0));
+            style.Setters.Add(new Setter(Control.FontSizeProperty, 12.0));
             style.Setters.Add(new Setter(Control.FontWeightProperty, FontWeights.Medium));
             style.Setters.Add(new Setter(Control.ForegroundProperty, new SolidColorBrush((Color)ColorConverter.ConvertFromString("#374151"))));
 
@@ -364,24 +238,78 @@ namespace TalkKeys
             if (_isInitializing) return;
 
             // Hide all tabs first
+            TalkKeysTabContent.Visibility = Visibility.Collapsed;
+            ExplainerTabContent.Visibility = Visibility.Collapsed;
             GeneralTabContent.Visibility = Visibility.Collapsed;
-            TriggersTabContent.Visibility = Visibility.Collapsed;
-            PluginsTabContent.Visibility = Visibility.Collapsed;
 
-            if (GeneralTab.IsChecked == true)
+            if (TalkKeysTab.IsChecked == true)
+            {
+                TalkKeysTabContent.Visibility = Visibility.Visible;
+                UpdatePluginContentArea();
+            }
+            else if (ExplainerTab.IsChecked == true)
+            {
+                ExplainerTabContent.Visibility = Visibility.Visible;
+            }
+            else if (GeneralTab.IsChecked == true)
             {
                 GeneralTabContent.Visibility = Visibility.Visible;
             }
-            else if (TriggersTab.IsChecked == true)
+        }
+
+        #region Explainer Hotkey Handling
+
+        private void ExplainerHotkey_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            e.Handled = true;
+
+            var modifiers = Keyboard.Modifiers;
+            var key = e.Key == Key.System ? e.SystemKey : e.Key;
+
+            // Skip if only modifiers pressed
+            if (key == Key.LeftCtrl || key == Key.RightCtrl ||
+                key == Key.LeftShift || key == Key.RightShift ||
+                key == Key.LeftAlt || key == Key.RightAlt ||
+                key == Key.LWin || key == Key.RWin ||
+                key == Key.DeadCharProcessed)
+                return;
+
+            // Add Windows modifier if Win key is pressed
+            var finalModifiers = modifiers;
+            if (Keyboard.IsKeyDown(Key.LWin) || Keyboard.IsKeyDown(Key.RWin))
             {
-                TriggersTabContent.Visibility = Visibility.Visible;
-                UpdatePluginContentArea();
+                finalModifiers |= ModifierKeys.Windows;
             }
-            else if (PluginsTab.IsChecked == true)
+
+            _explainerHotkey = FormatHotkey(finalModifiers, key);
+            ExplainerHotkeyTextBox.Text = _explainerHotkey;
+        }
+
+        private void ExplainerHotkey_GotFocus(object sender, RoutedEventArgs e)
+        {
+            ExplainerHotkeyTextBox.Text = "Press keys...";
+        }
+
+        private void ExplainerHotkey_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (ExplainerHotkeyTextBox.Text == "Press keys...")
             {
-                PluginsTabContent.Visibility = Visibility.Visible;
+                ExplainerHotkeyTextBox.Text = _explainerHotkey;
             }
         }
+
+        private static string FormatHotkey(ModifierKeys modifiers, Key key)
+        {
+            var parts = new List<string>();
+            if (modifiers.HasFlag(ModifierKeys.Control)) parts.Add("Ctrl");
+            if (modifiers.HasFlag(ModifierKeys.Windows)) parts.Add("Win");
+            if (modifiers.HasFlag(ModifierKeys.Shift)) parts.Add("Shift");
+            if (modifiers.HasFlag(ModifierKeys.Alt)) parts.Add("Alt");
+            parts.Add(key.ToString());
+            return string.Join("+", parts);
+        }
+
+        #endregion
 
         private void ChangeApiKey_Click(object sender, RoutedEventArgs e)
         {
@@ -470,6 +398,7 @@ namespace TalkKeys
                         _currentSettings.TalkKeysUserName = null;
                         dialog.Close();
                         UpdateApiKeyHint();
+                        UpdateAccountCard();
 
                         // Show account dialog again with sign-in option
                         ShowAccountOptionsDialog();
@@ -518,6 +447,7 @@ namespace TalkKeys
                             _currentSettings = _settingsService.LoadSettings();
                             dialog.Close();
                             UpdateApiKeyHint();
+                            UpdateAccountCard();
                             SettingsChanged?.Invoke(this, EventArgs.Empty);
                             MessageBox.Show($"Welcome, {result.Name ?? result.Email}!", "Signed In",
                                 MessageBoxButton.OK, MessageBoxImage.Information);
@@ -888,17 +818,19 @@ namespace TalkKeys
                 return;
             }
 
-            // Save plugin configurations
+            // Save trigger plugin configurations
             if (_triggerPluginManager != null)
             {
                 _currentSettings.TriggerPlugins = _triggerPluginManager.GetAllConfigurations();
             }
 
-            // Save general plugin configurations
-            if (_pluginManager != null)
+            // Save explainer hotkey
+            if (!_currentSettings.Plugins.TryGetValue("explainer", out var explainerConfig))
             {
-                _currentSettings.Plugins = _pluginManager.GetAllConfigurations();
+                explainerConfig = new PluginConfiguration { PluginId = "explainer", Enabled = true };
+                _currentSettings.Plugins["explainer"] = explainerConfig;
             }
+            explainerConfig.SetSetting(ExplainerPlugin.SettingHotkey, _explainerHotkey);
 
             // Update startup registry setting
             var startWithWindows = StartWithWindowsCheckBox.IsChecked == true;
@@ -931,6 +863,33 @@ namespace TalkKeys
             if (e.ButtonState == System.Windows.Input.MouseButtonState.Pressed)
             {
                 DragMove();
+            }
+        }
+
+        private void AccountCard_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            ShowAccountOptionsDialog();
+        }
+
+        private void UpdateAccountCard()
+        {
+            if (_currentSettings.AuthMode == AuthMode.TalkKeysAccount &&
+                !string.IsNullOrEmpty(_currentSettings.TalkKeysAccessToken))
+            {
+                // User is signed in
+                var name = _currentSettings.TalkKeysUserName ?? "TalkKeys User";
+                var email = _currentSettings.TalkKeysUserEmail ?? "Free tier";
+
+                AccountName.Text = name;
+                AccountEmail.Text = email;
+                AccountInitial.Text = name.Length > 0 ? name[0].ToString().ToUpper() : "T";
+            }
+            else
+            {
+                // Not signed in
+                AccountName.Text = "TalkKeys Account";
+                AccountEmail.Text = "Click to sign in";
+                AccountInitial.Text = "T";
             }
         }
     }

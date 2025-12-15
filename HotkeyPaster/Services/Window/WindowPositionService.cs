@@ -427,5 +427,144 @@ namespace TalkKeys.Services.Windowing
             }
             return false;
         }
+
+        public void PositionNearCursor(Window window, double cursorX, double cursorY, double offsetX = 15, double offsetY = 15)
+        {
+            if (window == null) return;
+
+            _logger?.Log($"[WindowPosition] PositionNearCursor: cursor=({cursorX},{cursorY}), offset=({offsetX},{offsetY})");
+
+            // Find the screen containing the cursor (using physical pixel coordinates)
+            var cursorPoint = new System.Drawing.Point((int)cursorX, (int)cursorY);
+            var screen = Screen.FromPoint(cursorPoint);
+
+            // Validate screen
+            if (!IsScreenValid(screen))
+            {
+                _logger?.Log($"[WindowPosition] Screen at cursor is invalid, using primary");
+                screen = Screen.PrimaryScreen ?? Screen.AllScreens.FirstOrDefault(IsScreenValid);
+            }
+
+            if (screen == null)
+            {
+                _logger?.Log($"[WindowPosition] No valid screen found, using fallback");
+                window.Left = cursorX + offsetX;
+                window.Top = cursorY + offsetY;
+                return;
+            }
+
+            _logger?.Log($"[WindowPosition] Screen: {screen.DeviceName}, Bounds={screen.Bounds}, WorkingArea={screen.WorkingArea}");
+
+            // Get the DPI scale for the target screen
+            // Note: We need DPI for the specific screen, not the window's current screen
+            double dpiScale = GetDpiForScreen(screen);
+            _logger?.Log($"[WindowPosition] DPI scale for screen: {dpiScale}");
+
+            // Convert cursor position from physical pixels to WPF logical units
+            double logicalCursorX = cursorX / dpiScale;
+            double logicalCursorY = cursorY / dpiScale;
+
+            // Calculate initial position with offset
+            double x = logicalCursorX + offsetX;
+            double y = logicalCursorY + offsetY;
+
+            _logger?.Log($"[WindowPosition] Initial position (logical): ({x},{y})");
+
+            // Convert screen working area to logical units
+            var wa = screen.WorkingArea;
+            double logicalLeft = wa.Left / dpiScale;
+            double logicalTop = wa.Top / dpiScale;
+            double logicalRight = (wa.Left + wa.Width) / dpiScale;
+            double logicalBottom = (wa.Top + wa.Height) / dpiScale;
+
+            _logger?.Log($"[WindowPosition] WorkArea (logical): L={logicalLeft}, T={logicalTop}, R={logicalRight}, B={logicalBottom}");
+
+            // Ensure window has been measured
+            window.UpdateLayout();
+            double windowWidth = window.ActualWidth > 0 ? window.ActualWidth : window.Width;
+            double windowHeight = window.ActualHeight > 0 ? window.ActualHeight : window.Height;
+
+            // Use default size if still not valid (including NaN)
+            if (double.IsNaN(windowWidth) || windowWidth <= 0) windowWidth = 320;
+            if (double.IsNaN(windowHeight) || windowHeight <= 0) windowHeight = 150;
+
+            _logger?.Log($"[WindowPosition] Window size: {windowWidth}x{windowHeight}");
+
+            const double padding = 10;
+
+            // Adjust X if window goes beyond right edge
+            if (x + windowWidth > logicalRight - padding)
+            {
+                x = logicalRight - windowWidth - padding;
+                _logger?.Log($"[WindowPosition] Adjusted X (right edge): {x}");
+            }
+
+            // Adjust X if window goes beyond left edge
+            if (x < logicalLeft + padding)
+            {
+                x = logicalLeft + padding;
+                _logger?.Log($"[WindowPosition] Adjusted X (left edge): {x}");
+            }
+
+            // Adjust Y if window goes beyond bottom edge - show above cursor
+            if (y + windowHeight > logicalBottom - padding)
+            {
+                y = logicalCursorY - windowHeight - offsetY;
+                _logger?.Log($"[WindowPosition] Adjusted Y (bottom edge, showing above cursor): {y}");
+            }
+
+            // Adjust Y if window goes beyond top edge
+            if (y < logicalTop + padding)
+            {
+                y = logicalTop + padding;
+                _logger?.Log($"[WindowPosition] Adjusted Y (top edge): {y}");
+            }
+
+            _logger?.Log($"[WindowPosition] Final position: ({x},{y})");
+
+            window.Left = x;
+            window.Top = y;
+        }
+
+        /// <summary>
+        /// Gets the DPI scale factor for a specific screen.
+        /// </summary>
+        private double GetDpiForScreen(Screen screen)
+        {
+            try
+            {
+                // Try to get DPI using Windows API (works for per-monitor DPI)
+                var hMonitor = MonitorFromPoint(
+                    new System.Drawing.Point(screen.Bounds.Left + screen.Bounds.Width / 2, screen.Bounds.Top + screen.Bounds.Height / 2),
+                    MONITOR_DEFAULTTONEAREST);
+
+                if (hMonitor != IntPtr.Zero)
+                {
+                    uint dpiX, dpiY;
+                    int result = GetDpiForMonitor(hMonitor, MDT_EFFECTIVE_DPI, out dpiX, out dpiY);
+                    if (result == 0) // S_OK
+                    {
+                        return dpiX / 96.0; // 96 is the default DPI
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Log($"[WindowPosition] GetDpiForMonitor failed: {ex.Message}");
+            }
+
+            // Fallback to 1.0 (100% scaling)
+            return 1.0;
+        }
+
+        // P/Invoke declarations for per-monitor DPI
+        private const int MDT_EFFECTIVE_DPI = 0;
+        private const int MONITOR_DEFAULTTONEAREST = 2;
+
+        [System.Runtime.InteropServices.DllImport("shcore.dll")]
+        private static extern int GetDpiForMonitor(IntPtr hMonitor, int dpiType, out uint dpiX, out uint dpiY);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern IntPtr MonitorFromPoint(System.Drawing.Point pt, int dwFlags);
     }
 }
