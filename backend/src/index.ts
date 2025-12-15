@@ -10,6 +10,140 @@ import {
   handleGetProfile
 } from './api';
 
+// About content for desktop app
+const aboutContent = {
+  appName: "TalkKeys",
+  tagline: "Voice-to-text for Windows",
+  description: "A voice-to-text application that lets you speak naturally and have your words typed automatically in any application.",
+  madeWithLove: "This app was built purely for the joy of creating software. It's a passion project exploring voice recognition, WPF, and modern .NET development.",
+  libraries: [
+    { name: "NAudio", description: "Audio recording and processing" },
+    { name: "H.Hooks", description: "Global keyboard hooks" },
+    { name: "H.InputSimulator", description: "Keyboard input simulation" },
+    { name: "HidSharp", description: "USB HID device support" },
+    { name: "Polly", description: "Resilience and retry patterns" },
+    { name: "Groq", description: "Fast AI inference (Whisper)" }
+  ],
+  links: [
+    { title: "Website", url: "https://talkkeys.symphonytek.dk", description: "Learn more about TalkKeys" },
+    { title: "Release Notes", url: "https://talkkeys.symphonytek.dk/releases", description: "See what's new" },
+    { title: "GitHub", url: "https://github.com/symphovais/hotkeypaster", description: "View source code" }
+  ],
+  releases: [
+    {
+      version: "1.2.0",
+      title: "Remote Control & WTF",
+      heroFeatures: [
+        {
+          icon: "🔗",
+          title: "Remote Control API",
+          description: "Control TalkKeys from external apps, hardware buttons, or AI assistants via HTTP",
+          color: "#3B82F6",
+          badge: "localhost:38450"
+        },
+        {
+          icon: "🤔",
+          title: "WTF - What are the Facts",
+          description: "Select any text and get the facts explained simply",
+          color: "#10B981",
+          badge: "Ctrl+Win+E"
+        }
+      ],
+      slides: [
+        {
+          icon: "🔗",
+          iconBackground: "#EFF6FF",
+          title: "Remote Control API",
+          description: "Control TalkKeys from external applications via HTTP API. Perfect for hardware buttons like Jabra headsets and AI assistants.",
+          badge: { label: "API:", value: "http://localhost:38450/", backgroundColor: "#3B82F6" },
+          highlights: [
+            { text: "Start/stop transcription remotely", color: "#3B82F6" },
+            { text: "Get status and microphone list", color: "#3B82F6" },
+            { text: "Works with Mango Plus & other apps", color: "#3B82F6" }
+          ]
+        },
+        {
+          icon: "🤔",
+          iconBackground: "#ECFDF5",
+          title: "WTF - What are the Facts",
+          description: "Select any confusing text - code, legal jargon, technical docs - and get the facts explained simply.",
+          badge: { label: "Hotkey:", value: "Ctrl + Win + E", backgroundColor: "#10B981" },
+          highlights: [
+            { text: "Works with any selected text", color: "#059669" },
+            { text: "AI-powered explanations", color: "#059669" },
+            { text: "Results appear in a clean popup", color: "#059669" }
+          ]
+        },
+        {
+          icon: "📋",
+          iconBackground: "#F3F4F6",
+          title: "Text Preview",
+          description: "See your transcribed text with a convenient copy button. Perfect when paste doesn't work in specific apps.",
+          highlights: [
+            { text: "Auto-expands after transcription", color: "#374151" },
+            { text: "One-click copy to clipboard", color: "#374151" },
+            { text: "Auto-collapses after 10 seconds", color: "#374151" }
+          ]
+        },
+        {
+          icon: "🚀",
+          iconBackground: "#F3F4F6",
+          title: "Ready to Go!",
+          description: "TalkKeys is ready. Press your hotkey anytime to start dictating, or try the new WTF feature!",
+          isGetStarted: true
+        }
+      ]
+    },
+    {
+      version: "1.1.0",
+      title: "Stability Improvements",
+      slides: [
+        {
+          icon: "🛡️",
+          iconBackground: "#F3F4F6",
+          title: "Rock Solid",
+          description: "Major stability improvements for a smooth, reliable experience every time.",
+          highlights: [
+            { text: "Hotkeys persist after restart", color: "#374151" },
+            { text: "More reliable pasting", color: "#374151" },
+            { text: "Network resilience with auto-retry", color: "#374151" }
+          ]
+        },
+        {
+          icon: "🚀",
+          iconBackground: "#F3F4F6",
+          title: "Ready to Go!",
+          description: "TalkKeys is ready. Press your hotkey anytime to start dictating.",
+          isGetStarted: true
+        }
+      ]
+    },
+    {
+      version: "1.0.8",
+      title: "Error Handling",
+      slides: [
+        {
+          icon: "🎙️",
+          iconBackground: "#F3E8FF",
+          title: "Better Microphone Handling",
+          description: "Improved microphone access error handling with user-friendly messages.",
+          highlights: [
+            { text: "Clear error messages when mic is unavailable", color: "#059669" },
+            { text: "Better recovery from permission denials", color: "#059669" }
+          ]
+        },
+        {
+          icon: "🚀",
+          iconBackground: "#F3E8FF",
+          title: "Ready to Go!",
+          description: "TalkKeys is ready. Press your hotkey anytime to start dictating.",
+          isGetStarted: true
+        }
+      ]
+    }
+  ]
+};
+
 // HTML page templates
 const homePage = `<!DOCTYPE html>
 <html lang="en">
@@ -321,7 +455,47 @@ const privacyPage = `<!DOCTYPE html>
 </body>
 </html>`;
 
-const releasesPage = `<!DOCTYPE html>
+// Generate releases page from aboutContent
+function generateReleasesPage(): string {
+  const releaseCards = aboutContent.releases.map((release, index) => {
+    // Build features from slides (excluding Get Started slides)
+    const features = release.slides
+      .filter(slide => !slide.isGetStarted)
+      .map(slide => {
+        const items = [];
+        if (slide.badge) {
+          items.push(`<li><strong>${slide.title}</strong> - ${slide.description}</li>`);
+        }
+        if (slide.highlights) {
+          slide.highlights.forEach(h => {
+            items.push(`<li>${h.text}</li>`);
+          });
+        }
+        if (!slide.badge && !slide.highlights) {
+          items.push(`<li><strong>${slide.title}</strong> - ${slide.description}</li>`);
+        }
+        return items;
+      })
+      .flat();
+
+    const isLatest = index === 0;
+    const tagHtml = isLatest ? '<span class="tag new">Latest</span>' : '';
+
+    return `
+    <div class="release">
+      <div class="release-header">
+        <span class="version">v${release.version}</span>
+        ${tagHtml}
+        <span class="date">December 2024</span>
+      </div>
+      <h3>${release.title}</h3>
+      <ul>
+        ${features.join('\n        ')}
+      </ul>
+    </div>`;
+  }).join('\n');
+
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -335,17 +509,17 @@ const releasesPage = `<!DOCTYPE html>
     .header h1 { font-size: 36px; margin-bottom: 8px; background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     .header p { color: #9CA3AF; }
     .content { max-width: 800px; margin: 0 auto; padding: 64px 24px; }
-    .release { margin-bottom: 48px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 32px; }
-    .release:hover { border-color: rgba(124, 58, 237, 0.3); }
+    .release { margin-bottom: 32px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 32px; transition: all 0.3s ease; }
+    .release:hover { border-color: rgba(124, 58, 237, 0.3); transform: translateY(-2px); }
     .release-header { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
     .version { font-size: 24px; font-weight: 700; color: #E5E7EB; }
     .date { color: #6B7280; font-size: 14px; }
     .tag { background: linear-gradient(135deg, #7C3AED 0%, #6366F1 100%); color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
     .tag.new { background: linear-gradient(135deg, #059669 0%, #10B981 100%); }
-    .tag.fix { background: linear-gradient(135deg, #D97706 0%, #F59E0B 100%); }
-    h3 { color: #A78BFA; font-size: 16px; margin: 20px 0 12px; }
-    ul { margin: 0 0 0 24px; color: #9CA3AF; }
-    li { margin-bottom: 8px; }
+    h3 { color: #A78BFA; font-size: 18px; margin: 0 0 16px; font-weight: 600; }
+    ul { margin: 0 0 0 20px; color: #9CA3AF; }
+    li { margin-bottom: 10px; line-height: 1.6; }
+    li strong { color: #E5E7EB; }
     .page-footer { margin-top: 64px; padding-top: 32px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; flex-wrap: wrap; gap: 24px; justify-content: center; }
     .page-footer a { color: #9CA3AF; text-decoration: none; font-size: 14px; transition: color 0.2s; }
     .page-footer a:hover { color: #A78BFA; }
@@ -357,105 +531,7 @@ const releasesPage = `<!DOCTYPE html>
     <p>What's new in TalkKeys</p>
   </div>
   <div class="content">
-    <div class="release">
-      <div class="release-header">
-        <span class="version">v1.1.0</span>
-        <span class="tag new">Latest</span>
-        <span class="date">December 2024</span>
-      </div>
-      <h3>Bug Fixes</h3>
-      <ul>
-        <li><strong>Hotkeys now persist</strong> - Your custom hotkey settings are saved correctly and won't reset after restarting the app</li>
-        <li><strong>More reliable pasting</strong> - Text now pastes correctly in more applications including Excel, browsers, and code editors</li>
-      </ul>
-      <h3>Improvements</h3>
-      <ul>
-        <li><strong>Stable recording</strong> - No more accidental double-triggers when pressing hotkeys</li>
-        <li><strong>Better error messages</strong> - Clear feedback when microphone access is blocked or unavailable</li>
-        <li><strong>Network resilience</strong> - Automatic retry if your network connection is briefly interrupted</li>
-        <li><strong>What's New screen</strong> - See what changed after app updates</li>
-      </ul>
-    </div>
-
-    <div class="release">
-      <div class="release-header">
-        <span class="version">v1.0.8</span>
-        <span class="date">December 2024</span>
-      </div>
-      <h3>Bug Fixes</h3>
-      <ul>
-        <li>Improved microphone access error handling with user-friendly messages</li>
-        <li>Better recovery when microphone permissions are denied</li>
-      </ul>
-    </div>
-
-    <div class="release">
-      <div class="release-header">
-        <span class="version">v1.0.7</span>
-        <span class="date">December 2024</span>
-      </div>
-      <h3>New Features</h3>
-      <ul>
-        <li>Added talkkeys:// URL protocol handler for seamless OAuth sign-in</li>
-        <li>One-click sign-in from browser back to the app</li>
-      </ul>
-    </div>
-
-    <div class="release">
-      <div class="release-header">
-        <span class="version">v1.0.6</span>
-        <span class="date">December 2024</span>
-      </div>
-      <h3>New Features</h3>
-      <ul>
-        <li>Microsoft Store release</li>
-        <li>Dynamic hotkey hints on floating widget (shows current shortcut)</li>
-        <li>Improved setup wizard with step indicators</li>
-      </ul>
-      <h3>Bug Fixes</h3>
-      <ul>
-        <li>Fixed 2.5s paste delay - clipboard restore now runs asynchronously</li>
-        <li>Fixed recording stopping immediately on hotkey press</li>
-        <li>Fixed sign-out requiring app restart</li>
-        <li>Added token validation on startup to detect expired sessions</li>
-        <li>Extended JWT token expiry from 1 hour to 30 days</li>
-      </ul>
-    </div>
-
-    <div class="release">
-      <div class="release-header">
-        <span class="version">v1.0.5</span>
-        <span class="date">December 2024</span>
-      </div>
-      <h3>New Features</h3>
-      <ul>
-        <li>TalkKeys Account system with Google OAuth</li>
-        <li>Free tier: 10 minutes of transcription per day</li>
-        <li>Welcome wizard for easy setup</li>
-      </ul>
-      <h3>Improvements</h3>
-      <ul>
-        <li>Changed default hotkey to Ctrl+Shift+Space</li>
-        <li>Simplified architecture using Groq exclusively for transcription</li>
-      </ul>
-    </div>
-
-    <div class="release">
-      <div class="release-header">
-        <span class="version">v1.0.0</span>
-        <span class="date">November 2024</span>
-      </div>
-      <h3>Initial Release</h3>
-      <ul>
-        <li>Voice-to-text transcription using Groq Whisper</li>
-        <li>Global hotkey support (push-to-talk and toggle modes)</li>
-        <li>AI-powered text cleanup and formatting</li>
-        <li>Floating recording widget</li>
-        <li>System tray integration</li>
-        <li>Privacy-first: no audio or text storage</li>
-      </ul>
-    </div>
-
+    ${releaseCards}
     <div class="page-footer">
       <a href="/">Home</a>
       <a href="/privacy">Privacy Policy</a>
@@ -465,6 +541,7 @@ const releasesPage = `<!DOCTYPE html>
   </div>
 </body>
 </html>`;
+}
 
 const tosPage = `<!DOCTYPE html>
 <html lang="en">
@@ -597,10 +674,21 @@ export default {
         });
       }
 
-      // Release Notes
+      // Release Notes (generated from aboutContent)
       if (path === '/releases') {
-        return new Response(releasesPage, {
+        return new Response(generateReleasesPage(), {
           headers: { 'Content-Type': 'text/html; charset=utf-8' }
+        });
+      }
+
+      // About Content API (for desktop app)
+      if (path === '/about-content' && method === 'GET') {
+        return new Response(JSON.stringify(aboutContent), {
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': 'public, max-age=3600'
+          }
         });
       }
 

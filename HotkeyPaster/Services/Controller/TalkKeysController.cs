@@ -130,8 +130,8 @@ namespace TalkKeys.Services.Controller
                     new()
                     {
                         Id = "explain",
-                        Name = "Plain English Explainer",
-                        Description = "Explain selected text in plain English",
+                        Name = "WTF - What are the Facts",
+                        Description = "Get the facts explained simply",
                         Shortcut = explainShortcut,
                         Actions = new List<string> { "explain" }
                     }

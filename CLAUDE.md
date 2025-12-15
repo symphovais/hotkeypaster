@@ -84,3 +84,21 @@ Run these manually when testing audio recording changes.
 
 ## Code Quality
 - No warnings allowed in the codebase. All compiler warnings must be resolved or explicitly suppressed with justification.
+
+---
+
+## Release History
+
+### v1.2.0 - Remote Control & WTF (Published: 2025-12-15)
+**Major Features:**
+- **Remote Control API** - HTTP API at `localhost:38450` for external integration (Jabra headsets, Mango Plus, AI assistants)
+- **WTF (What are the Facts)** - Select text + Ctrl+Win+E to get facts explained simply
+- **Text Preview** - Shows transcribed text after recording with copy button
+
+**UI Changes:**
+- Combined About/What's New into single elegant window
+- Added hero feature cards for major releases
+- Renamed "Plain English Explainer" to "WTF - What are the Facts"
+
+**Bug Fixes:**
+- Fixed TalkKeysApiService disposal bug that broke WTF after settings save

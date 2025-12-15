@@ -327,8 +327,8 @@
                                      IsChecked="True"
                                      Checked="Tab_Changed"/>
                         <RadioButton x:Name="ExplainerTab"
-                                     Content="Explainer"
-                                     Tag="💡"
+                                     Content="WTF"
+                                     Tag="🤔"
                                      Style="{StaticResource SidebarButtonStyle}"
                                      GroupName="SettingsTabs"
                                      Checked="Tab_Changed"/>
@@ -540,7 +540,7 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0">
-                                    <TextBlock Text="Explainer Hotkey"
+                                    <TextBlock Text="WTF Hotkey"
                                                FontSize="14"
                                                FontWeight="SemiBold"
                                                Foreground="#111827"/>

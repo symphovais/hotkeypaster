@@ -65,9 +65,9 @@ namespace TalkKeys.Plugins.Explainer
         #region IPlugin Implementation
 
         public string PluginId => "explainer";
-        public string DisplayName => "Plain English Explainer";
-        public string Description => "Select text and press hotkey to get a blunt, no-BS explanation";
-        public string Icon => "💡";
+        public string DisplayName => "WTF - What are the Facts";
+        public string Description => "Select text and press hotkey to get the facts explained simply";
+        public string Icon => "🤔";
         public Version Version => new(1, 0, 0);
 
         public ExplainerPlugin(TalkKeysApiService apiService, SettingsService settingsService, IWindowPositionService? positionService = null, ILogger? logger = null)
@@ -143,7 +143,7 @@ namespace TalkKeys.Plugins.Explainer
             // Header
             panel.Children.Add(new TextBlock
             {
-                Text = $"{Icon} Plain English Explainer",
+                Text = $"{Icon} WTF - What are the Facts",
                 FontSize = 14,
                 FontWeight = FontWeights.SemiBold,
                 Foreground = System.Windows.Media.Brushes.White,

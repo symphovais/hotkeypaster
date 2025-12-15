@@ -189,7 +189,7 @@ namespace TalkKeys
 
             _trayService.AboutRequested += (s, args) =>
             {
-                var aboutWindow = new AboutWindow();
+                var aboutWindow = new AboutWindow(_logger!, AboutWindowPage.About);
                 aboutWindow.Show();
             };
 
@@ -603,7 +603,7 @@ namespace TalkKeys
             {
                 _logger?.Log($"Showing What's New screen. Current: {currentVersion}, Last seen: {lastSeenVersion ?? "none"}");
 
-                var whatsNewWindow = new WhatsNewWindow(isFirstInstall);
+                var whatsNewWindow = new AboutWindow(_logger!, AboutWindowPage.WhatsNew);
                 whatsNewWindow.ShowDialog();
 
                 // Update last seen version
@@ -733,10 +733,9 @@ namespace TalkKeys
                     configLoader.EnsureDefaultConfigurations(settings.GroqApiKey!);
                 }
 
-                // Create API service for TalkKeys mode
-                if (settings.AuthMode == AuthMode.TalkKeysAccount)
+                // Ensure API service exists for TalkKeys mode (don't recreate - ExplainerPlugin holds reference)
+                if (settings.AuthMode == AuthMode.TalkKeysAccount && _talkKeysApiService == null)
                 {
-                    _talkKeysApiService?.Dispose();
                     _talkKeysApiService = new TalkKeysApiService(_settingsService!, _logger);
                 }
 
