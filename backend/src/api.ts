@@ -264,7 +264,7 @@ ${body.context ? `\nCONTEXT: The user is typing in: ${body.context}` : ''}
 Output ONLY the cleaned text, nothing else.`;
 
     const groqBody = {
-      model: 'llama-3.1-8b-instant',
+      model: 'openai/gpt-oss-20b',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `Clean this transcription:\n\n${body.text}` }
@@ -351,7 +351,7 @@ Examples:
 "Just to clarify" → "You got it completely wrong"`;
 
     const groqBody = {
-      model: 'llama-3.1-8b-instant',  // Use same model as text cleaning
+      model: 'openai/gpt-oss-20b',  // Use same model as text cleaning
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: body.text }
@@ -455,7 +455,7 @@ IMPORTANT:
 - Output ONLY the JSON array, nothing else`;
 
     const groqBody = {
-      model: 'llama-3.1-8b-instant',
+      model: 'openai/gpt-oss-20b',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `TRANSCRIPTIONS:\n\n${transcriptionPairs}` }

@@ -87,6 +87,27 @@ Run these manually when testing audio recording changes.
 
 ---
 
+## AI Models (DO NOT CHANGE)
+
+**IMPORTANT**: The following AI model configuration has been tested and approved. Do not change these without explicit user approval.
+
+### Backend API (Cloudflare Worker → Groq)
+| Feature | Model | Reason |
+|---------|-------|--------|
+| Text Cleaning | `openai/gpt-oss-20b` | Best quality for transcription cleanup |
+| WTF Explainer | `openai/gpt-oss-20b` | Best quality for witty translations |
+| Words Analysis | `openai/gpt-oss-20b` | Consistent with other text features |
+
+### Desktop App (Direct Groq calls for OwnApiKey mode)
+| Feature | Model |
+|---------|-------|
+| Text Cleaning | `openai/gpt-oss-20b` |
+| Words Analysis | `llama-3.1-8b-instant` |
+
+**Note**: Whisper (speech-to-text) uses `whisper-large-v3-turbo` via Groq - this is separate from the text LLMs.
+
+---
+
 ## Release History
 
 ### v1.2.0 - Remote Control & WTF (Published: 2025-12-15)
