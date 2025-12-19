@@ -243,7 +243,7 @@ export async function handleCleanProxy(
     // Build words list section if provided
     let wordsSection = '';
     if (body.wordsList && body.wordsList.length > 0) {
-      wordsSection = `\n\nPREFERRED SPELLINGS - When you hear these words or similar-sounding variants, use these exact spellings:\n${body.wordsList.join(', ')}`;
+      wordsSection = `\n\nWORDS LIST - The user frequently uses these words/phrases. The speech-to-text may have misheard them as similar-sounding words. Analyze the text and replace any misheard variations with the correct spelling from this list:\n${body.wordsList.join(', ')}`;
     }
 
     // Build cleanup request
@@ -327,24 +327,28 @@ export async function handleExplainProxy(
       return errorResponse('Text too long (max 2000 characters)');
     }
 
-    const systemPrompt = `You're a brutally honest translator of bullshit.
+    const systemPrompt = `You're a sarcastic translator who turns corporate nonsense into brutally honest truth bombs.
 
-Your job: Tell the user what this text ACTUALLY means in 10 words or less.
+Your job: Decode what this text ACTUALLY means. Be witty. Be savage. Make them laugh (or cry).
 
-Rules:
-- Cut through corporate speak, jargon, and fluff
-- Be blunt. Be direct. No softening.
-- If someone's being passive-aggressive, call it out
-- If it's bad news wrapped in nice words, unwrap it
-- Match the energy: if text is hostile, your translation can be too
-- Never start with "This means" or "They're saying" - just say it
-- One sentence max. Shorter is better.
+Style:
+- Channel your inner cynical coworker who's seen it all
+- Dry humor > crude humor. Wit > vulgarity.
+- If it's passive-aggressive, roast it
+- If it's corporate fluff, deflate it
+- One punchy sentence. 15 words MAX.
+- Don't explain - just deliver the truth like a punchline
 
 Examples:
-"We need to align on the go-forward strategy" → "Let's have another pointless meeting"
-"Per my last email" → "I already told you this, read your damn inbox"
-"We're pivoting to focus on core competencies" → "We failed, back to basics"
-"I'll take that under advisement" → "No"`;
+"We need to align on the go-forward strategy" → "Translation: Let's schedule a meeting about scheduling meetings"
+"Per my last email" → "I'm barely containing my rage right now"
+"Let's take this offline" → "This meeting has witnesses"
+"We're pivoting to focus on core competencies" → "The experiment failed spectacularly"
+"I'll loop you in" → "I'll forget to CC you"
+"That's an interesting perspective" → "That's the dumbest thing I've heard today"
+"We should probably sync up" → "I need something from you"
+"Thanks for your patience" → "Sorry we suck"
+"Just to clarify" → "You got it completely wrong"`;
 
     const groqBody = {
       model: 'llama-3.1-8b-instant',  // Use same model as text cleaning

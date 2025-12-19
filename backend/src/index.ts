@@ -33,6 +33,58 @@ const aboutContent = {
   ],
   releases: [
     {
+      version: "1.2.1",
+      title: "Words List & Smarter AI",
+      heroFeatures: [
+        {
+          icon: "📝",
+          title: "Words List",
+          description: "Teach TalkKeys your vocabulary - names, tech terms, and jargon spelled correctly",
+          color: "#8B5CF6",
+          badge: "AI Analysis"
+        },
+        {
+          icon: "😏",
+          title: "Wittier WTF",
+          description: "The sarcastic translator just got funnier and more savage",
+          color: "#F59E0B",
+          badge: "Upgraded"
+        }
+      ],
+      slides: [
+        {
+          icon: "📝",
+          iconBackground: "#EDE9FE",
+          title: "Words List",
+          description: "Add words you commonly use. TalkKeys will recognize and spell them correctly, even when Whisper mishears them.",
+          badge: { label: "New:", value: "Settings → Words", backgroundColor: "#8B5CF6" },
+          highlights: [
+            { text: "AI analyzes your transcription history", color: "#7C3AED" },
+            { text: "Suggests words that might be misspelled", color: "#7C3AED" },
+            { text: "One-click to add suggestions", color: "#7C3AED" }
+          ]
+        },
+        {
+          icon: "😏",
+          iconBackground: "#FEF3C7",
+          title: "Wittier WTF Translations",
+          description: "The WTF feature now delivers punchier, funnier translations of corporate speak and jargon.",
+          highlights: [
+            { text: "More sarcastic and witty responses", color: "#D97706" },
+            { text: "Better examples for context", color: "#D97706" },
+            { text: "Dry humor that actually lands", color: "#D97706" }
+          ]
+        },
+        {
+          icon: "🚀",
+          iconBackground: "#F3F4F6",
+          title: "Ready to Go!",
+          description: "Check out Settings → Words to start building your vocabulary list!",
+          isGetStarted: true
+        }
+      ]
+    },
+    {
       version: "1.2.0",
       title: "Remote Control & WTF",
       heroFeatures: [
