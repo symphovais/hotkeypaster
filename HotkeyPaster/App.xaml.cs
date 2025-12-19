@@ -24,6 +24,7 @@ using TalkKeys.Services.Plugins;
 using TalkKeys.Services.Controller;
 using TalkKeys.Services.RemoteControl;
 using TalkKeys.Plugins.Explainer;
+using TalkKeys.Services.History;
 
 namespace TalkKeys
 {
@@ -35,6 +36,7 @@ namespace TalkKeys
         private IPipelineService? _pipelineService;
         private SettingsService? _settingsService;
         private TalkKeysApiService? _talkKeysApiService;
+        private ITranscriptionHistoryService? _historyService;
         private ILogger? _logger;
         private INotificationService? _notifications;
         private IAudioRecordingService? _audioService;
@@ -174,7 +176,7 @@ namespace TalkKeys
             // Wire tray events
             _trayService.SettingsRequested += (s, args) =>
             {
-                var settingsWindow = new SettingsWindow(_settingsService!, _logger!, _audioService, _triggerPluginManager, _pluginManager);
+                var settingsWindow = new SettingsWindow(_settingsService!, _logger!, _audioService, _triggerPluginManager, _pluginManager, _historyService);
                 settingsWindow.SettingsChanged += OnSettingsChanged;
                 settingsWindow.Show();
             };
@@ -704,6 +706,7 @@ namespace TalkKeys
 
                 // Register stage factories based on auth mode
                 factory.RegisterStageFactory(new AudioValidationStageFactory());
+                factory.RegisterStageFactory(new HistorySavingStageFactory());
 
                 if (settings.AuthMode == AuthMode.TalkKeysAccount)
                 {
@@ -739,11 +742,18 @@ namespace TalkKeys
                     _talkKeysApiService = new TalkKeysApiService(_settingsService!, _logger);
                 }
 
+                // Create history service (don't recreate if exists)
+                if (_historyService == null)
+                {
+                    _historyService = new TranscriptionHistoryService(settings.TranscriptionHistoryLimit);
+                }
+
                 // Create build context
                 var buildContext = new PipelineBuildContext
                 {
                     GroqApiKey = settings.GroqApiKey,
                     TalkKeysApiService = _talkKeysApiService,
+                    HistoryService = _historyService,
                     Logger = _logger
                 };
 
@@ -782,7 +792,8 @@ namespace TalkKeys
                 {
                     new() { Type = "AudioValidation", Enabled = true },
                     new() { Type = "TalkKeysTranscription", Enabled = true },
-                    new() { Type = "TalkKeysTextCleaning", Enabled = true }
+                    new() { Type = "TalkKeysTextCleaning", Enabled = true },
+                    new() { Type = "HistorySaving", Enabled = true }
                 }
             };
 

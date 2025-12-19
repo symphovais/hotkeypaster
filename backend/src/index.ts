@@ -7,6 +7,7 @@ import {
   handleWhisperProxy,
   handleCleanProxy,
   handleExplainProxy,
+  handleAnalyzeWordsProxy,
   handleGetProfile
 } from './api';
 
@@ -1013,6 +1014,11 @@ export default {
       // Plain English explainer proxy
       if (path === '/api/explain' && method === 'POST') {
         return handleExplainProxy(request, env, user);
+      }
+
+      // Words analysis proxy
+      if (path === '/api/analyze-words' && method === 'POST') {
+        return handleAnalyzeWordsProxy(request, env, user);
       }
 
       // 404 for unknown routes

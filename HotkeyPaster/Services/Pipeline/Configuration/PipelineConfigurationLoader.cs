@@ -126,7 +126,8 @@ namespace TalkKeys.Services.Pipeline.Configuration
                 {
                     new() { Type = "AudioValidation", Enabled = true },
                     new() { Type = "GroqWhisperTranscription", Enabled = true, Settings = new() { ["ApiKey"] = groqApiKey } },
-                    new() { Type = "GroqTextCleaning", Enabled = true, Settings = new() { ["ApiKey"] = groqApiKey } }
+                    new() { Type = "GroqTextCleaning", Enabled = true, Settings = new() { ["ApiKey"] = groqApiKey } },
+                    new() { Type = "HistorySaving", Enabled = true }
                 }
             };
 

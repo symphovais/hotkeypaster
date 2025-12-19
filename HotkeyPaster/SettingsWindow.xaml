@@ -326,6 +326,12 @@
                                      GroupName="SettingsTabs"
                                      IsChecked="True"
                                      Checked="Tab_Changed"/>
+                        <RadioButton x:Name="WordsTab"
+                                     Content="Words"
+                                     Tag="📝"
+                                     Style="{StaticResource SidebarButtonStyle}"
+                                     GroupName="SettingsTabs"
+                                     Checked="Tab_Changed"/>
                         <RadioButton x:Name="ExplainerTab"
                                      Content="WTF"
                                      Tag="🤔"
@@ -527,6 +533,161 @@
                                         Click="ChangeMicrophone_Click"
                                         VerticalAlignment="Center"/>
                             </Grid>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Words Tab Content -->
+                    <StackPanel x:Name="WordsTabContent" Visibility="Collapsed">
+                        <!-- Info Section -->
+                        <Border Style="{StaticResource SettingsCardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Words List"
+                                           FontSize="14"
+                                           FontWeight="SemiBold"
+                                           Foreground="#111827"/>
+                                <TextBlock Text="Add words you commonly use. The AI will recognize and spell them correctly during transcription."
+                                           FontSize="12"
+                                           Foreground="#6B7280"
+                                           TextWrapping="Wrap"
+                                           Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Analyze Section -->
+                        <Border Style="{StaticResource SettingsCardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Width="40" Height="40" CornerRadius="8" Background="#F3E8FF" Margin="0,0,12,0">
+                                        <TextBlock Text="📊" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="Analyze Transcriptions"
+                                                   FontSize="14"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#111827"/>
+                                        <TextBlock Text="Let AI find words that might be misspelled"
+                                                   FontSize="12"
+                                                   Foreground="#6B7280"
+                                                   Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </Grid>
+                                <Button x:Name="AnalyzeButton"
+                                        Style="{StaticResource PrimaryButtonStyle}"
+                                        Margin="0,12,0,0"
+                                        HorizontalAlignment="Left"
+                                        Click="AnalyzeTranscriptions_Click">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="🔍" Margin="0,0,6,0"/>
+                                        <TextBlock x:Name="AnalyzeButtonText" Text="Analyze Transcriptions"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Suggestions Section (shown after analysis) -->
+                        <Border x:Name="SuggestionsCard" Style="{StaticResource SettingsCardStyle}" Visibility="Collapsed">
+                            <StackPanel>
+                                <TextBlock Text="Suggestions"
+                                           FontSize="14"
+                                           FontWeight="SemiBold"
+                                           Foreground="#111827"
+                                           Margin="0,0,0,8"/>
+                                <ItemsControl x:Name="SuggestionsList">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="#F9FAFB" CornerRadius="6" Padding="10,8" Margin="0,0,0,6">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{Binding}" FontSize="13" Foreground="#111827" VerticalAlignment="Center"/>
+                                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                                        <Button Content="✓" ToolTip="Accept" Tag="{Binding}" Click="AcceptSuggestion_Click"
+                                                                Width="28" Height="28" FontSize="12"
+                                                                Background="#ECFDF5" Foreground="#059669" BorderThickness="0" Cursor="Hand" Margin="0,0,4,0"/>
+                                                        <Button Content="✗" ToolTip="Dismiss" Tag="{Binding}" Click="DismissSuggestion_Click"
+                                                                Width="28" Height="28" FontSize="12"
+                                                                Background="#FEF2F2" Foreground="#DC2626" BorderThickness="0" Cursor="Hand"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Your Words Section -->
+                        <Border Style="{StaticResource SettingsCardStyle}">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Your Words"
+                                               FontSize="14"
+                                               FontWeight="SemiBold"
+                                               Foreground="#111827"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="WordsCountText"
+                                               Grid.Column="1"
+                                               Text="0 words"
+                                               FontSize="12"
+                                               Foreground="#9CA3AF"
+                                               VerticalAlignment="Center"/>
+                                </Grid>
+
+                                <!-- Words List -->
+                                <Border Background="#F9FAFB" CornerRadius="8" MinHeight="80" MaxHeight="200">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto" Style="{StaticResource SlimScrollViewerStyle}">
+                                        <ItemsControl x:Name="WordsList" Margin="8">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="White" CornerRadius="4" Padding="8,6" Margin="0,0,0,4" BorderBrush="#E5E7EB" BorderThickness="1">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Text="{Binding}" FontSize="12" Foreground="#374151" VerticalAlignment="Center"/>
+                                                            <Button Content="🗑" ToolTip="Delete" Tag="{Binding}" Click="DeleteWord_Click"
+                                                                    Grid.Column="1" Width="24" Height="24" FontSize="10"
+                                                                    Background="Transparent" Foreground="#9CA3AF" BorderThickness="0" Cursor="Hand"/>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </Border>
+
+                                <!-- Action Buttons -->
+                                <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                    <Button Content="+ Add Word"
+                                            Style="{StaticResource SettingsRowButtonStyle}"
+                                            Click="AddWord_Click"
+                                            Margin="0,0,8,0"/>
+                                    <Button Content="📥 Import"
+                                            Style="{StaticResource SettingsRowButtonStyle}"
+                                            Click="ImportWords_Click"
+                                            Margin="0,0,8,0"/>
+                                    <Button Content="📤 Export"
+                                            Style="{StaticResource SettingsRowButtonStyle}"
+                                            Click="ExportWords_Click"
+                                            Margin="0,0,8,0"/>
+                                    <Button x:Name="ClearHistoryButton"
+                                            Content="🗑 Clear History"
+                                            Style="{StaticResource SettingsRowButtonStyle}"
+                                            Click="ClearHistory_Click"
+                                            ToolTip="Clear transcription history used for analysis"/>
+                                </StackPanel>
+                            </StackPanel>
                         </Border>
                     </StackPanel>
 

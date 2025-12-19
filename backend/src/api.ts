@@ -233,10 +233,17 @@ export async function handleCleanProxy(
     const body = await request.json() as {
       text: string;
       context?: string;
+      wordsList?: string[];
     };
 
     if (!body.text) {
       return errorResponse('No text provided');
+    }
+
+    // Build words list section if provided
+    let wordsSection = '';
+    if (body.wordsList && body.wordsList.length > 0) {
+      wordsSection = `\n\nPREFERRED SPELLINGS - When you hear these words or similar-sounding variants, use these exact spellings:\n${body.wordsList.join(', ')}`;
     }
 
     // Build cleanup request
@@ -251,8 +258,8 @@ RULES:
 5. Format lists and structure when appropriate
 6. NEVER explain what you did - just output the cleaned text
 7. If the input is empty or just noise, output nothing
-
-${body.context ? `CONTEXT: The user is typing in: ${body.context}` : ''}
+${wordsSection}
+${body.context ? `\nCONTEXT: The user is typing in: ${body.context}` : ''}
 
 Output ONLY the cleaned text, nothing else.`;
 
@@ -389,6 +396,135 @@ Examples:
     console.error('Explain proxy error:', err);
     const message = err instanceof Error ? err.message : 'Unknown error';
     return errorResponse(`Explanation error: ${message}`, 500);
+  }
+}
+
+// Analyze transcription history for word suggestions
+export async function handleAnalyzeWordsProxy(
+  request: Request,
+  env: Env,
+  user: JWTPayload
+): Promise<Response> {
+  try {
+    const body = await request.json() as {
+      transcriptions: Array<{ raw: string; cleaned: string }>;
+      existingWords?: string[];
+    };
+
+    if (!body.transcriptions || body.transcriptions.length === 0) {
+      return errorResponse('No transcriptions provided');
+    }
+
+    // Limit to 50 transcriptions to prevent abuse
+    const transcriptions = body.transcriptions.slice(0, 50);
+
+    // Build transcription pairs for analysis
+    const transcriptionPairs = transcriptions
+      .map((t, i) => `#${i + 1}\nRaw: ${t.raw}\nCleaned: ${t.cleaned}`)
+      .join('\n\n');
+
+    const existingWordsNote = body.existingWords && body.existingWords.length > 0
+      ? `\n\nThe user already has these words in their list (don't suggest these again):\n${body.existingWords.join(', ')}`
+      : '';
+
+    const systemPrompt = `Analyze these voice transcriptions to identify words that may need correct spellings added to the user's words list.
+
+For each transcription, you're given:
+- Raw: What Whisper heard (speech-to-text result)
+- Cleaned: What the AI cleaned it to
+
+Look for:
+1. Proper nouns that might be spelled inconsistently (company names, people, products)
+2. Technical terms that could be misheard (programming terms, acronyms)
+3. Words that don't quite make sense in context and might be mishearings
+4. Names or terms that appear multiple times with different spellings
+5. Domain-specific terminology the user frequently uses${existingWordsNote}
+
+Return a JSON array of correctly-spelled words the user should add:
+["Claude Code", "Anthropic", "Kubernetes"]
+
+IMPORTANT:
+- Only suggest words you're confident the user intended to say
+- Return the CORRECT spelling (what they meant, not what was transcribed)
+- Return an empty array [] if no issues found
+- Maximum 10 suggestions per analysis
+- Output ONLY the JSON array, nothing else`;
+
+    const groqBody = {
+      model: 'llama-3.1-8b-instant',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `TRANSCRIPTIONS:\n\n${transcriptionPairs}` }
+      ],
+      temperature: 0.3,
+      max_tokens: 500,
+      stream: false
+    };
+
+    console.log('Analyze words request:', { transcriptionCount: transcriptions.length });
+
+    const groqResponse = await fetch(GROQ_CHAT_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.GROQ_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(groqBody)
+    });
+
+    if (!groqResponse.ok) {
+      const error = await groqResponse.text();
+      console.error('Groq Chat error (analyze-words):', groqResponse.status, error);
+      return errorResponse(`Analysis failed: ${groqResponse.status}`, 502);
+    }
+
+    const result = await groqResponse.json() as {
+      choices: Array<{ message: { content: string } }>;
+    };
+
+    const content = result.choices?.[0]?.message?.content?.trim() || '[]';
+
+    // Extract JSON array from response (handle potential markdown code blocks)
+    let suggestions: string[] = [];
+    try {
+      let jsonContent = content;
+      // Remove markdown code blocks if present
+      if (jsonContent.includes('```')) {
+        const start = jsonContent.indexOf('[');
+        const end = jsonContent.lastIndexOf(']');
+        if (start >= 0 && end > start) {
+          jsonContent = jsonContent.substring(start, end + 1);
+        }
+      }
+      // Ensure we have a valid JSON array
+      if (!jsonContent.startsWith('[')) {
+        const start = jsonContent.indexOf('[');
+        if (start >= 0) jsonContent = jsonContent.substring(start);
+      }
+      if (!jsonContent.endsWith(']')) {
+        const end = jsonContent.lastIndexOf(']');
+        if (end >= 0) jsonContent = jsonContent.substring(0, end + 1);
+      }
+
+      suggestions = JSON.parse(jsonContent);
+      // Limit to 10 suggestions
+      suggestions = suggestions.slice(0, 10);
+    } catch (parseError) {
+      console.error('Failed to parse suggestions:', content);
+      suggestions = [];
+    }
+
+    console.log('Analyze words response:', { suggestionsCount: suggestions.length });
+
+    return jsonResponse({
+      success: true,
+      data: { suggestions }
+    });
+
+  } catch (err) {
+    console.error('Analyze words proxy error:', err);
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return errorResponse(`Analysis error: ${message}`, 500);
   }
 }
 

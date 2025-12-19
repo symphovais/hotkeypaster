@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using TalkKeys.Services.Auth;
 using TalkKeys.Services.Pipeline.Configuration;
@@ -11,15 +12,17 @@ namespace TalkKeys.Services.Pipeline.Stages
     public class TalkKeysTextCleaningStage : IPipelineStage
     {
         private readonly TalkKeysApiService _apiService;
+        private readonly IReadOnlyList<string>? _wordsList;
 
         public string Name { get; }
         public string StageType => "TalkKeysTextCleaning";
         public int RetryCount => 2;
         public TimeSpan RetryDelay => TimeSpan.FromSeconds(1);
 
-        public TalkKeysTextCleaningStage(TalkKeysApiService apiService, string? name = null)
+        public TalkKeysTextCleaningStage(TalkKeysApiService apiService, IReadOnlyList<string>? wordsList = null, string? name = null)
         {
             _apiService = apiService ?? throw new ArgumentNullException(nameof(apiService));
+            _wordsList = wordsList;
             Name = name ?? "TalkKeys Text Cleaning";
         }
 
@@ -55,7 +58,7 @@ namespace TalkKeys.Services.Pipeline.Stages
                     StringSplitOptions.RemoveEmptyEntries).Length;
 
                 // Clean text via API proxy
-                var result = await _apiService.CleanTextAsync(rawText, contextHint);
+                var result = await _apiService.CleanTextAsync(rawText, contextHint, _wordsList);
 
                 if (!result.Success || string.IsNullOrWhiteSpace(result.CleanedText))
                 {
@@ -111,7 +114,10 @@ namespace TalkKeys.Services.Pipeline.Stages
                     "TalkKeysApiService not found in build context");
             }
 
-            return new TalkKeysTextCleaningStage(apiService, config.Name);
+            // Get words list from settings
+            var wordsList = buildContext.AppSettings?.WordsList;
+
+            return new TalkKeysTextCleaningStage(apiService, wordsList, config.Name);
         }
     }
 }

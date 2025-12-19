@@ -1,5 +1,6 @@
 using TalkKeys.Logging;
 using TalkKeys.Services.Auth;
+using TalkKeys.Services.History;
 using TalkKeys.Services.Settings;
 
 namespace TalkKeys.Services.Pipeline
@@ -33,5 +34,10 @@ namespace TalkKeys.Services.Pipeline
         /// Local Whisper model path (if available)
         /// </summary>
         public string? LocalModelPath { get; init; }
+
+        /// <summary>
+        /// Transcription history service for saving transcriptions
+        /// </summary>
+        public ITranscriptionHistoryService? HistoryService { get; init; }
     }
 }

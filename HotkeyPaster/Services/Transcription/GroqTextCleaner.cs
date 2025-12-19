@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
@@ -60,19 +62,32 @@ namespace TalkKeys.Services.Transcription
                 new AuthenticationHeaderValue("Bearer", _apiKey);
         }
 
-        public async Task<string> CleanAsync(string rawText, Action<string>? onProgressUpdate = null, WindowContext? windowContext = null)
+        public async Task<string> CleanAsync(
+            string rawText,
+            Action<string>? onProgressUpdate = null,
+            WindowContext? windowContext = null,
+            IReadOnlyList<string>? wordsList = null)
         {
             if (string.IsNullOrWhiteSpace(rawText))
                 throw new ArgumentException("Raw text cannot be null or empty", nameof(rawText));
 
-            // Build system prompt with optional context
+            // Build system prompt with optional context and words list
             var systemPrompt = CleanupPrompt;
+
+            // Add words list if provided
+            if (wordsList != null && wordsList.Count > 0)
+            {
+                var wordsSection = $"\n\nPREFERRED SPELLINGS - When you hear these words or similar-sounding variants, use these exact spellings:\n{string.Join(", ", wordsList)}";
+                systemPrompt += wordsSection;
+            }
+
+            // Add window context if provided
             if (windowContext != null && windowContext.IsValid)
             {
                 var contextInfo = windowContext.GetContextPrompt();
                 if (!string.IsNullOrEmpty(contextInfo))
                 {
-                    systemPrompt = $"{CleanupPrompt}\n\n{contextInfo}";
+                    systemPrompt = $"{systemPrompt}\n\n{contextInfo}";
                 }
             }
 

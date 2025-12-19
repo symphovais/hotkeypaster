@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Windows;
@@ -7,12 +9,15 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
+using Microsoft.Win32;
 using TalkKeys.Logging;
 using TalkKeys.Services.Auth;
+using TalkKeys.Services.History;
 using TalkKeys.Services.Plugins;
 using TalkKeys.Services.Settings;
 using TalkKeys.Services.Startup;
 using TalkKeys.Services.Triggers;
+using TalkKeys.Services.Words;
 using TalkKeys.PluginSdk;
 using TalkKeys.Plugins.Explainer;
 
@@ -39,6 +44,11 @@ namespace TalkKeys
         // Explainer hotkey state
         private string _explainerHotkey = "Ctrl+Win+E";
 
+        // Words list state
+        private readonly ITranscriptionHistoryService? _historyService;
+        private ObservableCollection<string> _wordsList = new();
+        private ObservableCollection<string> _suggestions = new();
+
         public event EventHandler? SettingsChanged;
 
         public SettingsWindow(
@@ -46,7 +56,8 @@ namespace TalkKeys
             ILogger logger,
             Services.Audio.IAudioRecordingService audioService,
             TriggerPluginManager? triggerPluginManager = null,
-            PluginManager? pluginManager = null)
+            PluginManager? pluginManager = null,
+            ITranscriptionHistoryService? historyService = null)
         {
             InitializeComponent();
 
@@ -56,12 +67,14 @@ namespace TalkKeys
             _startupService = new StartupService();
             _triggerPluginManager = triggerPluginManager;
             _pluginManager = pluginManager;
+            _historyService = historyService;
 
             _currentSettings = _settingsService.LoadSettings();
 
             LoadSettings();
             LoadTriggerPlugins();
             LoadExplainerSettings();
+            LoadWordsSettings();
             UpdateVersion();
 
             _isInitializing = false;
@@ -239,6 +252,7 @@ namespace TalkKeys
 
             // Hide all tabs first
             TalkKeysTabContent.Visibility = Visibility.Collapsed;
+            WordsTabContent.Visibility = Visibility.Collapsed;
             ExplainerTabContent.Visibility = Visibility.Collapsed;
             GeneralTabContent.Visibility = Visibility.Collapsed;
 
@@ -246,6 +260,11 @@ namespace TalkKeys
             {
                 TalkKeysTabContent.Visibility = Visibility.Visible;
                 UpdatePluginContentArea();
+            }
+            else if (WordsTab.IsChecked == true)
+            {
+                WordsTabContent.Visibility = Visibility.Visible;
+                UpdateWordsUI();
             }
             else if (ExplainerTab.IsChecked == true)
             {
@@ -892,5 +911,349 @@ namespace TalkKeys
                 AccountInitial.Text = "T";
             }
         }
+
+        #region Words List Management
+
+        private void LoadWordsSettings()
+        {
+            // Load words from settings
+            _wordsList = new ObservableCollection<string>(_currentSettings.WordsList ?? new List<string>());
+            WordsList.ItemsSource = _wordsList;
+
+            // Update analyze button text with history count
+            UpdateAnalyzeButtonText();
+            UpdateWordsCount();
+        }
+
+        private void UpdateWordsUI()
+        {
+            UpdateAnalyzeButtonText();
+            UpdateWordsCount();
+        }
+
+        private void UpdateAnalyzeButtonText()
+        {
+            var historyCount = _historyService?.GetCount() ?? 0;
+            AnalyzeButtonText.Text = historyCount > 0
+                ? $"Analyze {historyCount} Transcriptions"
+                : "Analyze Transcriptions";
+
+            AnalyzeButton.IsEnabled = historyCount > 0;
+        }
+
+        private void UpdateWordsCount()
+        {
+            WordsCountText.Text = _wordsList.Count == 1 ? "1 word" : $"{_wordsList.Count} words";
+        }
+
+        private async void AnalyzeTranscriptions_Click(object sender, RoutedEventArgs e)
+        {
+            if (_historyService == null)
+            {
+                MessageBox.Show("Transcription history is not available.", "Error",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var history = _historyService.GetHistory();
+            if (history.Count == 0)
+            {
+                MessageBox.Show("No transcription history to analyze. Use voice-to-text first to build up history.",
+                    "No History", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            // Disable button and show analyzing state
+            AnalyzeButton.IsEnabled = false;
+            AnalyzeButtonText.Text = "Analyzing...";
+
+            try
+            {
+                // Create analysis service based on auth mode
+                WordsAnalysisService analysisService;
+                if (_currentSettings.AuthMode == AuthMode.OwnApiKey && !string.IsNullOrEmpty(_currentSettings.GroqApiKey))
+                {
+                    analysisService = new WordsAnalysisService(_currentSettings.GroqApiKey, _logger);
+                }
+                else if (_currentSettings.AuthMode == AuthMode.TalkKeysAccount && !string.IsNullOrEmpty(_currentSettings.TalkKeysAccessToken))
+                {
+                    // Use TalkKeys API for free tier users
+                    var apiService = new TalkKeysApiService(_settingsService, _logger);
+                    analysisService = new WordsAnalysisService(apiService, _logger);
+                }
+                else
+                {
+                    // Not authenticated
+                    MessageBox.Show("Please sign in to use word analysis, or configure your own Groq API key.",
+                        "Sign In Required", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                var result = await analysisService.AnalyzeAsync(history, _wordsList.ToList());
+
+                if (result.Success && result.SuggestedWords.Count > 0)
+                {
+                    _suggestions = new ObservableCollection<string>(result.SuggestedWords);
+                    SuggestionsList.ItemsSource = _suggestions;
+                    SuggestionsCard.Visibility = Visibility.Visible;
+                }
+                else if (result.Success)
+                {
+                    MessageBox.Show("No new word suggestions found. Your transcriptions look good!",
+                        "Analysis Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                else
+                {
+                    MessageBox.Show($"Analysis failed: {result.Error}", "Error",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Log($"[Words] Analysis error: {ex.Message}");
+                MessageBox.Show($"Analysis failed: {ex.Message}", "Error",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                UpdateAnalyzeButtonText();
+            }
+        }
+
+        private void AcceptSuggestion_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.Tag is string word)
+            {
+                if (!_wordsList.Contains(word, StringComparer.OrdinalIgnoreCase))
+                {
+                    _wordsList.Add(word);
+                    _currentSettings.WordsList = _wordsList.ToList();
+                    UpdateWordsCount();
+                }
+                _suggestions.Remove(word);
+
+                if (_suggestions.Count == 0)
+                {
+                    SuggestionsCard.Visibility = Visibility.Collapsed;
+                }
+            }
+        }
+
+        private void DismissSuggestion_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.Tag is string word)
+            {
+                _suggestions.Remove(word);
+
+                if (_suggestions.Count == 0)
+                {
+                    SuggestionsCard.Visibility = Visibility.Collapsed;
+                }
+            }
+        }
+
+        private void DeleteWord_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.Tag is string word)
+            {
+                _wordsList.Remove(word);
+                _currentSettings.WordsList = _wordsList.ToList();
+                UpdateWordsCount();
+            }
+        }
+
+        private void AddWord_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = CreateModalDialog("Add Word");
+
+            var content = new StackPanel { Margin = new Thickness(0, 16, 0, 0) };
+
+            var textBox = new TextBox
+            {
+                Height = 44,
+                Padding = new Thickness(12, 12, 12, 12),
+                FontSize = 14,
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FAFAFA")),
+                BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E5E7EB")),
+                BorderThickness = new Thickness(1)
+            };
+
+            var helpLabel = new TextBlock
+            {
+                Text = "Enter the correct spelling of the word or phrase",
+                FontSize = 12,
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#6B7280")),
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+
+            content.Children.Add(textBox);
+            content.Children.Add(helpLabel);
+
+            var addButton = new Button
+            {
+                Content = "Add",
+                Height = 38,
+                Margin = new Thickness(0, 20, 0, 0),
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#7C3AED")),
+                Foreground = Brushes.White,
+                FontSize = 14,
+                FontWeight = FontWeights.Medium,
+                BorderThickness = new Thickness(0),
+                Cursor = System.Windows.Input.Cursors.Hand
+            };
+            addButton.Click += (s, ev) => dialog.Close();
+
+            content.Children.Add(addButton);
+
+            var outerGrid = (Grid)dialog.Content;
+            var border = (Border)outerGrid.Children[0];
+            var dialogContent = (StackPanel)border.Child;
+            dialogContent.Children.Add(content);
+
+            dialog.ShowDialog();
+
+            var word = textBox.Text?.Trim();
+            if (!string.IsNullOrEmpty(word) && !_wordsList.Contains(word, StringComparer.OrdinalIgnoreCase))
+            {
+                _wordsList.Add(word);
+                _currentSettings.WordsList = _wordsList.ToList();
+                UpdateWordsCount();
+            }
+        }
+
+        private void ImportWords_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new OpenFileDialog
+            {
+                Title = "Import Words List",
+                Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*",
+                DefaultExt = ".txt"
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                try
+                {
+                    var filePath = dialog.FileName;
+                    var fileInfo = new FileInfo(filePath);
+
+                    // Validate file size (max 1MB)
+                    if (fileInfo.Length > 1024 * 1024)
+                    {
+                        MessageBox.Show("File is too large. Maximum size is 1MB.", "Import Error",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+
+                    var content = File.ReadAllText(filePath);
+
+                    // Check for binary content
+                    if (content.Any(c => char.IsControl(c) && c != '\r' && c != '\n' && c != '\t'))
+                    {
+                        MessageBox.Show("File appears to be binary. Please select a plain text file.", "Import Error",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+
+                    var lines = content.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                                       .Select(l => l.Trim())
+                                       .Where(l => !string.IsNullOrEmpty(l))
+                                       .Distinct(StringComparer.OrdinalIgnoreCase)
+                                       .ToList();
+
+                    if (lines.Count == 0)
+                    {
+                        MessageBox.Show("File is empty or contains no valid words.", "Import Error",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+
+                    var newWords = lines.Where(w => !_wordsList.Contains(w, StringComparer.OrdinalIgnoreCase)).ToList();
+                    var duplicates = lines.Count - newWords.Count;
+
+                    var message = $"Found {lines.Count} words. {newWords.Count} are new";
+                    if (duplicates > 0) message += $", {duplicates} already exist";
+                    message += ".\n\nImport these words?";
+
+                    if (MessageBox.Show(message, "Import Words",
+                        MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                    {
+                        foreach (var word in newWords)
+                        {
+                            _wordsList.Add(word);
+                        }
+                        _currentSettings.WordsList = _wordsList.ToList();
+                        UpdateWordsCount();
+
+                        MessageBox.Show($"Imported {newWords.Count} new words.", "Import Complete",
+                            MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Log($"[Words] Import error: {ex.Message}");
+                    MessageBox.Show($"Failed to import words: {ex.Message}", "Import Error",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        private void ExportWords_Click(object sender, RoutedEventArgs e)
+        {
+            if (_wordsList.Count == 0)
+            {
+                MessageBox.Show("No words to export.", "Export",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var dialog = new SaveFileDialog
+            {
+                Title = "Export Words List",
+                Filter = "Text files (*.txt)|*.txt",
+                DefaultExt = ".txt",
+                FileName = "talkkeys-words.txt"
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                try
+                {
+                    File.WriteAllText(dialog.FileName, string.Join(Environment.NewLine, _wordsList));
+                    MessageBox.Show($"Exported {_wordsList.Count} words.", "Export Complete",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Log($"[Words] Export error: {ex.Message}");
+                    MessageBox.Show($"Failed to export words: {ex.Message}", "Export Error",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        private void ClearHistory_Click(object sender, RoutedEventArgs e)
+        {
+            if (_historyService == null) return;
+
+            var count = _historyService.GetCount();
+            if (count == 0)
+            {
+                MessageBox.Show("No transcription history to clear.", "Clear History",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            if (MessageBox.Show($"Clear all {count} transcriptions from history?\n\nThis cannot be undone.",
+                "Clear History", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+            {
+                _historyService.ClearHistory();
+                UpdateAnalyzeButtonText();
+                MessageBox.Show("Transcription history cleared.", "History Cleared",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+
+        #endregion
     }
 }

@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -52,6 +54,25 @@ namespace TalkKeys.Services.Auth
         public bool Success { get; set; }
         public string? Explanation { get; set; }
         public string? Error { get; set; }
+    }
+
+    /// <summary>
+    /// Words analysis result from the API
+    /// </summary>
+    public class WordsAnalysisApiResult
+    {
+        public bool Success { get; set; }
+        public List<string> Suggestions { get; set; } = new();
+        public string? Error { get; set; }
+    }
+
+    /// <summary>
+    /// Transcription pair for words analysis
+    /// </summary>
+    public class TranscriptionPair
+    {
+        public string Raw { get; set; } = string.Empty;
+        public string Cleaned { get; set; } = string.Empty;
     }
 
     /// <summary>
@@ -222,6 +243,7 @@ namespace TalkKeys.Services.Auth
         public async Task<CleaningResult> CleanTextAsync(
             string text,
             string? context = null,
+            IReadOnlyList<string>? wordsList = null,
             CancellationToken cancellationToken = default)
         {
             try
@@ -235,7 +257,8 @@ namespace TalkKeys.Services.Auth
                         var requestBody = new
                         {
                             text = text,
-                            context = context
+                            context = context,
+                            wordsList = wordsList
                         };
 
                         var json = JsonSerializer.Serialize(requestBody);
@@ -334,6 +357,81 @@ namespace TalkKeys.Services.Auth
             {
                 _logger?.Log($"[API] Explain error: {ex.Message}");
                 return new ExplanationResult { Success = false, Error = ex.Message };
+            }
+        }
+
+        /// <summary>
+        /// Analyze transcriptions to find suggested words.
+        /// Uses Polly resilience pipeline with retry and exponential backoff.
+        /// </summary>
+        public async Task<WordsAnalysisApiResult> AnalyzeWordsAsync(
+            IReadOnlyList<TranscriptionPair> transcriptions,
+            IReadOnlyList<string>? existingWords = null,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                _logger?.Log($"[API] Sending words analysis request ({transcriptions.Count} transcriptions)...");
+
+                // Use Polly resilience pipeline for transient error handling
+                var response = await HttpResilience.ExecuteWithRetryAsync(
+                    async ct =>
+                    {
+                        var requestBody = new
+                        {
+                            transcriptions = transcriptions.Select(t => new { raw = t.Raw, cleaned = t.Cleaned }).ToArray(),
+                            existingWords = existingWords
+                        };
+
+                        var json = JsonSerializer.Serialize(requestBody);
+                        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                        var request = new HttpRequestMessage(HttpMethod.Post, "/api/analyze-words")
+                        {
+                            Content = content
+                        };
+                        SetAuthHeader(request);
+
+                        return await _httpClient.SendAsync(request, ct);
+                    },
+                    _logger,
+                    cancellationToken);
+
+                var responseJson = await response.Content.ReadAsStringAsync();
+
+                _logger?.Log($"[API] Analyze words response: {response.StatusCode}");
+
+                using var doc = JsonDocument.Parse(responseJson);
+                var root = doc.RootElement;
+
+                var success = root.TryGetProperty("success", out var successProp) && successProp.GetBoolean();
+
+                if (success && root.TryGetProperty("data", out var data))
+                {
+                    var suggestions = new List<string>();
+                    if (data.TryGetProperty("suggestions", out var suggestionsArray))
+                    {
+                        foreach (var item in suggestionsArray.EnumerateArray())
+                        {
+                            var word = item.GetString();
+                            if (!string.IsNullOrEmpty(word))
+                            {
+                                suggestions.Add(word);
+                            }
+                        }
+                    }
+                    return new WordsAnalysisApiResult { Success = true, Suggestions = suggestions };
+                }
+                else
+                {
+                    var error = root.TryGetProperty("error", out var errorProp) ? errorProp.GetString() : "Unknown error";
+                    return new WordsAnalysisApiResult { Success = false, Error = error };
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Log($"[API] Analyze words error: {ex.Message}");
+                return new WordsAnalysisApiResult { Success = false, Error = ex.Message };
             }
         }
 

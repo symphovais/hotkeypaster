@@ -100,6 +100,13 @@ namespace TalkKeys.Services.Settings
         // Remote Control API Settings
         public bool RemoteControlEnabled { get; set; } = true;
         public int RemoteControlPort { get; set; } = 38450;
+
+        // Words List - Correct spellings for commonly used words/phrases
+        // The LLM uses these to improve transcription accuracy
+        public List<string> WordsList { get; set; } = new();
+
+        // Transcription history limit (stored in separate history.json file)
+        public int TranscriptionHistoryLimit { get; set; } = 20;
     }
 
     /// <summary>

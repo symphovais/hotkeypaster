@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using TalkKeys.Services.Pipeline.Configuration;
 using TalkKeys.Services.Transcription;
@@ -11,18 +12,20 @@ namespace TalkKeys.Services.Pipeline.Stages
     public class GroqTextCleaningStage : IPipelineStage
     {
         private readonly GroqTextCleaner _cleaner;
+        private readonly IReadOnlyList<string>? _wordsList;
 
         public string Name { get; }
         public string StageType => "GroqTextCleaning";
         public int RetryCount => 2;
         public TimeSpan RetryDelay => TimeSpan.FromSeconds(1);
 
-        public GroqTextCleaningStage(string apiKey, string? name = null)
+        public GroqTextCleaningStage(string apiKey, IReadOnlyList<string>? wordsList = null, string? name = null)
         {
             if (string.IsNullOrWhiteSpace(apiKey))
                 throw new ArgumentException("API key cannot be null or empty", nameof(apiKey));
 
             _cleaner = new GroqTextCleaner(apiKey);
+            _wordsList = wordsList;
             Name = name ?? "Groq Text Cleaning";
         }
 
@@ -57,16 +60,20 @@ namespace TalkKeys.Services.Pipeline.Stages
                     StringSplitOptions.RemoveEmptyEntries).Length;
 
                 // Clean text with streaming progress
-                var cleanedText = await _cleaner.CleanAsync(rawText, partialText =>
-                {
-                    // Update progress with partial cleaned text
-                    var currentWordCount = partialText.Split(new[] { ' ', '\n', '\r', '\t' },
-                        StringSplitOptions.RemoveEmptyEntries).Length;
+                var cleanedText = await _cleaner.CleanAsync(
+                    rawText,
+                    partialText =>
+                    {
+                        // Update progress with partial cleaned text
+                        var currentWordCount = partialText.Split(new[] { ' ', '\n', '\r', '\t' },
+                            StringSplitOptions.RemoveEmptyEntries).Length;
 
-                    context.Progress?.Report(new ProgressEventArgs(
-                        $"Cleaning... {currentWordCount} words",
-                        80));
-                }, windowContext);
+                        context.Progress?.Report(new ProgressEventArgs(
+                            $"Cleaning... {currentWordCount} words",
+                            80));
+                    },
+                    windowContext,
+                    _wordsList);
 
                 if (string.IsNullOrWhiteSpace(cleanedText))
                 {
@@ -123,7 +130,10 @@ namespace TalkKeys.Services.Pipeline.Stages
                     "Groq API key not found in stage settings or build context");
             }
 
-            return new GroqTextCleaningStage(apiKey, config.Name);
+            // Get words list from settings
+            var wordsList = buildContext.AppSettings?.WordsList;
+
+            return new GroqTextCleaningStage(apiKey, wordsList, config.Name);
         }
     }
 }
