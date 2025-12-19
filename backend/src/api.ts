@@ -357,11 +357,11 @@ Examples:
         { role: 'user', content: body.text }
       ],
       temperature: 0.7,
-      max_tokens: 100,
+      max_tokens: 200,
       stream: false
     };
 
-    console.log('Explain request:', { textLength: body.text.length });
+    console.log('Explain request:', { textLength: body.text.length, model: 'openai/gpt-oss-20b' });
 
     const groqResponse = await fetch(GROQ_CHAT_URL, {
       method: 'POST',
@@ -382,13 +382,15 @@ Examples:
       choices: Array<{ message: { content: string } }>;
     };
 
-    console.log('Groq explain response:', JSON.stringify(result).substring(0, 200));
+    console.log('Groq explain response:', JSON.stringify(result).substring(0, 500));
 
     const explanation = result.choices?.[0]?.message?.content?.trim();
 
     if (!explanation) {
-      console.error('No explanation in Groq response:', result);
-      return errorResponse('No explanation generated', 500);
+      console.error('No explanation in Groq response:', JSON.stringify(result));
+      // Try to extract any error message from the response
+      const errorDetail = (result as any)?.error?.message || 'No explanation generated';
+      return errorResponse(errorDetail, 500);
     }
 
     return jsonResponse({
