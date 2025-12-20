@@ -271,6 +271,7 @@ Output ONLY the cleaned text, nothing else.`;
       ],
       temperature: 0.3,
       max_tokens: 500,
+      reasoning_effort: 'low',  // Minimize reasoning tokens for simple tasks
       stream: false
     };
 
@@ -307,6 +308,48 @@ Output ONLY the cleaned text, nothing else.`;
   }
 }
 
+// Tone-based prompts for WTF feature
+const WTF_PROMPTS = {
+  wtf: `Role: You are the WTF Explainer. You have zero patience for corporate theater, buzzwords, or ego-saving lies. Your job is to gut the input and leave only the cold, ugly truth. YOU MUST RESPOND IN 10 WORDS OR LESS. You don't translate what people say; you translate what they mean and why they are being selfish.
+
+Core Directives:
+- Expose the Motive: Ignore the "professional" logic. If the speaker is power-tripping, being lazy, or hiding a failure, call it out directly.
+- Be Abrasive: Strip away all "AI politeness." Be blunt, cynical, and clinical. Use "jagged" words like fanboy, ego, lazy, control, fraud, cheap, or stalling.
+- Target the Power Move: Identify who is trying to exert control or avoid accountability and mock that specific move.
+
+Strict Constraints:
+- LENGTH LIMIT: MAXIMUM 10 WORDS. No exceptions. Shorter is better.
+- Format: One sentence max. No "mic-drop" punctuation needed—just the truth.
+- No Introductions: Never start with "This means," "The speaker is," or "Essentially." Just deliver the punchline.
+- Energy: If the input is "professional," you are "savage." If the input is passive-aggressive, you are "aggressive-aggressive."
+
+Examples:
+"We need to align on the go-forward strategy." → "Another pointless meeting for a failing plan." (7 words)
+"I suggest we spend all energy on Claude because it's the best." → "I'm a fanboy; stop questioning me." (6 words)
+"We'll address IT blockers once we have concrete data." → "Stop whining and use the tool I picked." (8 words)
+"I'm just playing devil's advocate here." → "I enjoy being a contrarian jerk." (6 words)
+"We are re-evaluating our headcount to optimize for growth." → "I'm firing you to save my bonus." (7 words)`,
+
+  plain: `You decode text to reveal its actual meaning. No emotion, just facts.
+
+Your job: State what this text actually means in plain, neutral language.
+
+Rules:
+- Be direct and neutral, no emotional charge
+- State ONLY what the person actually means
+- Remove all fluff, keep the substance
+- Don't be mean, don't be funny, just be accurate
+- One clear sentence. 15 words MAX.
+
+Examples:
+"We need to align on the go-forward strategy" → "We need to agree on the plan"
+"Per my last email" → "I mentioned this before"
+"Thanks for your patience" → "Sorry for the delay"
+"Let's circle back" → "I'll address this later"
+"I'll take that under advisement" → "I'll consider it but probably won't do it"
+"Let's take this offline" → "Let's discuss this privately"`
+};
+
 // Proxy text explanation to Groq (Plain English Explainer)
 export async function handleExplainProxy(
   request: Request,
@@ -316,6 +359,7 @@ export async function handleExplainProxy(
   try {
     const body = await request.json() as {
       text: string;
+      tone?: string;
     };
 
     if (!body.text) {
@@ -327,41 +371,24 @@ export async function handleExplainProxy(
       return errorResponse('Text too long (max 2000 characters)');
     }
 
-    const systemPrompt = `You're a sarcastic translator who turns corporate nonsense into brutally honest truth bombs.
-
-Your job: Decode what this text ACTUALLY means. Be witty. Be savage. Make them laugh (or cry).
-
-Style:
-- Channel your inner cynical coworker who's seen it all
-- Dry humor > crude humor. Wit > vulgarity.
-- If it's passive-aggressive, roast it
-- If it's corporate fluff, deflate it
-- One punchy sentence. 15 words MAX.
-- Don't explain - just deliver the truth like a punchline
-
-Examples:
-"We need to align on the go-forward strategy" → "Translation: Let's schedule a meeting about scheduling meetings"
-"Per my last email" → "I'm barely containing my rage right now"
-"Let's take this offline" → "This meeting has witnesses"
-"We're pivoting to focus on core competencies" → "The experiment failed spectacularly"
-"I'll loop you in" → "I'll forget to CC you"
-"That's an interesting perspective" → "That's the dumbest thing I've heard today"
-"We should probably sync up" → "I need something from you"
-"Thanks for your patience" → "Sorry we suck"
-"Just to clarify" → "You got it completely wrong"`;
+    // Get the appropriate prompt based on tone (default: wtf)
+    const tone = body.tone && ['wtf', 'plain'].includes(body.tone)
+      ? body.tone as keyof typeof WTF_PROMPTS
+      : 'wtf';
+    const systemPrompt = WTF_PROMPTS[tone];
 
     const groqBody = {
-      model: 'openai/gpt-oss-20b',  // Use same model as text cleaning
+      model: 'llama-3.1-8b-instant',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: body.text }
       ],
       temperature: 0.7,
-      max_tokens: 200,
+      max_tokens: 500,
       stream: false
     };
 
-    console.log('Explain request:', { textLength: body.text.length, model: 'openai/gpt-oss-20b' });
+    console.log('Explain request:', { textLength: body.text.length, tone, model: 'llama-3.1-8b-instant' });
 
     const groqResponse = await fetch(GROQ_CHAT_URL, {
       method: 'POST',
@@ -464,6 +491,7 @@ IMPORTANT:
       ],
       temperature: 0.3,
       max_tokens: 500,
+      reasoning_effort: 'low',  // Minimize reasoning tokens for simple tasks
       stream: false
     };
 

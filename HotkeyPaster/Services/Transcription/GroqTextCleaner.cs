@@ -106,6 +106,7 @@ namespace TalkKeys.Services.Transcription
                         },
                         temperature = 0.3,
                         max_tokens = 500,
+                        reasoning_effort = "low",  // Minimize reasoning tokens for simple tasks
                         stream = true
                     };
 

@@ -32,10 +32,12 @@ namespace TalkKeys.Plugins.Explainer
         // Settings keys
         public const string SettingHotkey = "Hotkey";
         public const string SettingAutoDismissSeconds = "AutoDismissSeconds";
+        public const string SettingTone = "Tone";
 
         // Default values
         private const string DefaultHotkey = "Ctrl+Win+E";
         private const int DefaultAutoDismissSeconds = 20;
+        private const string DefaultTone = "wtf"; // wtf or plain
 
         private readonly ILogger? _logger;
         private readonly TalkKeysApiService _apiService;
@@ -47,6 +49,7 @@ namespace TalkKeys.Plugins.Explainer
         private LowLevelKeyboardHook? _keyboardHook;
         private ExplainerPopup? _currentPopup;
         private bool _isKeyDown;
+        private string? _lastSelectedText; // Store for toggle callback
 
         // Parsed hotkey
         private Key _targetKey;
@@ -131,7 +134,8 @@ namespace TalkKeys.Plugins.Explainer
                 Settings = new Dictionary<string, object>
                 {
                     [SettingHotkey] = DefaultHotkey,
-                    [SettingAutoDismissSeconds] = DefaultAutoDismissSeconds
+                    [SettingAutoDismissSeconds] = DefaultAutoDismissSeconds,
+                    [SettingTone] = DefaultTone
                 }
             };
         }
@@ -229,6 +233,58 @@ namespace TalkKeys.Plugins.Explainer
             panel.Children.Add(new TextBlock
             {
                 Text = "Click the box and press your desired hotkey combination",
+                Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(107, 114, 128)),
+                FontSize = 11,
+                Margin = new Thickness(0, 0, 0, 20)
+            });
+
+            // Tone label
+            panel.Children.Add(new TextBlock
+            {
+                Text = "Tone:",
+                Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(156, 163, 175)),
+                Margin = new Thickness(0, 0, 0, 8)
+            });
+
+            // Tone selector (3 radio buttons in a row)
+            var tonePanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Margin = new Thickness(0, 0, 0, 5)
+            };
+
+            var currentTone = _configuration.GetSetting(SettingTone, DefaultTone);
+            var tones = new[] { ("savage", "🔥 Savage"), ("sarcastic", "😏 Sarcastic"), ("factual", "📋 Factual") };
+
+            foreach (var (value, label) in tones)
+            {
+                var radio = new RadioButton
+                {
+                    Content = label,
+                    Tag = value,
+                    IsChecked = currentTone == value,
+                    Foreground = System.Windows.Media.Brushes.White,
+                    Margin = new Thickness(0, 0, 15, 0),
+                    GroupName = "ToneGroup"
+                };
+
+                radio.Checked += (s, e) =>
+                {
+                    if (s is RadioButton rb && rb.Tag is string tone)
+                    {
+                        _configuration.SetSetting(SettingTone, tone);
+                    }
+                };
+
+                tonePanel.Children.Add(radio);
+            }
+
+            panel.Children.Add(tonePanel);
+
+            // Tone description
+            panel.Children.Add(new TextBlock
+            {
+                Text = "Savage = brutally honest • Sarcastic = witty • Factual = just the facts",
                 Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(107, 114, 128)),
                 FontSize = 11,
                 Margin = new Thickness(0, 0, 0, 15)
@@ -378,17 +434,22 @@ namespace TalkKeys.Plugins.Explainer
 
                 _logger?.Log($"[Explainer] Captured {selectedText.Length} chars");
 
+                // Store for toggle callback
+                _lastSelectedText = selectedText;
+
                 // Show loading popup
                 ShowPopup("Thinking...", cursorPos, isLoading: true);
 
-                // Call API
-                var result = await _apiService.ExplainTextAsync(selectedText);
+                // Call API (always uses WTF tone)
+                var result = await _apiService.ExplainTextAsync(selectedText, "wtf");
 
                 if (result.Success && !string.IsNullOrWhiteSpace(result.Explanation))
                 {
                     _logger?.Log($"[Explainer] Got explanation: \"{result.Explanation}\"");
                     var dismissSeconds = _configuration.GetSetting(SettingAutoDismissSeconds, DefaultAutoDismissSeconds);
-                    ShowPopup(result.Explanation, cursorPos, autoDismissSeconds: dismissSeconds);
+
+                    // Show with toggle support
+                    ShowPopupWithToggle(result.Explanation, cursorPos, dismissSeconds);
                 }
                 else
                 {
@@ -547,6 +608,64 @@ namespace TalkKeys.Plugins.Explainer
                     // Show and activate
                     _currentPopup.ShowWithAnimation();
                     _logger?.Log($"[Explainer] Popup shown at ({_currentPopup.Left},{_currentPopup.Top}), size=({_currentPopup.ActualWidth}x{_currentPopup.ActualHeight})");
+                }
+                catch (Exception ex)
+                {
+                    _logger?.Log($"[Explainer] ERROR showing popup: {ex.Message}");
+                    _logger?.Log($"[Explainer] Stack: {ex.StackTrace}");
+                }
+            });
+        }
+
+        private void ShowPopupWithToggle(string wtfText, Point cursorPos, int autoDismissSeconds)
+        {
+            _logger?.Log($"[Explainer] ShowPopupWithToggle called: wtfLen={wtfText.Length} chars");
+
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                try
+                {
+                    CloseCurrentPopup();
+                    _logger?.Log("[Explainer] Creating new popup with toggle...");
+                    _currentPopup = new ExplainerPopup(msg => _logger?.Log(msg));
+
+                    // Create callback to fetch plain translation
+                    async Task<string?> FetchPlainCallback()
+                    {
+                        if (string.IsNullOrEmpty(_lastSelectedText))
+                            return null;
+
+                        _logger?.Log("[Explainer] Fetching plain translation...");
+                        var result = await _apiService.ExplainTextAsync(_lastSelectedText, "plain");
+
+                        if (result.Success && !string.IsNullOrWhiteSpace(result.Explanation))
+                        {
+                            _logger?.Log($"[Explainer] Got plain: \"{result.Explanation}\"");
+                            return result.Explanation;
+                        }
+
+                        _logger?.Log($"[Explainer] Plain fetch failed: {result.Error}");
+                        return null;
+                    }
+
+                    // Set content with toggle support
+                    _currentPopup.SetContentWithToggle(wtfText, FetchPlainCallback, autoDismissSeconds);
+
+                    // Position using the service (before showing)
+                    if (_positionService != null)
+                    {
+                        _logger?.Log("[Explainer] Using WindowPositionService for positioning...");
+                        _positionService.PositionNearCursor(_currentPopup, cursorPos.X, cursorPos.Y);
+                    }
+                    else
+                    {
+                        _logger?.Log("[Explainer] No position service, using popup's built-in positioning...");
+                        _currentPopup.PositionNearCursor(cursorPos);
+                    }
+
+                    // Show and activate
+                    _currentPopup.ShowWithAnimation();
+                    _logger?.Log($"[Explainer] Popup with toggle shown at ({_currentPopup.Left},{_currentPopup.Top})");
                 }
                 catch (Exception ex)
                 {

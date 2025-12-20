@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Input;
@@ -16,6 +17,13 @@ namespace TalkKeys.Plugins.Explainer
         private DispatcherTimer? _dismissTimer;
         private int _remainingSeconds;
         private Action<string>? _logAction;
+
+        // Toggle state
+        private string? _wtfText;
+        private string? _plainText;
+        private bool _showingWtf = true;
+        private bool _isFetchingPlain;
+        private Func<Task<string?>>? _fetchPlainCallback;
 
         public ExplainerPopup(Action<string>? logAction = null)
         {
@@ -70,6 +78,131 @@ namespace TalkKeys.Plugins.Explainer
                 ErrorBorder.Visibility = Visibility.Collapsed;
                 MessageText.Text = message;
                 Log($"Set to content state, message length: {message.Length}");
+            }
+        }
+
+        /// <summary>
+        /// Sets the content with toggle support. Shows WTF text initially with option to fetch plain.
+        /// </summary>
+        public void SetContentWithToggle(string wtfText, Func<Task<string?>> fetchPlainCallback, int autoDismissSeconds = 8)
+        {
+            Log($"SetContentWithToggle called: wtfLen={wtfText.Length}");
+
+            // Stop any existing timer
+            _dismissTimer?.Stop();
+            _autoDismissSeconds = autoDismissSeconds;
+            _isLoading = false;
+
+            // Store toggle state
+            _wtfText = wtfText;
+            _plainText = null; // Will be fetched on demand
+            _showingWtf = true;
+            _isFetchingPlain = false;
+            _fetchPlainCallback = fetchPlainCallback;
+
+            // Show content
+            LoadingPanel.Visibility = Visibility.Collapsed;
+            ContentPanel.Visibility = Visibility.Visible;
+            ErrorBorder.Visibility = Visibility.Collapsed;
+            MessageText.Text = wtfText;
+
+            // Set initial mode indicator
+            ModeIcon.Text = "🔥";
+            ModeLabel.Text = "WTF";
+            FlipHintText.Text = "tap to see plain →";
+            FlipHint.Visibility = Visibility.Visible;
+
+            Log($"Content set with toggle support");
+        }
+
+        private void Content_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            // Don't flip if clicking close button or if already flipping
+            if (_isFetchingPlain) return;
+
+            e.Handled = true;
+            _ = FlipToOtherView();
+        }
+
+        private async Task FlipToOtherView()
+        {
+            if (_isFetchingPlain) return;
+
+            Log($"Flip requested. Currently showing: {(_showingWtf ? "WTF" : "Plain")}");
+
+            // If switching to plain and we don't have it yet, fetch it first
+            if (_showingWtf && _plainText == null && _fetchPlainCallback != null)
+            {
+                _isFetchingPlain = true;
+                FlipHintText.Text = "loading...";
+                Log("Fetching plain translation...");
+
+                try
+                {
+                    _plainText = await _fetchPlainCallback();
+                    Log($"Got plain translation: {_plainText?.Length ?? 0} chars");
+                }
+                catch (Exception ex)
+                {
+                    Log($"Error fetching plain: {ex.Message}");
+                    _plainText = "(Could not load plain version)";
+                }
+                finally
+                {
+                    _isFetchingPlain = false;
+                }
+            }
+
+            // Animate flip out
+            var flipOut = (Storyboard)Resources["FlipOut"];
+            var tcs = new TaskCompletionSource<bool>();
+            EventHandler? handler = null;
+            handler = (s, e) =>
+            {
+                flipOut.Completed -= handler;
+                tcs.SetResult(true);
+            };
+            flipOut.Completed += handler;
+            flipOut.Begin(this);
+            await tcs.Task;
+
+            // Change content at the midpoint (when card is edge-on)
+            if (_showingWtf)
+            {
+                // Switch to plain
+                if (_plainText != null)
+                {
+                    MessageText.Text = _plainText;
+                    ModeIcon.Text = "📋";
+                    ModeLabel.Text = "Plain";
+                    FlipHintText.Text = "← tap for WTF";
+                    _showingWtf = false;
+                    Log("Switched to plain view");
+                }
+            }
+            else
+            {
+                // Switch to WTF
+                if (_wtfText != null)
+                {
+                    MessageText.Text = _wtfText;
+                    ModeIcon.Text = "🔥";
+                    ModeLabel.Text = "WTF";
+                    FlipHintText.Text = "tap to see plain →";
+                    _showingWtf = true;
+                    Log("Switched to WTF view");
+                }
+            }
+
+            // Animate flip in
+            var flipIn = (Storyboard)Resources["FlipIn"];
+            flipIn.Begin(this);
+
+            // Reset countdown on flip
+            if (_dismissTimer != null && _remainingSeconds > 0)
+            {
+                _remainingSeconds = _autoDismissSeconds;
+                UpdateCountdown();
             }
         }
 
@@ -235,8 +368,8 @@ namespace TalkKeys.Plugins.Explainer
 
         private void Window_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            // Click anywhere to dismiss (except on the close button)
-            if (e.Source != CloseButton)
+            // Only dismiss on right-click, left-click is for flipping
+            if (e.ChangedButton == MouseButton.Right)
             {
                 _dismissTimer?.Stop();
                 CloseWithFade();

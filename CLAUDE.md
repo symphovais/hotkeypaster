@@ -95,7 +95,7 @@ Run these manually when testing audio recording changes.
 | Feature | Model | Reason |
 |---------|-------|--------|
 | Text Cleaning | `openai/gpt-oss-20b` | Best quality for transcription cleanup |
-| WTF Explainer | `openai/gpt-oss-20b` | Best quality for witty translations |
+| WTF Explainer | `llama-3.3-70b-versatile` | Best speed/quality balance (~170ms), 3 tone modes |
 | Words Analysis | `openai/gpt-oss-20b` | Consistent with other text features |
 
 ### Desktop App (Direct Groq calls for OwnApiKey mode)

@@ -28,6 +28,28 @@
             <DoubleAnimation Storyboard.TargetProperty="Opacity"
                            From="1" To="0" Duration="0:0:0.1"/>
         </Storyboard>
+
+        <!-- Card flip out (first half) -->
+        <Storyboard x:Key="FlipOut">
+            <DoubleAnimation Storyboard.TargetName="ContentScaleTransform"
+                           Storyboard.TargetProperty="ScaleX"
+                           From="1" To="0" Duration="0:0:0.15">
+                <DoubleAnimation.EasingFunction>
+                    <CubicEase EasingMode="EaseIn"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+        </Storyboard>
+
+        <!-- Card flip in (second half) -->
+        <Storyboard x:Key="FlipIn">
+            <DoubleAnimation Storyboard.TargetName="ContentScaleTransform"
+                           Storyboard.TargetProperty="ScaleX"
+                           From="0" To="1" Duration="0:0:0.15">
+                <DoubleAnimation.EasingFunction>
+                    <CubicEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+        </Storyboard>
     </Window.Resources>
 
     <Border CornerRadius="12" Margin="8">
@@ -64,24 +86,34 @@
 
             <!-- Content -->
             <Grid x:Name="ContentPanel" Visibility="Visible">
+                <Grid.RenderTransform>
+                    <ScaleTransform x:Name="ContentScaleTransform" ScaleX="1" CenterX="160"/>
+                </Grid.RenderTransform>
+
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <!-- Header with icon, countdown, and close button -->
+                <!-- Header with mode indicator, countdown, and close button -->
                 <Grid Grid.Row="0" Margin="16,12,16,0">
                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <TextBlock Grid.Column="0" Text="💡" FontSize="14" VerticalAlignment="Center"/>
+                    <!-- Mode indicator (changes with flip) -->
+                    <TextBlock x:Name="ModeIcon" Grid.Column="0" Text="🔥" FontSize="14" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="ModeLabel" Grid.Column="1" Text="WTF"
+                              Foreground="#9CA3AF" FontSize="11" FontWeight="SemiBold"
+                              VerticalAlignment="Center" Margin="6,0,0,0"/>
 
                     <TextBlock x:Name="CountdownText"
-                              Grid.Column="2"
+                              Grid.Column="3"
                               Text="20s"
                               Foreground="#6B7280"
                               FontSize="11"
@@ -90,7 +122,7 @@
 
                     <!-- Close button -->
                     <Button x:Name="CloseButton"
-                            Grid.Column="3"
+                            Grid.Column="4"
                             Content="✕"
                             FontSize="12"
                             Width="20"
@@ -114,19 +146,36 @@
                     </Button>
                 </Grid>
 
-                <!-- Message text -->
-                <ScrollViewer Grid.Row="1"
-                             VerticalScrollBarVisibility="Auto"
-                             Margin="16,8,16,16"
-                             MaxHeight="180">
-                    <TextBlock x:Name="MessageText"
-                              Text=""
-                              Foreground="White"
-                              FontSize="15"
-                              FontWeight="Medium"
-                              TextWrapping="Wrap"
-                              LineHeight="22"/>
-                </ScrollViewer>
+                <!-- Message text (clickable to flip) -->
+                <Border Grid.Row="1" Margin="16,8,16,8" Cursor="Hand"
+                        Background="Transparent" MouseLeftButtonUp="Content_Click">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="160">
+                        <TextBlock x:Name="MessageText"
+                                  Text=""
+                                  Foreground="White"
+                                  FontSize="15"
+                                  FontWeight="Medium"
+                                  TextWrapping="Wrap"
+                                  LineHeight="22"/>
+                    </ScrollViewer>
+                </Border>
+
+                <!-- Flip hint at bottom -->
+                <Border x:Name="FlipHint" Grid.Row="2"
+                        HorizontalAlignment="Center"
+                        Margin="0,4,0,12"
+                        Padding="12,6"
+                        CornerRadius="14"
+                        Background="#374151"
+                        Cursor="Hand"
+                        Visibility="Collapsed"
+                        MouseLeftButtonUp="Content_Click">
+                    <TextBlock x:Name="FlipHintText"
+                              Text="tap to flip →"
+                              Foreground="#A78BFA"
+                              FontSize="11"
+                              FontWeight="SemiBold"/>
+                </Border>
             </Grid>
 
             <!-- Error state overlay -->

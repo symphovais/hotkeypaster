@@ -306,19 +306,22 @@ namespace TalkKeys.Services.Auth
         /// Get a plain English explanation of text using the TalkKeys proxy.
         /// Uses Polly resilience pipeline with retry and exponential backoff.
         /// </summary>
+        /// <param name="text">The text to explain</param>
+        /// <param name="tone">The tone: savage, sarcastic, or factual (default: savage)</param>
         public async Task<ExplanationResult> ExplainTextAsync(
             string text,
+            string tone = "savage",
             CancellationToken cancellationToken = default)
         {
             try
             {
-                _logger?.Log("[API] Sending explanation request...");
+                _logger?.Log($"[API] Sending explanation request (tone={tone})...");
 
                 // Use Polly resilience pipeline for transient error handling
                 var response = await HttpResilience.ExecuteWithRetryAsync(
                     async ct =>
                     {
-                        var requestBody = new { text = text };
+                        var requestBody = new { text = text, tone = tone };
                         var json = JsonSerializer.Serialize(requestBody);
                         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
