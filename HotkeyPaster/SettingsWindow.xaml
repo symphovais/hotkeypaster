@@ -817,6 +817,65 @@
                                           VerticalAlignment="Center"/>
                             </Grid>
                         </Border>
+
+                        <Border Style="{StaticResource SettingsCardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Experimental"
+                                           FontSize="14"
+                                           FontWeight="SemiBold"
+                                           Foreground="#111827"/>
+                                <TextBlock Text="Enable optional features that are still being tested"
+                                           FontSize="12"
+                                           Foreground="#6B7280"
+                                           Margin="0,2,0,12"/>
+
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Enable experimental features"
+                                                   FontSize="13"
+                                                   FontWeight="Medium"
+                                                   Foreground="#111827"/>
+                                        <TextBlock Text="Shows new features before they are fully released"
+                                                   FontSize="12"
+                                                   Foreground="#6B7280"
+                                                   Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                    <CheckBox x:Name="ExperimentalFeaturesEnabledCheckBox"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ToggleSwitchStyle}"
+                                              Checked="ExperimentalFeatures_Changed"
+                                              Unchecked="ExperimentalFeatures_Changed"
+                                              VerticalAlignment="Center"/>
+                                </Grid>
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Post-paste suggestions"
+                                                   FontSize="13"
+                                                   FontWeight="Medium"
+                                                   Foreground="#111827"/>
+                                        <TextBlock Text="After pasting, suggest rewrite options (email, chat, document, etc.)"
+                                                   FontSize="12"
+                                                   Foreground="#6B7280"
+                                                   Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                    <CheckBox x:Name="PostPasteSuggestionsEnabledCheckBox"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ToggleSwitchStyle}"
+                                              Checked="PostPasteSuggestions_Changed"
+                                              Unchecked="PostPasteSuggestions_Changed"
+                                              VerticalAlignment="Center"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                     </Grid>
                 </ScrollViewer>

@@ -1,0 +1,45 @@
+{
+  "language": "en-US",
+  "listing": {
+    "baseListing": {
+      "title": "TalkKeys",
+      "description": "TalkKeys transforms your voice into text instantly. Press a hotkey, speak naturally, and your words appear wherever you're typing - emails, documents, chat apps, or code editors.\n\nPowered by Groq's lightning-fast Whisper AI, TalkKeys delivers accurate transcriptions in seconds, not minutes.\n\n🎤 CORE FEATURES\n• Push-to-talk or toggle recording with customizable hotkeys\n• Works in any application - just speak and paste\n• Smart text cleaning removes filler words and fixes punctuation\n• Words List for domain-specific vocabulary (names, technical terms)\n• Floating widget shows recording status\n\n✍️ AI REWRITE (NEW in 1.2.4)\nTransform your transcribed text for any context:\n• Target: Email, Chat, Document, Code, or Other\n• Tone: Neutral, Professional, Friendly, Direct, or Formal\n• Add custom instructions for specific needs\n• Edit and iterate until it's perfect\n\n💡 WTF EXPLAINER\nSelect confusing text and get instant explanations:\n• WTF mode: Cuts through jargon with savage honesty\n• Plain mode: Simple, neutral explanations\n• Perfect for decoding corporate speak and technical docs\n\n🔌 REMOTE CONTROL API\nControl TalkKeys from external tools:\n• HTTP API at localhost:38450\n• Start/stop recording programmatically\n• Integrate with Jabra headsets, Stream Deck, or custom scripts\n\n⚡ FAST & PRIVATE\n• Transcription typically completes in 1-3 seconds\n• Audio is processed and immediately discarded\n• No recordings stored on any server\n• Your API key, your control\n\n🆓 FREE TIER\nGet started with 10 minutes of free transcription daily - no API key required. Power users can use their own Groq API key for unlimited usage.\n\nPerfect for:\n• Writers and content creators\n• Developers documenting code\n• Professionals drafting emails\n• Anyone who thinks faster than they type",
+      "shortDescription": "Voice-to-text transcription powered by AI. Press a hotkey, speak, and your words appear instantly in any app.",
+      "releaseNotes": "",
+      "features": [
+        "Lightning-fast voice transcription (1-3 seconds)",
+        "AI Rewrite - transform text for emails, chats, documents",
+        "WTF Explainer - decode jargon and corporate speak",
+        "Works in any Windows application",
+        "Customizable hotkeys (push-to-talk or toggle)",
+        "Smart text cleaning with filler word removal",
+        "Custom Words List for names and technical terms",
+        "Remote Control API for external integrations",
+        "Free tier with 10 minutes daily"
+      ],
+      "keywords": [
+        "voice to text",
+        "speech recognition",
+        "transcription",
+        "dictation",
+        "whisper",
+        "AI writing",
+        "voice typing",
+        "text rewrite"
+      ],
+      "shortTitle": "TalkKeys",
+      "voiceTitle": "Talk Keys",
+      "copyrightAndTrademarkInfo": "© 2024-2025 symphonytek ApS",
+      "privacyPolicyUrl": "https://talkkeys.symphonytek.dk/privacy",
+      "supportContactInfo": "https://github.com/symphovais/hotkeypaster/issues",
+      "websiteUrl": "https://talkkeys.symphonytek.dk"
+    }
+  },
+  "releaseNotesTemplate": {
+    "1.2.4": "AI REWRITE\nTransform your transcribed text for any context!\n\n- NEW: Rewrite button after transcription\n- Choose target: Email, Chat, Document, Code\n- Pick your tone: Neutral, Professional, Friendly, Direct, Formal\n- Add custom instructions for specific needs\n- Edit output and copy with one click\n\nSpeak naturally, then let AI adapt your words for the perfect context and tone.",
+    "1.2.3": "UNIFIED INSIGHTS\n- See WTF and Plain explanations side-by-side\n- No more flipping between views\n- Improved explanation quality",
+    "1.2.2": "SAVAGE WTF MODE\n- New savage prompt that exposes hidden motives\n- Two tones: WTF (savage) and Plain (neutral)\n- Flip card animation between views\n- Faster responses with optimized model",
+    "1.2.1": "WORDS LIST\n- Add custom vocabulary for accurate transcription\n- AI-powered analysis suggests commonly misspelled words\n- Improved recognition of names and technical terms",
+    "1.2.0": "REMOTE CONTROL & WTF\n- HTTP API at localhost:38450 for external control\n- WTF Explainer: Select text + Ctrl+Win+E for instant explanations\n- Text preview after transcription with copy button\n- Jabra headset integration support"
+  }
+}

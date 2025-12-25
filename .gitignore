@@ -249,3 +249,14 @@ node_modules/
 
 # Claude Code local settings (user-specific permissions)
 **/.claude/settings.local.json
+
+# Microsoft Store submission credentials (NEVER commit these)
+.storebroker/
+**/credentials.json
+
+# MSIX build output
+msix-output/
+
+# Backend local development environment variables (contains secrets)
+backend/.dev.vars
+**/.dev.vars

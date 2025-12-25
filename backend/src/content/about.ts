@@ -20,6 +20,148 @@ export const aboutContent = {
   ],
   releases: [
     {
+      version: "1.2.4",
+      title: "AI Rewrite",
+      heroFeatures: [
+        {
+          icon: "✍️",
+          title: "Rewrite with AI",
+          description: "Transform your transcribed text for any context - emails, chats, documents, or code",
+          color: "#8B5CF6",
+          badge: "New Feature"
+        },
+        {
+          icon: "🎯",
+          title: "Tone Control",
+          description: "Choose professional, friendly, direct, or formal tone to match your audience",
+          color: "#10B981",
+          badge: "5 Tones"
+        }
+      ],
+      slides: [
+        {
+          icon: "✍️",
+          iconBackground: "#EDE9FE",
+          title: "AI-Powered Rewrite",
+          description: "After transcription, tap Rewrite to transform your text. AI adapts your words for the right context and tone.",
+          highlights: [
+            { text: "Target: Email, Chat, Document, Code", color: "#7C3AED" },
+            { text: "Tone: Neutral, Professional, Friendly, Direct, Formal", color: "#7C3AED" },
+            { text: "Works with any transcribed or pasted text", color: "#7C3AED" }
+          ]
+        },
+        {
+          icon: "💡",
+          iconBackground: "#FEF3C7",
+          title: "Custom Instructions",
+          description: "Need something specific? Add custom instructions like 'keep it under 50 words' or 'add a call to action'.",
+          highlights: [
+            { text: "Optional custom instructions field", color: "#D97706" },
+            { text: "Combine with target and tone", color: "#D97706" },
+            { text: "Iterate until it's perfect", color: "#D97706" }
+          ]
+        },
+        {
+          icon: "📋",
+          iconBackground: "#F3F4F6",
+          title: "Edit & Copy",
+          description: "Review the rewritten text, make manual edits if needed, then copy to clipboard with one click.",
+          highlights: [
+            { text: "Editable output - tweak as needed", color: "#374151" },
+            { text: "One-click copy to clipboard", color: "#374151" },
+            { text: "Character count for length awareness", color: "#374151" }
+          ]
+        },
+        {
+          icon: "🚀",
+          iconBackground: "#F3F4F6",
+          title: "Ready to Go!",
+          description: "Transcribe some text and tap Rewrite to transform it for any context!",
+          isGetStarted: true
+        }
+      ]
+    },
+    {
+      version: "1.2.3",
+      title: "Unified Insights",
+      heroFeatures: [
+        {
+          icon: "💡",
+          title: "All-in-One View",
+          description: "See both WTF and Plain explanations at once - no more flipping",
+          color: "#8B5CF6",
+          badge: "Redesigned"
+        },
+        {
+          icon: "⚡",
+          title: "Parallel Fetch",
+          description: "Both explanations load simultaneously for faster results",
+          color: "#10B981",
+          badge: "Faster"
+        },
+        {
+          icon: "✍️",
+          title: "Rewrite Suggestions",
+          description: "After dictation, get smart suggestions and rewrite alternatives (experimental)",
+          color: "#3B82F6",
+          badge: "Experimental"
+        }
+      ],
+      slides: [
+        {
+          icon: "💡",
+          iconBackground: "#EDE9FE",
+          title: "Unified Insights Popup",
+          description: "The WTF popup now shows both views at once. No more clicking to flip - see the savage truth AND the plain meaning instantly.",
+          highlights: [
+            { text: "What They Really Mean (savage)", color: "#7C3AED" },
+            { text: "What's Being Said (neutral)", color: "#7C3AED" },
+            { text: "Both visible in one clean view", color: "#7C3AED" }
+          ]
+        },
+        {
+          icon: "⚡",
+          iconBackground: "#ECFDF5",
+          title: "Faster Than Ever",
+          description: "Both explanations are fetched in parallel. The popup appears as soon as both are ready - typically under a second.",
+          highlights: [
+            { text: "Parallel API calls", color: "#059669" },
+            { text: "Single loading state", color: "#059669" },
+            { text: "Instant results", color: "#059669" }
+          ]
+        },
+        {
+          icon: "✍️",
+          iconBackground: "#EFF6FF",
+          title: "Post-Paste Rewrite Suggestions (Experimental)",
+          description: "After transcription is pasted into your active app, TalkKeys can suggest what context it looks like (email/chat/document) and offer rewrite options in a separate window.",
+          highlights: [
+            { text: "Keeps auto-paste as the default", color: "#3B82F6" },
+            { text: "AI classification based on pasted text + window context", color: "#3B82F6" },
+            { text: "Tone presets + one-click copy", color: "#3B82F6" }
+          ]
+        },
+        {
+          icon: "✨",
+          iconBackground: "#F3F4F6",
+          title: "Cleaner Design",
+          description: "Draggable popup with semi-transparent background. Drag to move, right-click or Escape to dismiss.",
+          highlights: [
+            { text: "Drag anywhere to reposition", color: "#374151" },
+            { text: "Semi-transparent dark theme", color: "#374151" },
+            { text: "Auto-dismiss countdown", color: "#374151" }
+          ]
+        },
+        {
+          icon: "🚀",
+          iconBackground: "#F3F4F6",
+          title: "Ready to Go!",
+          description: "Select any text and press Ctrl+Win+E for instant insights!",
+          isGetStarted: true
+        }
+      ]
+    },
+    {
       version: "1.2.2",
       title: "Savage WTF & Flip Cards",
       heroFeatures: [

@@ -106,19 +106,22 @@ export async function handleWhisperProxy(
   try {
     const file = formData.get('file');
 
-    if (!file || !(file instanceof File)) {
+    if (!file || typeof file === 'string') {
       return errorResponse('No audio file provided');
     }
 
+    // TypeScript now knows file is a File
+    const audioFile = file as File;
+
     // Debug logging
     console.log('Received file:', {
-      name: file.name,
-      type: file.type,
-      size: file.size
+      name: audioFile.name,
+      type: audioFile.type,
+      size: audioFile.size
     });
 
     // Estimate duration for usage tracking
-    const estimatedDuration = estimateAudioDuration(file.size);
+    const estimatedDuration = estimateAudioDuration(audioFile.size);
 
     // Check if this request would exceed the limit
     if (stats.used + estimatedDuration > stats.limit) {
@@ -132,15 +135,15 @@ export async function handleWhisperProxy(
 
     // Build multipart body manually to ensure proper Content-Disposition headers
     const boundary = '----WebKitFormBoundary' + Math.random().toString(36).substring(2);
-    const fileBuffer = await file.arrayBuffer();
-    const fileName = file.name || 'audio.wav';
+    const fileBuffer = await audioFile.arrayBuffer();
+    const fileName = audioFile.name || 'audio.wav';
     const model = formData.get('model')?.toString() || 'whisper-large-v3-turbo';
 
     // File part - note: we'll handle the binary separately
     const fileHeader = [
       `--${boundary}`,
       `Content-Disposition: form-data; name="file"; filename="${fileName}"`,
-      `Content-Type: ${file.type || 'audio/wav'}`,
+      `Content-Type: ${audioFile.type || 'audio/wav'}`,
       '',
       ''
     ].join('\r\n');
@@ -217,6 +220,249 @@ export async function handleWhisperProxy(
     console.error('Whisper proxy error:', err);
     const message = err instanceof Error ? err.message : 'Unknown error';
     return errorResponse(`Transcription error: ${message}`, 500);
+  }
+}
+
+export async function handleClassifyProxy(
+  request: Request,
+  env: Env,
+  user: JWTPayload
+): Promise<Response> {
+  try {
+    const body = await request.json() as {
+      text: string;
+      window?: {
+        processName?: string;
+        windowTitle?: string;
+      };
+    };
+
+    if (!body.text) {
+      return errorResponse('No text provided');
+    }
+
+    if (body.text.length > 4000) {
+      return errorResponse('Text too long (max 4000 characters)');
+    }
+
+    const processName = body.window?.processName || '';
+    const windowTitle = body.window?.windowTitle || '';
+    const contextLine = (processName || windowTitle)
+      ? `Active window context:\n- processName: ${processName || 'unknown'}\n- windowTitle: ${windowTitle || 'unknown'}`
+      : 'Active window context: unknown';
+
+    const systemPrompt = `You are a classifier for a voice-to-text transcription application called TalkKeys.
+
+You will be given:
+1) Window context from the app the user was typing in
+2) The final transcribed text that was pasted into that app
+
+Your task: classify the most likely destination/context type.
+
+Allowed types: email, chat, document, code, other
+
+Output ONLY valid JSON in this exact shape:
+{
+  "type": "email",
+  "confidence": 0.0,
+  "suggestedTargets": ["email"],
+  "reason": "short reason"
+}
+
+Rules:
+- confidence must be between 0.0 and 1.0
+- suggestedTargets must be an array of allowed types (may include multiple)
+- If uncertain, set type to "other" and confidence <= 0.55
+- Output ONLY the JSON, no markdown.`;
+
+    const groqBody = {
+      model: 'llama-3.1-8b-instant',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `${contextLine}\n\nText:\n${body.text}` }
+      ],
+      temperature: 0.2,
+      max_tokens: 250,
+      stream: false
+    };
+
+    const groqResponse = await fetch(GROQ_CHAT_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.GROQ_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(groqBody)
+    });
+
+    if (!groqResponse.ok) {
+      const error = await groqResponse.text();
+      console.error('Groq Chat error (classify):', groqResponse.status, error);
+      return errorResponse(`Classification failed: ${groqResponse.status}`, 502);
+    }
+
+    const result = await groqResponse.json() as {
+      choices: Array<{ message: { content: string } }>;
+    };
+
+    const content = result.choices?.[0]?.message?.content?.trim() || '';
+
+    const allowedTypes = new Set(['email', 'chat', 'document', 'code', 'other']);
+
+    let parsed: any = null;
+    try {
+      let jsonContent = content;
+      if (jsonContent.includes('```')) {
+        const start = jsonContent.indexOf('{');
+        const end = jsonContent.lastIndexOf('}');
+        if (start >= 0 && end > start) {
+          jsonContent = jsonContent.substring(start, end + 1);
+        }
+      }
+      const start = jsonContent.indexOf('{');
+      const end = jsonContent.lastIndexOf('}');
+      if (start >= 0 && end > start) {
+        jsonContent = jsonContent.substring(start, end + 1);
+      }
+
+      parsed = JSON.parse(jsonContent);
+    } catch (parseError) {
+      parsed = null;
+    }
+
+    const typeRaw = (parsed?.type ?? 'other') as string;
+    const type = allowedTypes.has(typeRaw) ? typeRaw : 'other';
+    const confidenceNum = typeof parsed?.confidence === 'number' ? parsed.confidence : 0.0;
+    const confidence = Math.max(0, Math.min(1, confidenceNum));
+    const suggestedTargetsRaw = Array.isArray(parsed?.suggestedTargets) ? parsed.suggestedTargets : [];
+    const suggestedTargets = suggestedTargetsRaw
+      .map((t: unknown) => (typeof t === 'string' ? t : ''))
+      .filter((t: string) => allowedTypes.has(t));
+
+    const reason = typeof parsed?.reason === 'string' ? parsed.reason : '';
+
+    return jsonResponse({
+      success: true,
+      data: {
+        type,
+        confidence,
+        suggestedTargets,
+        reason
+      }
+    });
+
+  } catch (err) {
+    console.error('Classify proxy error:', err);
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return errorResponse(`Classification error: ${message}`, 500);
+  }
+}
+
+export async function handleRewriteProxy(
+  request: Request,
+  env: Env,
+  user: JWTPayload
+): Promise<Response> {
+  try {
+    const body = await request.json() as {
+      text: string;
+      target: string;
+      tone?: string;
+      customInstruction?: string;
+      window?: {
+        processName?: string;
+        windowTitle?: string;
+      };
+    };
+
+    if (!body.text) {
+      return errorResponse('No text provided');
+    }
+
+    if (!body.target) {
+      return errorResponse('No target provided');
+    }
+
+    if (body.text.length > 4000) {
+      return errorResponse('Text too long (max 4000 characters)');
+    }
+
+    const allowedTargets = new Set(['email', 'chat', 'document', 'code', 'other']);
+    const target = allowedTargets.has(body.target) ? body.target : 'other';
+
+    const allowedTones = new Set(['professional', 'friendly', 'direct', 'formal', 'neutral']);
+    const tone = body.tone && allowedTones.has(body.tone) ? body.tone : 'neutral';
+
+    const processName = body.window?.processName || '';
+    const windowTitle = body.window?.windowTitle || '';
+    const contextLine = (processName || windowTitle)
+      ? `Active window context:\n- processName: ${processName || 'unknown'}\n- windowTitle: ${windowTitle || 'unknown'}`
+      : 'Active window context: unknown';
+
+    const custom = (body.customInstruction || '').trim();
+    const customSection = custom ? `\n\nAdditional instruction from user: ${custom}` : '';
+
+    const systemPrompt = `You are a rewriting assistant for a voice-to-text transcription application called TalkKeys.
+
+The user has already pasted the transcribed text into another app, but now wants an alternative rewrite.
+
+Rules:
+1) Do NOT add new facts or information that wasn't in the original text
+2) Preserve the meaning
+3) Keep it roughly the same length unless the user explicitly asked to shorten/expand
+4) Rewrite for target context: ${target}
+5) Tone: ${tone}
+${customSection}
+
+${contextLine}
+
+Output ONLY the rewritten text, no explanations.`;
+
+    const groqBody = {
+      model: 'openai/gpt-oss-20b',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: body.text }
+      ],
+      temperature: 0.5,
+      max_tokens: 700,
+      reasoning_effort: 'low',
+      stream: false
+    };
+
+    const groqResponse = await fetch(GROQ_CHAT_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.GROQ_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(groqBody)
+    });
+
+    if (!groqResponse.ok) {
+      const error = await groqResponse.text();
+      console.error('Groq Chat error (rewrite):', groqResponse.status, error);
+      return errorResponse(`Rewrite failed: ${groqResponse.status}`, 502);
+    }
+
+    const result = await groqResponse.json() as {
+      choices: Array<{ message: { content: string } }>;
+    };
+
+    const rewrittenText = result.choices?.[0]?.message?.content?.trim();
+    if (!rewrittenText) {
+      return errorResponse('No rewritten text generated', 500);
+    }
+
+    return jsonResponse({
+      success: true,
+      data: { rewritten_text: rewrittenText }
+    });
+
+  } catch (err) {
+    console.error('Rewrite proxy error:', err);
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return errorResponse(`Rewrite error: ${message}`, 500);
   }
 }
 
@@ -310,25 +556,24 @@ Output ONLY the cleaned text, nothing else.`;
 
 // Tone-based prompts for WTF feature
 const WTF_PROMPTS = {
-  wtf: `Role: You are the WTF Explainer. You have zero patience for corporate theater, buzzwords, or ego-saving lies. Your job is to gut the input and leave only the cold, ugly truth. YOU MUST RESPOND IN 10 WORDS OR LESS. You don't translate what people say; you translate what they mean and why they are being selfish.
+  wtf: `You're a brutally honest translator of bullshit.
 
-Core Directives:
-- Expose the Motive: Ignore the "professional" logic. If the speaker is power-tripping, being lazy, or hiding a failure, call it out directly.
-- Be Abrasive: Strip away all "AI politeness." Be blunt, cynical, and clinical. Use "jagged" words like fanboy, ego, lazy, control, fraud, cheap, or stalling.
-- Target the Power Move: Identify who is trying to exert control or avoid accountability and mock that specific move.
+Your job: Tell the user what this text ACTUALLY means in 10 words or less.
 
-Strict Constraints:
-- LENGTH LIMIT: MAXIMUM 10 WORDS. No exceptions. Shorter is better.
-- Format: One sentence max. No "mic-drop" punctuation needed—just the truth.
-- No Introductions: Never start with "This means," "The speaker is," or "Essentially." Just deliver the punchline.
-- Energy: If the input is "professional," you are "savage." If the input is passive-aggressive, you are "aggressive-aggressive."
+Rules:
+- Cut through corporate speak, jargon, and fluff
+- Be blunt. Be direct. No softening.
+- If someone's being passive-aggressive, call it out
+- If it's bad news wrapped in nice words, unwrap it
+- Match the energy: if text is hostile, your translation can be too
+- Never start with "This means" or "They're saying" - just say it
+- One sentence max. Shorter is better.
 
 Examples:
-"We need to align on the go-forward strategy." → "Another pointless meeting for a failing plan." (7 words)
-"I suggest we spend all energy on Claude because it's the best." → "I'm a fanboy; stop questioning me." (6 words)
-"We'll address IT blockers once we have concrete data." → "Stop whining and use the tool I picked." (8 words)
-"I'm just playing devil's advocate here." → "I enjoy being a contrarian jerk." (6 words)
-"We are re-evaluating our headcount to optimize for growth." → "I'm firing you to save my bonus." (7 words)`,
+"We need to align on the go-forward strategy" → "Let's have another pointless meeting"
+"Per my last email" → "I already told you this, read your damn inbox"
+"We're pivoting to focus on core competencies" → "We failed, back to basics"
+"I'll take that under advisement" → "No"`,
 
   plain: `You decode text to reveal its actual meaning. No emotion, just facts.
 
@@ -429,6 +674,137 @@ export async function handleExplainProxy(
     console.error('Explain proxy error:', err);
     const message = err instanceof Error ? err.message : 'Unknown error';
     return errorResponse(`Explanation error: ${message}`, 500);
+  }
+}
+
+// Extract calendar events/reminders from text
+export async function handleExtractRemindersProxy(
+  request: Request,
+  env: Env,
+  user: JWTPayload
+): Promise<Response> {
+  try {
+    const body = await request.json() as {
+      text: string;
+    };
+
+    if (!body.text) {
+      return errorResponse('No text provided');
+    }
+
+    // Limit text length to prevent abuse
+    if (body.text.length > 2000) {
+      return errorResponse('Text too long (max 2000 characters)');
+    }
+
+    // Get today's date for relative date parsing
+    const today = new Date().toISOString().split('T')[0];
+
+    const systemPrompt = `Extract calendar events from the text. Identify meetings, appointments, deadlines, or reminders.
+
+For each event found, extract:
+- title: Clear, concise event name (max 50 chars)
+- start: Date/time in ISO 8601 format (YYYY-MM-DDTHH:mm:ss)
+- duration: Duration in minutes (default 60 if not specified)
+- location: Physical or virtual location if mentioned
+- description: Brief context if available
+- attendees: List of people involved if mentioned
+- allDay: true if it's an all-day event (no specific time)
+
+For relative dates like "next Tuesday" or "tomorrow", calculate using today's date: ${today}
+
+Output ONLY valid JSON:
+{
+  "events": [
+    {
+      "title": "Team Standup",
+      "start": "2025-01-15T09:00:00",
+      "duration": 30,
+      "location": "Zoom",
+      "description": "Daily sync",
+      "attendees": ["Alice", "Bob"],
+      "allDay": false
+    }
+  ]
+}
+
+If no events found, return: {"events": []}
+Output ONLY the JSON, nothing else.`;
+
+    const groqBody = {
+      model: 'llama-3.1-8b-instant',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: body.text }
+      ],
+      temperature: 0.3,
+      max_tokens: 1000,
+      stream: false
+    };
+
+    console.log('Extract reminders request:', { textLength: body.text.length });
+
+    const groqResponse = await fetch(GROQ_CHAT_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.GROQ_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(groqBody)
+    });
+
+    if (!groqResponse.ok) {
+      const error = await groqResponse.text();
+      console.error('Groq Chat error (extract-reminders):', groqResponse.status, error);
+      return errorResponse(`Extraction failed: ${groqResponse.status}`, 502);
+    }
+
+    const result = await groqResponse.json() as {
+      choices: Array<{ message: { content: string } }>;
+    };
+
+    const content = result.choices?.[0]?.message?.content?.trim() || '{"events": []}';
+
+    // Parse JSON response
+    let events: any[] = [];
+    try {
+      let jsonContent = content;
+      // Remove markdown code blocks if present
+      if (jsonContent.includes('```')) {
+        const start = jsonContent.indexOf('{');
+        const end = jsonContent.lastIndexOf('}');
+        if (start >= 0 && end > start) {
+          jsonContent = jsonContent.substring(start, end + 1);
+        }
+      }
+      // Ensure we have valid JSON object
+      if (!jsonContent.startsWith('{')) {
+        const start = jsonContent.indexOf('{');
+        if (start >= 0) jsonContent = jsonContent.substring(start);
+      }
+      if (!jsonContent.endsWith('}')) {
+        const end = jsonContent.lastIndexOf('}');
+        if (end >= 0) jsonContent = jsonContent.substring(0, end + 1);
+      }
+
+      const parsed = JSON.parse(jsonContent);
+      events = parsed.events || [];
+    } catch (parseError) {
+      console.error('Failed to parse reminders:', content);
+      events = [];
+    }
+
+    console.log('Extract reminders response:', { eventsCount: events.length });
+
+    return jsonResponse({
+      success: true,
+      data: { events }
+    });
+
+  } catch (err) {
+    console.error('Extract reminders proxy error:', err);
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return errorResponse(`Extraction error: ${message}`, 500);
   }
 }
 

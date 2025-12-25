@@ -173,27 +173,27 @@ namespace TalkKeys
                 Background = new SolidColorBrush(bgColor),
                 BorderBrush = new SolidColorBrush(borderColor),
                 BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(12),
-                Padding = new Thickness(16),
-                Margin = new Thickness(6, 0, 6, 0),
-                Width = 230
+                CornerRadius = new CornerRadius(10),
+                Padding = new Thickness(12),
+                Margin = new Thickness(5, 0, 5, 0),
+                Width = 200
             };
 
             var stack = new StackPanel();
 
             // Icon and title row
-            var headerStack = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 8) };
+            var headerStack = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
             headerStack.Children.Add(new TextBlock
             {
                 Text = hero.Icon,
-                FontSize = 20,
+                FontSize = 16,
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 8, 0)
+                Margin = new Thickness(0, 0, 6, 0)
             });
             headerStack.Children.Add(new TextBlock
             {
                 Text = hero.Title,
-                FontSize = 14,
+                FontSize = 13,
                 FontWeight = FontWeights.SemiBold,
                 Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hero.Color)),
                 VerticalAlignment = VerticalAlignment.Center
@@ -204,10 +204,10 @@ namespace TalkKeys
             stack.Children.Add(new TextBlock
             {
                 Text = hero.Description,
-                FontSize = 12,
+                FontSize = 11,
                 Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#6B7280")),
                 TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(0, 0, 0, 10)
+                Margin = new Thickness(0, 0, 0, 8)
             });
 
             // Badge if present
@@ -217,13 +217,13 @@ namespace TalkKeys
                 {
                     Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hero.Color)),
                     CornerRadius = new CornerRadius(4),
-                    Padding = new Thickness(8, 4, 8, 4),
+                    Padding = new Thickness(6, 3, 6, 3),
                     HorizontalAlignment = HorizontalAlignment.Left
                 };
                 badgeBorder.Child = new TextBlock
                 {
                     Text = hero.Badge,
-                    FontSize = 11,
+                    FontSize = 10,
                     FontWeight = FontWeights.Medium,
                     Foreground = Brushes.White
                 };
@@ -239,7 +239,7 @@ namespace TalkKeys
             var container = new Border
             {
                 Width = _slideWidth,
-                Padding = new Thickness(20, 0, 20, 0)
+                Padding = new Thickness(16, 0, 16, 0)
             };
 
             var stack = new StackPanel
@@ -250,17 +250,17 @@ namespace TalkKeys
             // Icon
             var iconBorder = new Border
             {
-                Width = 72,
-                Height = 72,
-                CornerRadius = new CornerRadius(36),
+                Width = 56,
+                Height = 56,
+                CornerRadius = new CornerRadius(28),
                 Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(slide.IconBackground)),
                 HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(0, 0, 0, 20)
+                Margin = new Thickness(0, 0, 0, 14)
             };
             var iconText = new TextBlock
             {
                 Text = slide.Icon,
-                FontSize = 32,
+                FontSize = 26,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -271,11 +271,11 @@ namespace TalkKeys
             var title = new TextBlock
             {
                 Text = slide.Title,
-                FontSize = 22,
+                FontSize = 18,
                 FontWeight = FontWeights.Bold,
                 Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#1F2937")),
                 HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(0, 0, 0, 10)
+                Margin = new Thickness(0, 0, 0, 8)
             };
             stack.Children.Add(title);
 
@@ -283,12 +283,12 @@ namespace TalkKeys
             var desc = new TextBlock
             {
                 Text = slide.Description,
-                FontSize = 14,
+                FontSize = 12,
                 Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#6B7280")),
                 TextWrapping = TextWrapping.Wrap,
                 TextAlignment = TextAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Center,
-                MaxWidth = 340
+                MaxWidth = 320
             };
             stack.Children.Add(desc);
 
@@ -298,9 +298,9 @@ namespace TalkKeys
                 var badgeContainer = new Border
                 {
                     Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F9FAFB")),
-                    CornerRadius = new CornerRadius(8),
-                    Padding = new Thickness(14, 10, 14, 10),
-                    Margin = new Thickness(0, 20, 0, 0),
+                    CornerRadius = new CornerRadius(6),
+                    Padding = new Thickness(10, 8, 10, 8),
+                    Margin = new Thickness(0, 14, 0, 0),
                     HorizontalAlignment = HorizontalAlignment.Center
                 };
 
@@ -308,7 +308,7 @@ namespace TalkKeys
                 badgeStack.Children.Add(new TextBlock
                 {
                     Text = slide.Badge.Label,
-                    FontSize = 12,
+                    FontSize = 11,
                     Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#6B7280")),
                     VerticalAlignment = VerticalAlignment.Center
                 });
@@ -316,14 +316,14 @@ namespace TalkKeys
                 var valueBorder = new Border
                 {
                     Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(slide.Badge.BackgroundColor)),
-                    CornerRadius = new CornerRadius(5),
-                    Padding = new Thickness(8, 3, 8, 3),
-                    Margin = new Thickness(8, 0, 0, 0)
+                    CornerRadius = new CornerRadius(4),
+                    Padding = new Thickness(6, 2, 6, 2),
+                    Margin = new Thickness(6, 0, 0, 0)
                 };
                 valueBorder.Child = new TextBlock
                 {
                     Text = slide.Badge.Value,
-                    FontSize = 11,
+                    FontSize = 10,
                     Foreground = Brushes.White,
                     FontWeight = FontWeights.Medium
                 };
@@ -339,9 +339,9 @@ namespace TalkKeys
                 var highlightBorder = new Border
                 {
                     Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(slide.IconBackground)),
-                    CornerRadius = new CornerRadius(8),
-                    Padding = new Thickness(14),
-                    Margin = new Thickness(0, 20, 0, 0),
+                    CornerRadius = new CornerRadius(6),
+                    Padding = new Thickness(12, 10, 12, 10),
+                    Margin = new Thickness(0, 14, 0, 0),
                     HorizontalAlignment = HorizontalAlignment.Center
                 };
 
@@ -351,9 +351,9 @@ namespace TalkKeys
                     highlightStack.Children.Add(new TextBlock
                     {
                         Text = $"\u2713 {highlight.Text}",
-                        FontSize = 12,
+                        FontSize = 11,
                         Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(highlight.Color)),
-                        Margin = new Thickness(0, 2, 0, 2)
+                        Margin = new Thickness(0, 1, 0, 1)
                     });
                 }
 
@@ -368,7 +368,7 @@ namespace TalkKeys
                 {
                     Orientation = Orientation.Horizontal,
                     HorizontalAlignment = HorizontalAlignment.Center,
-                    Margin = new Thickness(0, 28, 0, 0)
+                    Margin = new Thickness(0, 18, 0, 0)
                 };
 
                 var getStartedButton = new Button

@@ -9,6 +9,7 @@ using TalkKeys.Logging;
 using TalkKeys.PluginSdk;
 using TalkKeys.Services.Audio;
 using TalkKeys.Services.Clipboard;
+using TalkKeys.Services.Auth;
 using TalkKeys.Services.Hotkey;
 using TalkKeys.Services.Notifications;
 using TalkKeys.Services.Pipeline;
@@ -27,6 +28,11 @@ namespace TalkKeys
         private readonly IActiveWindowContextService _contextService;
         private readonly SettingsService _settingsService;
         private readonly IClipboardPasteService _clipboard;
+        private readonly TalkKeysApiService _talkKeysApiService;
+
+        private ClassificationResult? _lastClassification;
+        private WindowContext? _lastWindowContext;
+        private string? _lastTranscribedText;
         
         private bool _isExpanded = false;
         private string? _currentRecordingPath;
@@ -65,6 +71,7 @@ namespace TalkKeys
             _contextService = contextService ?? throw new ArgumentNullException(nameof(contextService));
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             _clipboard = clipboard ?? throw new ArgumentNullException(nameof(clipboard));
+            _talkKeysApiService = new TalkKeysApiService(_settingsService, _logger);
 
             // Subscribe to audio events
             _audio.RecordingStarted += OnRecordingStarted;
@@ -102,6 +109,30 @@ namespace TalkKeys
             UpdateHotkeyHints();
 
             _logger.Log("FloatingWidget initialized");
+        }
+
+        private bool IsPostPasteSuggestionsEnabled()
+        {
+            try
+            {
+                var settings = _settingsService.LoadSettings();
+                if (!settings.ExperimentalFeaturesEnabled || !settings.PostPasteSuggestionsEnabled)
+                {
+                    return false;
+                }
+
+                // Classification/rewrite uses the TalkKeys backend which requires TalkKeysAccount auth.
+                if (settings.AuthMode != AuthMode.TalkKeysAccount)
+                {
+                    return false;
+                }
+
+                return !string.IsNullOrWhiteSpace(settings.TalkKeysAccessToken);
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         /// <summary>
@@ -459,6 +490,13 @@ namespace TalkKeys
             _logger.Log($"Showing text view. IsExpanded={_isExpanded}");
             _isToastVisible = true;
 
+            _lastTranscribedText = text;
+            _lastClassification = null;
+            _lastWindowContext = null;
+            SuggestionsButton.Visibility = Visibility.Collapsed;
+            SuggestionHintText.Text = string.Empty;
+            SuggestionHintText.Visibility = Visibility.Collapsed;
+
             // Set transcribed text
             TranscribedText.Text = text;
 
@@ -566,6 +604,13 @@ namespace TalkKeys
             CopyButton.Content = "📋 Copy";
             CopyButton.Foreground = new System.Windows.Media.SolidColorBrush(
                 System.Windows.Media.Color.FromRgb(156, 163, 175)); // Reset to gray #9CA3AF
+
+            SuggestionsButton.Visibility = Visibility.Collapsed;
+            SuggestionHintText.Text = string.Empty;
+            SuggestionHintText.Visibility = Visibility.Collapsed;
+            _lastClassification = null;
+            _lastWindowContext = null;
+            _lastTranscribedText = null;
 
             // Show compact panel
             CompactPanel.Visibility = Visibility.Visible;
@@ -937,6 +982,84 @@ namespace TalkKeys
             }
         }
 
+        private void SuggestionsButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_lastTranscribedText == null)
+                {
+                    return;
+                }
+
+                var suggestedType = _lastClassification?.Type;
+                var suggestedTargets = _lastClassification?.SuggestedTargets;
+
+                var window = new RewriteWindow(
+                    _settingsService,
+                    _logger,
+                    _lastTranscribedText,
+                    _lastWindowContext,
+                    suggestedType,
+                    suggestedTargets);
+                window.Show();
+            }
+            catch (Exception ex)
+            {
+                _logger.Log($"Failed to open rewrite window: {ex.Message}");
+            }
+        }
+
+        private async System.Threading.Tasks.Task TryClassifyAsync(string text, WindowContext? windowContext)
+        {
+            try
+            {
+                if (!IsPostPasteSuggestionsEnabled())
+                {
+                    return;
+                }
+
+                _lastWindowContext = windowContext;
+
+                var result = await _talkKeysApiService.ClassifyTextAsync(text, windowContext);
+                if (!result.Success)
+                {
+                    _logger.Log($"[Suggestions] Classification failed: {result.Error}");
+                    return;
+                }
+
+                _lastClassification = result;
+
+                var hasTargets = result.SuggestedTargets != null && result.SuggestedTargets.Count > 0;
+                if (result.Confidence >= 0.65 && hasTargets)
+                {
+                    await Dispatcher.InvokeAsync(() =>
+                    {
+                        if (_isToastVisible)
+                        {
+                            var typeText = string.IsNullOrWhiteSpace(result.Type)
+                                ? "other"
+                                : result.Type.Trim();
+
+                            if (!string.IsNullOrWhiteSpace(typeText))
+                            {
+                                typeText = char.ToUpperInvariant(typeText[0]) + typeText.Substring(1);
+                            }
+
+                            SuggestionHintText.Text = $"Looks like: {typeText}";
+                            SuggestionHintText.Visibility = Visibility.Visible;
+                            SuggestionsButton.Visibility = Visibility.Visible;
+                            _collapseSecondsRemaining = Math.Max(_collapseSecondsRemaining, 10);
+                            AutoCollapseText.Text = $"{_collapseSecondsRemaining}s";
+                        }
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Log($"[Suggestions] Classification error: {ex.Message}");
+            }
+        }
+
         private async System.Threading.Tasks.Task TranscribeAndPaste()
         {
             if (string.IsNullOrEmpty(_currentRecordingPath) || !File.Exists(_currentRecordingPath))
@@ -1021,6 +1144,9 @@ namespace TalkKeys
 
                 // Show text view with transcribed text (user can copy if paste didn't work)
                 ShowTextView(result.Text);
+
+                // Fire-and-forget classification for post-paste suggestions
+                _ = TryClassifyAsync(result.Text, windowContext);
             }
             catch (Exception ex)
             {
@@ -1144,6 +1270,7 @@ namespace TalkKeys
         {
             // Unsubscribe from events
             SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
+            _talkKeysApiService.Dispose();
             base.OnClosing(e);
         }
     }

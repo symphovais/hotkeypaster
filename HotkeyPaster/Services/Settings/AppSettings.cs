@@ -107,6 +107,10 @@ namespace TalkKeys.Services.Settings
 
         // Transcription history limit (stored in separate history.json file)
         public int TranscriptionHistoryLimit { get; set; } = 20;
+
+        // Experimental Features
+        public bool ExperimentalFeaturesEnabled { get; set; } = false;
+        public bool PostPasteSuggestionsEnabled { get; set; } = false;
     }
 
     /// <summary>

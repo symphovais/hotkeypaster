@@ -1,6 +1,5 @@
 using System;
 using System.Diagnostics;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Input;
@@ -10,20 +9,14 @@ using System.Windows.Threading;
 namespace TalkKeys.Plugins.Explainer
 {
     /// <summary>
-    /// Small popup window that displays explanation text near the cursor.
+    /// Popup window that displays insights (WTF, Plain) in a unified vertical layout.
     /// </summary>
     public partial class ExplainerPopup : Window
     {
         private DispatcherTimer? _dismissTimer;
         private int _remainingSeconds;
         private Action<string>? _logAction;
-
-        // Toggle state
-        private string? _wtfText;
-        private string? _plainText;
-        private bool _showingWtf = true;
-        private bool _isFetchingPlain;
-        private Func<Task<string?>>? _fetchPlainCallback;
+        private int _autoDismissSeconds = 20;
 
         public ExplainerPopup(Action<string>? logAction = null)
         {
@@ -40,170 +33,63 @@ namespace TalkKeys.Plugins.Explainer
             Debug.WriteLine($"[ExplainerPopup] {message}");
         }
 
-        private int _autoDismissSeconds = 8;
-        private bool _isLoading;
-
         /// <summary>
-        /// Sets the content of the popup without showing it.
+        /// Shows loading state while fetching all content.
         /// </summary>
-        public void SetContent(string message, bool isLoading = false, bool isError = false, int autoDismissSeconds = 8)
+        public void ShowLoading()
         {
-            Log($"SetContent called: isLoading={isLoading}, isError={isError}, msgLen={message.Length}");
-
-            // Stop any existing timer
+            Log("ShowLoading called");
             _dismissTimer?.Stop();
-            _autoDismissSeconds = autoDismissSeconds;
-            _isLoading = isLoading;
 
-            if (isLoading)
-            {
-                LoadingPanel.Visibility = Visibility.Visible;
-                ContentPanel.Visibility = Visibility.Collapsed;
-                ErrorBorder.Visibility = Visibility.Collapsed;
-                Log("Set to loading state");
-            }
-            else if (isError)
-            {
-                LoadingPanel.Visibility = Visibility.Collapsed;
-                ContentPanel.Visibility = Visibility.Collapsed;
-                ErrorBorder.Visibility = Visibility.Visible;
-                ErrorText.Text = message;
-                _autoDismissSeconds = 4; // Shorter dismiss for errors
-                Log($"Set to error state: {message}");
-            }
-            else
-            {
-                LoadingPanel.Visibility = Visibility.Collapsed;
-                ContentPanel.Visibility = Visibility.Visible;
-                ErrorBorder.Visibility = Visibility.Collapsed;
-                MessageText.Text = message;
-                Log($"Set to content state, message length: {message.Length}");
-            }
+            LoadingPanel.Visibility = Visibility.Visible;
+            ContentPanel.Visibility = Visibility.Collapsed;
+            ErrorBorder.Visibility = Visibility.Collapsed;
         }
 
         /// <summary>
-        /// Sets the content with toggle support. Shows WTF text initially with option to fetch plain.
+        /// Sets all content at once - WTF and Plain.
         /// </summary>
-        public void SetContentWithToggle(string wtfText, Func<Task<string?>> fetchPlainCallback, int autoDismissSeconds = 8)
+        public void SetAllContent(
+            string wtfText,
+            string plainText,
+            int autoDismissSeconds = 20)
         {
-            Log($"SetContentWithToggle called: wtfLen={wtfText.Length}");
+            Log($"SetAllContent called: wtf={wtfText.Length}chars, plain={plainText.Length}chars");
 
-            // Stop any existing timer
             _dismissTimer?.Stop();
             _autoDismissSeconds = autoDismissSeconds;
-            _isLoading = false;
 
-            // Store toggle state
-            _wtfText = wtfText;
-            _plainText = null; // Will be fetched on demand
-            _showingWtf = true;
-            _isFetchingPlain = false;
-            _fetchPlainCallback = fetchPlainCallback;
-
-            // Show content
+            // Hide loading, show content
             LoadingPanel.Visibility = Visibility.Collapsed;
             ContentPanel.Visibility = Visibility.Visible;
             ErrorBorder.Visibility = Visibility.Collapsed;
-            MessageText.Text = wtfText;
 
-            // Set initial mode indicator
-            ModeIcon.Text = "🔥";
-            ModeLabel.Text = "WTF";
-            FlipHintText.Text = "tap to see plain →";
-            FlipHint.Visibility = Visibility.Visible;
+            // Set WTF text
+            WtfText.Text = wtfText;
 
-            Log($"Content set with toggle support");
+            // Set Plain text
+            PlainText.Text = plainText;
+
+            // Start dismiss timer if popup is visible
+            if (IsVisible)
+            {
+                StartDismissTimer(_autoDismissSeconds);
+            }
         }
 
-        private void Content_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        /// <summary>
+        /// Shows an error message.
+        /// </summary>
+        public void ShowError(string message)
         {
-            // Don't flip if clicking close button or if already flipping
-            if (_isFetchingPlain) return;
+            Log($"ShowError: {message}");
+            _dismissTimer?.Stop();
+            _autoDismissSeconds = 5;
 
-            e.Handled = true;
-            _ = FlipToOtherView();
-        }
-
-        private async Task FlipToOtherView()
-        {
-            if (_isFetchingPlain) return;
-
-            Log($"Flip requested. Currently showing: {(_showingWtf ? "WTF" : "Plain")}");
-
-            // If switching to plain and we don't have it yet, fetch it first
-            if (_showingWtf && _plainText == null && _fetchPlainCallback != null)
-            {
-                _isFetchingPlain = true;
-                FlipHintText.Text = "loading...";
-                Log("Fetching plain translation...");
-
-                try
-                {
-                    _plainText = await _fetchPlainCallback();
-                    Log($"Got plain translation: {_plainText?.Length ?? 0} chars");
-                }
-                catch (Exception ex)
-                {
-                    Log($"Error fetching plain: {ex.Message}");
-                    _plainText = "(Could not load plain version)";
-                }
-                finally
-                {
-                    _isFetchingPlain = false;
-                }
-            }
-
-            // Animate flip out
-            var flipOut = (Storyboard)Resources["FlipOut"];
-            var tcs = new TaskCompletionSource<bool>();
-            EventHandler? handler = null;
-            handler = (s, e) =>
-            {
-                flipOut.Completed -= handler;
-                tcs.SetResult(true);
-            };
-            flipOut.Completed += handler;
-            flipOut.Begin(this);
-            await tcs.Task;
-
-            // Change content at the midpoint (when card is edge-on)
-            if (_showingWtf)
-            {
-                // Switch to plain
-                if (_plainText != null)
-                {
-                    MessageText.Text = _plainText;
-                    ModeIcon.Text = "📋";
-                    ModeLabel.Text = "Plain";
-                    FlipHintText.Text = "← tap for WTF";
-                    _showingWtf = false;
-                    Log("Switched to plain view");
-                }
-            }
-            else
-            {
-                // Switch to WTF
-                if (_wtfText != null)
-                {
-                    MessageText.Text = _wtfText;
-                    ModeIcon.Text = "🔥";
-                    ModeLabel.Text = "WTF";
-                    FlipHintText.Text = "tap to see plain →";
-                    _showingWtf = true;
-                    Log("Switched to WTF view");
-                }
-            }
-
-            // Animate flip in
-            var flipIn = (Storyboard)Resources["FlipIn"];
-            flipIn.Begin(this);
-
-            // Reset countdown on flip
-            if (_dismissTimer != null && _remainingSeconds > 0)
-            {
-                _remainingSeconds = _autoDismissSeconds;
-                UpdateCountdown();
-            }
+            LoadingPanel.Visibility = Visibility.Collapsed;
+            ContentPanel.Visibility = Visibility.Collapsed;
+            ErrorBorder.Visibility = Visibility.Visible;
+            ErrorText.Text = message;
         }
 
         /// <summary>
@@ -224,8 +110,8 @@ namespace TalkKeys.Plugins.Explainer
             fadeIn.Begin(this);
             Log("FadeIn animation started");
 
-            // Start auto-dismiss countdown
-            if (!_isLoading)
+            // Start auto-dismiss countdown (unless still loading)
+            if (LoadingPanel.Visibility != Visibility.Visible)
             {
                 StartDismissTimer(_autoDismissSeconds);
                 Log($"Dismiss timer started: {_autoDismissSeconds}s");
@@ -233,17 +119,7 @@ namespace TalkKeys.Plugins.Explainer
         }
 
         /// <summary>
-        /// Legacy method: Show the popup with a message at the specified cursor position.
-        /// </summary>
-        public void ShowMessage(string message, Point cursorPos, bool isLoading = false, bool isError = false, int autoDismissSeconds = 8)
-        {
-            SetContent(message, isLoading, isError, autoDismissSeconds);
-            PositionNearCursor(cursorPos);
-            ShowWithAnimation();
-        }
-
-        /// <summary>
-        /// Positions the popup near the cursor (fallback if no WindowPositionService).
+        /// Positions the popup near the cursor.
         /// </summary>
         public void PositionNearCursor(Point cursorPos)
         {
@@ -274,34 +150,29 @@ namespace TalkKeys.Plugins.Explainer
             Log($"WorkArea (WPF units): {workArea}");
 
             // Ensure window fits on screen
-            // Need to update layout first to get actual size
             UpdateLayout();
             Log($"Window size after UpdateLayout: {ActualWidth}x{ActualHeight}");
 
             if (x + ActualWidth > workArea.Right)
             {
-                var oldX = x;
                 x = workArea.Right - ActualWidth - 10;
-                Log($"Adjusted X from {oldX} to {x} (was beyond right edge)");
+                Log($"Adjusted X to {x} (was beyond right edge)");
             }
             if (x < workArea.Left)
             {
-                var oldX = x;
                 x = workArea.Left + 10;
-                Log($"Adjusted X from {oldX} to {x} (was beyond left edge)");
+                Log($"Adjusted X to {x} (was beyond left edge)");
             }
 
             if (y + ActualHeight > workArea.Bottom)
             {
-                var oldY = y;
                 y = cursorPos.Y / dpiScale - ActualHeight - 15; // Show above cursor
-                Log($"Adjusted Y from {oldY} to {y} (was beyond bottom edge)");
+                Log($"Adjusted Y to {y} (was beyond bottom edge)");
             }
             if (y < workArea.Top)
             {
-                var oldY = y;
                 y = workArea.Top + 10;
-                Log($"Adjusted Y from {oldY} to {y} (was beyond top edge)");
+                Log($"Adjusted Y to {y} (was beyond top edge)");
             }
 
             Left = x;
@@ -317,7 +188,6 @@ namespace TalkKeys.Plugins.Explainer
                 return source.CompositionTarget.TransformToDevice.M11;
             }
 
-            // Fallback: try to get from window handle
             try
             {
                 var helper = new System.Windows.Interop.WindowInteropHelper(this);
@@ -334,6 +204,7 @@ namespace TalkKeys.Plugins.Explainer
 
         private void StartDismissTimer(int seconds)
         {
+            _dismissTimer?.Stop();
             _remainingSeconds = seconds;
             UpdateCountdown();
 
@@ -368,8 +239,13 @@ namespace TalkKeys.Plugins.Explainer
 
         private void Window_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            // Only dismiss on right-click, left-click is for flipping
-            if (e.ChangedButton == MouseButton.Right)
+            // Left-click to drag the window
+            if (e.ChangedButton == MouseButton.Left)
+            {
+                DragMove();
+            }
+            // Right-click or middle-click to dismiss
+            else if (e.ChangedButton == MouseButton.Right || e.ChangedButton == MouseButton.Middle)
             {
                 _dismissTimer?.Stop();
                 CloseWithFade();

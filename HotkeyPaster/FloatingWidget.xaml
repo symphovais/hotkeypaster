@@ -389,37 +389,80 @@
                 </Border>
 
                 <!-- Copy Button - Subtle text link style -->
-                <Button x:Name="CopyButton"
-                        Grid.Row="2"
-                        Content="📋 Copy"
-                        Click="CopyButton_Click"
-                        Background="Transparent"
-                        Foreground="#9CA3AF"
-                        BorderThickness="0"
-                        Height="24"
-                        HorizontalAlignment="Left"
-                        Cursor="Hand"
-                        FontSize="11">
-                    <Button.Style>
-                        <Style TargetType="Button">
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border x:Name="bg" Background="{TemplateBinding Background}" CornerRadius="4" Padding="6,2">
-                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="bg" Property="Background" Value="#374151"/>
-                                                <Setter Property="Foreground" Value="#FFFFFF"/>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </Style>
-                    </Button.Style>
-                </Button>
+                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Left">
+                    <Button x:Name="CopyButton"
+                            Content="📋 Copy"
+                            Click="CopyButton_Click"
+                            Background="Transparent"
+                            Foreground="#9CA3AF"
+                            BorderThickness="0"
+                            Height="24"
+                            Cursor="Hand"
+                            FontSize="11">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="bg" Background="{TemplateBinding Background}" CornerRadius="4" Padding="6,2">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="bg" Property="Background" Value="#374151"/>
+                                                    <Setter Property="Foreground" Value="#FFFFFF"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+
+                    <TextBlock x:Name="SuggestionHintText"
+                               Text=""
+                               Foreground="#9CA3AF"
+                               FontSize="11"
+                               Margin="8,0,0,0"
+                               VerticalAlignment="Center"
+                               MaxWidth="140"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"
+                               Visibility="Collapsed"/>
+
+                    <Button x:Name="SuggestionsButton"
+                            Content="✍ Rewrite…"
+                            Click="SuggestionsButton_Click"
+                            Background="Transparent"
+                            Foreground="#9CA3AF"
+                            BorderThickness="0"
+                            Height="24"
+                            Cursor="Hand"
+                            FontSize="11"
+                            Margin="8,0,0,0"
+                            Visibility="Collapsed">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="bg" Background="{TemplateBinding Background}" CornerRadius="4" Padding="6,2">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="bg" Property="Background" Value="#374151"/>
+                                                    <Setter Property="Foreground" Value="#FFFFFF"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </StackPanel>
             </Grid>
         </Border>
 

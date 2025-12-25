@@ -12,6 +12,7 @@ using Polly;
 using TalkKeys.Logging;
 using TalkKeys.Services.Resilience;
 using TalkKeys.Services.Settings;
+using TalkKeys.Services.Windowing;
 
 namespace TalkKeys.Services.Auth
 {
@@ -56,6 +57,23 @@ namespace TalkKeys.Services.Auth
         public string? Error { get; set; }
     }
 
+    public class ClassificationResult
+    {
+        public bool Success { get; set; }
+        public string? Type { get; set; }
+        public double Confidence { get; set; }
+        public List<string> SuggestedTargets { get; set; } = new();
+        public string? Reason { get; set; }
+        public string? Error { get; set; }
+    }
+
+    public class RewriteResult
+    {
+        public bool Success { get; set; }
+        public string? RewrittenText { get; set; }
+        public string? Error { get; set; }
+    }
+
     /// <summary>
     /// Words analysis result from the API
     /// </summary>
@@ -73,6 +91,31 @@ namespace TalkKeys.Services.Auth
     {
         public string Raw { get; set; } = string.Empty;
         public string Cleaned { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Calendar event extracted from text
+    /// </summary>
+    public class CalendarEvent
+    {
+        public string Title { get; set; } = string.Empty;
+        public DateTime Start { get; set; }
+        public DateTime? End { get; set; }
+        public int DurationMinutes { get; set; } = 60;
+        public string? Location { get; set; }
+        public string? Description { get; set; }
+        public List<string>? Attendees { get; set; }
+        public bool AllDay { get; set; }
+    }
+
+    /// <summary>
+    /// Reminders extraction result from the API
+    /// </summary>
+    public class RemindersResult
+    {
+        public bool Success { get; set; }
+        public List<CalendarEvent> Events { get; set; } = new();
+        public string? Error { get; set; }
     }
 
     /// <summary>
@@ -115,6 +158,188 @@ namespace TalkKeys.Services.Auth
             if (!string.IsNullOrEmpty(token))
             {
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
+        }
+
+        public async Task<ClassificationResult> ClassifyTextAsync(
+            string text,
+            WindowContext? windowContext = null,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                _logger?.Log("[API] Sending classification request...");
+
+                var response = await HttpResilience.ExecuteWithRetryAsync(
+                    async ct =>
+                    {
+                        object requestBody;
+                        if (windowContext != null && windowContext.IsValid)
+                        {
+                            requestBody = new
+                            {
+                                text,
+                                window = new
+                                {
+                                    processName = windowContext.ProcessName,
+                                    windowTitle = windowContext.WindowTitle
+                                }
+                            };
+                        }
+                        else
+                        {
+                            requestBody = new { text };
+                        }
+
+                        var json = JsonSerializer.Serialize(requestBody);
+                        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                        var request = new HttpRequestMessage(HttpMethod.Post, "/api/classify")
+                        {
+                            Content = content
+                        };
+                        SetAuthHeader(request);
+
+                        return await _httpClient.SendAsync(request, ct);
+                    },
+                    _logger,
+                    cancellationToken);
+
+                var responseJson = await response.Content.ReadAsStringAsync();
+                _logger?.Log($"[API] Classify response: {response.StatusCode}");
+
+                using var doc = JsonDocument.Parse(responseJson);
+                var root = doc.RootElement;
+
+                var success = root.TryGetProperty("success", out var successProp) && successProp.GetBoolean();
+                if (!success)
+                {
+                    var error = root.TryGetProperty("error", out var errorProp) ? errorProp.GetString() : "Unknown error";
+                    return new ClassificationResult { Success = false, Error = error };
+                }
+
+                if (!root.TryGetProperty("data", out var data))
+                {
+                    return new ClassificationResult { Success = false, Error = "No data returned" };
+                }
+
+                var type = data.TryGetProperty("type", out var typeProp) ? typeProp.GetString() : null;
+                var confidence = data.TryGetProperty("confidence", out var confProp) && confProp.ValueKind == JsonValueKind.Number
+                    ? confProp.GetDouble()
+                    : 0.0;
+
+                var suggestedTargets = new List<string>();
+                if (data.TryGetProperty("suggestedTargets", out var targetsProp) && targetsProp.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var item in targetsProp.EnumerateArray())
+                    {
+                        var t = item.GetString();
+                        if (!string.IsNullOrEmpty(t))
+                        {
+                            suggestedTargets.Add(t);
+                        }
+                    }
+                }
+
+                var reason = data.TryGetProperty("reason", out var reasonProp) ? reasonProp.GetString() : null;
+
+                return new ClassificationResult
+                {
+                    Success = true,
+                    Type = type,
+                    Confidence = confidence,
+                    SuggestedTargets = suggestedTargets,
+                    Reason = reason
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger?.Log($"[API] Classify error: {ex.Message}");
+                return new ClassificationResult { Success = false, Error = ex.Message };
+            }
+        }
+
+        public async Task<RewriteResult> RewriteTextAsync(
+            string text,
+            string target,
+            string tone,
+            string? customInstruction = null,
+            WindowContext? windowContext = null,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                _logger?.Log("[API] Sending rewrite request...");
+
+                var response = await HttpResilience.ExecuteWithRetryAsync(
+                    async ct =>
+                    {
+                        object requestBody;
+                        if (windowContext != null && windowContext.IsValid)
+                        {
+                            requestBody = new
+                            {
+                                text,
+                                target,
+                                tone,
+                                customInstruction,
+                                window = new
+                                {
+                                    processName = windowContext.ProcessName,
+                                    windowTitle = windowContext.WindowTitle
+                                }
+                            };
+                        }
+                        else
+                        {
+                            requestBody = new
+                            {
+                                text,
+                                target,
+                                tone,
+                                customInstruction
+                            };
+                        }
+
+                        var json = JsonSerializer.Serialize(requestBody);
+                        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                        var request = new HttpRequestMessage(HttpMethod.Post, "/api/rewrite")
+                        {
+                            Content = content
+                        };
+                        SetAuthHeader(request);
+
+                        return await _httpClient.SendAsync(request, ct);
+                    },
+                    _logger,
+                    cancellationToken);
+
+                var responseJson = await response.Content.ReadAsStringAsync();
+                _logger?.Log($"[API] Rewrite response: {response.StatusCode}");
+
+                using var doc = JsonDocument.Parse(responseJson);
+                var root = doc.RootElement;
+
+                var success = root.TryGetProperty("success", out var successProp) && successProp.GetBoolean();
+                if (!success)
+                {
+                    var error = root.TryGetProperty("error", out var errorProp) ? errorProp.GetString() : "Unknown error";
+                    return new RewriteResult { Success = false, Error = error };
+                }
+
+                if (root.TryGetProperty("data", out var data))
+                {
+                    var rewrittenText = data.TryGetProperty("rewritten_text", out var textProp) ? textProp.GetString() : null;
+                    return new RewriteResult { Success = true, RewrittenText = rewrittenText };
+                }
+
+                return new RewriteResult { Success = false, Error = "No data returned" };
+            }
+            catch (Exception ex)
+            {
+                _logger?.Log($"[API] Rewrite error: {ex.Message}");
+                return new RewriteResult { Success = false, Error = ex.Message };
             }
         }
 
@@ -435,6 +660,103 @@ namespace TalkKeys.Services.Auth
             {
                 _logger?.Log($"[API] Analyze words error: {ex.Message}");
                 return new WordsAnalysisApiResult { Success = false, Error = ex.Message };
+            }
+        }
+
+        /// <summary>
+        /// Extract calendar events/reminders from text.
+        /// Uses Polly resilience pipeline with retry and exponential backoff.
+        /// </summary>
+        public async Task<RemindersResult> ExtractRemindersAsync(
+            string text,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                _logger?.Log("[API] Sending reminders extraction request...");
+
+                var response = await HttpResilience.ExecuteWithRetryAsync(
+                    async ct =>
+                    {
+                        var requestBody = new { text = text };
+                        var json = JsonSerializer.Serialize(requestBody);
+                        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                        var request = new HttpRequestMessage(HttpMethod.Post, "/api/extract-reminders")
+                        {
+                            Content = content
+                        };
+                        SetAuthHeader(request);
+
+                        return await _httpClient.SendAsync(request, ct);
+                    },
+                    _logger,
+                    cancellationToken);
+
+                var responseJson = await response.Content.ReadAsStringAsync();
+
+                _logger?.Log($"[API] Extract reminders response: {response.StatusCode}");
+
+                using var doc = JsonDocument.Parse(responseJson);
+                var root = doc.RootElement;
+
+                var success = root.TryGetProperty("success", out var successProp) && successProp.GetBoolean();
+
+                if (success && root.TryGetProperty("data", out var data))
+                {
+                    var events = new List<CalendarEvent>();
+                    if (data.TryGetProperty("events", out var eventsArray))
+                    {
+                        foreach (var item in eventsArray.EnumerateArray())
+                        {
+                            var evt = new CalendarEvent
+                            {
+                                Title = item.TryGetProperty("title", out var titleProp) ? titleProp.GetString() ?? "" : "",
+                                DurationMinutes = item.TryGetProperty("duration", out var durProp) ? durProp.GetInt32() : 60,
+                                Location = item.TryGetProperty("location", out var locProp) ? locProp.GetString() : null,
+                                Description = item.TryGetProperty("description", out var descProp) ? descProp.GetString() : null,
+                                AllDay = item.TryGetProperty("allDay", out var allDayProp) && allDayProp.GetBoolean()
+                            };
+
+                            // Parse start datetime
+                            if (item.TryGetProperty("start", out var startProp))
+                            {
+                                var startStr = startProp.GetString();
+                                if (!string.IsNullOrEmpty(startStr) && DateTime.TryParse(startStr, out var startDt))
+                                {
+                                    evt.Start = startDt;
+                                }
+                            }
+
+                            // Parse attendees
+                            if (item.TryGetProperty("attendees", out var attendeesProp))
+                            {
+                                evt.Attendees = new List<string>();
+                                foreach (var attendee in attendeesProp.EnumerateArray())
+                                {
+                                    var name = attendee.GetString();
+                                    if (!string.IsNullOrEmpty(name))
+                                    {
+                                        evt.Attendees.Add(name);
+                                    }
+                                }
+                            }
+
+                            events.Add(evt);
+                        }
+                    }
+                    return new RemindersResult { Success = true, Events = events };
+                }
+                else
+                {
+                    var error = root.TryGetProperty("error", out var errorProp) ? errorProp.GetString() : "Unknown error";
+                    return new RemindersResult { Success = false, Error = error };
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Log($"[API] Extract reminders error: {ex.Message}");
+                return new RemindersResult { Success = false, Error = ex.Message };
             }
         }
 

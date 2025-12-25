@@ -327,11 +327,12 @@
                                 SnapsToDevicePixels="True"
                                 MinWidth="{TemplateBinding ActualWidth}"
                                 MaxHeight="{TemplateBinding MaxDropDownHeight}">
-                                <Border Background="White"
+                                <Border Background="{StaticResource BackgroundSecondary}"
                                       BorderThickness="1"
                                       BorderBrush="{StaticResource BorderDefault}"
                                       CornerRadius="{StaticResource CornerRadiusSmall}"
-                                      Effect="{StaticResource ShadowElevation2}">
+                                      Effect="{StaticResource ShadowElevation2}"
+                                      TextElement.Foreground="{StaticResource TextPrimary}">
                                     <ScrollViewer Margin="0" SnapsToDevicePixels="True">
                                         <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
                                     </ScrollViewer>
@@ -350,25 +351,20 @@
                         <Setter.Value>
                             <ControlTemplate TargetType="ComboBoxItem">
                                 <Border x:Name="Border"
-                                      Background="White"
+                                      Background="{StaticResource BackgroundSecondary}"
                                       BorderThickness="0"
-                                      Padding="{TemplateBinding Padding}">
-                                    <ContentPresenter>
-                                        <ContentPresenter.Resources>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Foreground" Value="#1A1A1A"/>
-                                            </Style>
-                                        </ContentPresenter.Resources>
-                                    </ContentPresenter>
+                                      Padding="{TemplateBinding Padding}"
+                                      TextElement.Foreground="{StaticResource TextPrimary}">
+                                    <ContentPresenter/>
                                 </Border>
                                 <ControlTemplate.Triggers>
                                     <Trigger Property="IsHighlighted" Value="True">
                                         <Setter TargetName="Border" Property="Background" Value="{StaticResource AccentPrimaryHover}"/>
-                                        <Setter Property="Foreground" Value="White"/>
+                                        <Setter TargetName="Border" Property="TextElement.Foreground" Value="White"/>
                                     </Trigger>
                                     <Trigger Property="IsSelected" Value="True">
                                         <Setter TargetName="Border" Property="Background" Value="{StaticResource AccentPrimary}"/>
-                                        <Setter Property="Foreground" Value="White"/>
+                                        <Setter TargetName="Border" Property="TextElement.Foreground" Value="White"/>
                                     </Trigger>
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>

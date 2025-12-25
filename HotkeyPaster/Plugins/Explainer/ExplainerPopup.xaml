@@ -1,7 +1,7 @@
 <Window x:Class="TalkKeys.Plugins.Explainer.ExplainerPopup"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Explainer"
+        Title="Insights"
         WindowStyle="None"
         ResizeMode="NoResize"
         Topmost="True"
@@ -11,12 +11,15 @@
         WindowStartupLocation="Manual"
         Width="320"
         SizeToContent="Height"
-        MaxHeight="250"
+        MaxHeight="450"
         MouseDown="Window_MouseDown"
         KeyDown="Window_KeyDown"
         Focusable="True">
 
     <Window.Resources>
+        <!-- Bool to Visibility converter -->
+        <BooleanToVisibilityConverter x:Key="BoolToVisConverter"/>
+
         <!-- Fade in animation -->
         <Storyboard x:Key="FadeIn">
             <DoubleAnimation Storyboard.TargetProperty="Opacity"
@@ -29,50 +32,47 @@
                            From="1" To="0" Duration="0:0:0.1"/>
         </Storyboard>
 
-        <!-- Card flip out (first half) -->
-        <Storyboard x:Key="FlipOut">
-            <DoubleAnimation Storyboard.TargetName="ContentScaleTransform"
-                           Storyboard.TargetProperty="ScaleX"
-                           From="1" To="0" Duration="0:0:0.15">
-                <DoubleAnimation.EasingFunction>
-                    <CubicEase EasingMode="EaseIn"/>
-                </DoubleAnimation.EasingFunction>
-            </DoubleAnimation>
-        </Storyboard>
+        <!-- Section card style -->
+        <Style x:Key="SectionCard" TargetType="Border">
+            <Setter Property="Background" Value="#374151"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
 
-        <!-- Card flip in (second half) -->
-        <Storyboard x:Key="FlipIn">
-            <DoubleAnimation Storyboard.TargetName="ContentScaleTransform"
-                           Storyboard.TargetProperty="ScaleX"
-                           From="0" To="1" Duration="0:0:0.15">
-                <DoubleAnimation.EasingFunction>
-                    <CubicEase EasingMode="EaseOut"/>
-                </DoubleAnimation.EasingFunction>
-            </DoubleAnimation>
-        </Storyboard>
+        <!-- Section header style -->
+        <Style x:Key="SectionHeader" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#9CA3AF"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+
+        <!-- Content text style -->
+        <Style x:Key="ContentText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="LineHeight" Value="20"/>
+        </Style>
     </Window.Resources>
 
-    <Border CornerRadius="12" Margin="8">
+    <Border CornerRadius="12" Margin="8" Cursor="SizeAll">
         <Border.Background>
-            <SolidColorBrush Color="#1F2937" Opacity="0.95"/>
+            <SolidColorBrush Color="#1F2937" Opacity="0.85"/>
         </Border.Background>
         <Border.Effect>
             <DropShadowEffect BlurRadius="16" ShadowDepth="2" Opacity="0.4" Color="Black"/>
         </Border.Effect>
 
         <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
-
             <!-- Loading state -->
-            <StackPanel x:Name="LoadingPanel" Grid.Row="0" Grid.RowSpan="2"
+            <StackPanel x:Name="LoadingPanel"
                        Visibility="Collapsed"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center"
-                       Margin="20">
-                <TextBlock Text="Thinking..."
+                       Margin="20,40">
+                <TextBlock Text="Analyzing..."
                           Foreground="#9CA3AF"
                           FontSize="14"
                           HorizontalAlignment="Center"/>
@@ -84,20 +84,15 @@
                             Foreground="#8B5CF6"/>
             </StackPanel>
 
-            <!-- Content -->
-            <Grid x:Name="ContentPanel" Visibility="Visible">
-                <Grid.RenderTransform>
-                    <ScaleTransform x:Name="ContentScaleTransform" ScaleX="1" CenterX="160"/>
-                </Grid.RenderTransform>
-
+            <!-- Main content -->
+            <Grid x:Name="ContentPanel" Visibility="Collapsed">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <!-- Header with mode indicator, countdown, and close button -->
-                <Grid Grid.Row="0" Margin="16,12,16,0">
+                <!-- Header -->
+                <Grid Grid.Row="0" Margin="16,12,16,8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
@@ -106,10 +101,9 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- Mode indicator (changes with flip) -->
-                    <TextBlock x:Name="ModeIcon" Grid.Column="0" Text="🔥" FontSize="14" VerticalAlignment="Center"/>
-                    <TextBlock x:Name="ModeLabel" Grid.Column="1" Text="WTF"
-                              Foreground="#9CA3AF" FontSize="11" FontWeight="SemiBold"
+                    <TextBlock Grid.Column="0" Text="💡" FontSize="14" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" Text="Insights"
+                              Foreground="#E5E7EB" FontSize="13" FontWeight="SemiBold"
                               VerticalAlignment="Center" Margin="6,0,0,0"/>
 
                     <TextBlock x:Name="CountdownText"
@@ -120,7 +114,6 @@
                               VerticalAlignment="Center"
                               Margin="0,0,8,0"/>
 
-                    <!-- Close button -->
                     <Button x:Name="CloseButton"
                             Grid.Column="4"
                             Content="✕"
@@ -146,41 +139,42 @@
                     </Button>
                 </Grid>
 
-                <!-- Message text (clickable to flip) -->
-                <Border Grid.Row="1" Margin="16,8,16,8" Cursor="Hand"
-                        Background="Transparent" MouseLeftButtonUp="Content_Click">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="160">
-                        <TextBlock x:Name="MessageText"
-                                  Text=""
-                                  Foreground="White"
-                                  FontSize="15"
-                                  FontWeight="Medium"
-                                  TextWrapping="Wrap"
-                                  LineHeight="22"/>
-                    </ScrollViewer>
-                </Border>
+                <!-- Scrollable content area -->
+                <ScrollViewer Grid.Row="1"
+                             VerticalScrollBarVisibility="Auto"
+                             Margin="12,0,12,12"
+                             MaxHeight="380">
+                    <StackPanel>
+                        <!-- What They Really Mean (WTF) -->
+                        <Border Style="{StaticResource SectionCard}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource SectionHeader}">
+                                    <Run Text="🔥"/>
+                                    <Run Text=" What They Really Mean"/>
+                                </TextBlock>
+                                <TextBlock x:Name="WtfText"
+                                          Style="{StaticResource ContentText}"
+                                          FontWeight="Medium"/>
+                            </StackPanel>
+                        </Border>
 
-                <!-- Flip hint at bottom -->
-                <Border x:Name="FlipHint" Grid.Row="2"
-                        HorizontalAlignment="Center"
-                        Margin="0,4,0,12"
-                        Padding="12,6"
-                        CornerRadius="14"
-                        Background="#374151"
-                        Cursor="Hand"
-                        Visibility="Collapsed"
-                        MouseLeftButtonUp="Content_Click">
-                    <TextBlock x:Name="FlipHintText"
-                              Text="tap to flip →"
-                              Foreground="#A78BFA"
-                              FontSize="11"
-                              FontWeight="SemiBold"/>
-                </Border>
+                        <!-- What's Being Said (Plain) -->
+                        <Border Style="{StaticResource SectionCard}" Margin="0">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource SectionHeader}">
+                                    <Run Text="📋"/>
+                                    <Run Text=" What's Being Said"/>
+                                </TextBlock>
+                                <TextBlock x:Name="PlainText"
+                                          Style="{StaticResource ContentText}"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
             </Grid>
 
             <!-- Error state overlay -->
             <Border x:Name="ErrorBorder"
-                   Grid.Row="0" Grid.RowSpan="2"
                    Visibility="Collapsed"
                    Background="#7F1D1D"
                    CornerRadius="12">

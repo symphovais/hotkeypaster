@@ -113,6 +113,39 @@ namespace TalkKeys
 
             // Load startup setting
             StartWithWindowsCheckBox.IsChecked = _startupService.IsStartupEnabled;
+
+            // Load experimental settings
+            ExperimentalFeaturesEnabledCheckBox.IsChecked = _currentSettings.ExperimentalFeaturesEnabled;
+            PostPasteSuggestionsEnabledCheckBox.IsChecked = _currentSettings.PostPasteSuggestionsEnabled;
+            UpdateExperimentalControls();
+        }
+
+        private void UpdateExperimentalControls()
+        {
+            var enabled = _currentSettings.ExperimentalFeaturesEnabled;
+
+            PostPasteSuggestionsEnabledCheckBox.IsEnabled = enabled;
+
+            if (!enabled)
+            {
+                _currentSettings.PostPasteSuggestionsEnabled = false;
+                PostPasteSuggestionsEnabledCheckBox.IsChecked = false;
+            }
+        }
+
+        private void ExperimentalFeatures_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing) return;
+
+            _currentSettings.ExperimentalFeaturesEnabled = ExperimentalFeaturesEnabledCheckBox.IsChecked == true;
+            UpdateExperimentalControls();
+        }
+
+        private void PostPasteSuggestions_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing) return;
+
+            _currentSettings.PostPasteSuggestionsEnabled = PostPasteSuggestionsEnabledCheckBox.IsChecked == true;
         }
 
         private void LoadExplainerSettings()

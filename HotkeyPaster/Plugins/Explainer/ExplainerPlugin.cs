@@ -421,48 +421,54 @@ namespace TalkKeys.Plugins.Explainer
                 if (string.IsNullOrWhiteSpace(selectedText))
                 {
                     _logger?.Log("[Explainer] No text selected");
-                    ShowPopup("No text selected", cursorPos, isError: true);
+                    ShowErrorPopup("No text selected", cursorPos);
                     return;
                 }
 
                 if (selectedText.Length > 2000)
                 {
                     _logger?.Log("[Explainer] Text too long");
-                    ShowPopup("Text too long (max 2000 chars)", cursorPos, isError: true);
+                    ShowErrorPopup("Text too long (max 2000 chars)", cursorPos);
                     return;
                 }
 
                 _logger?.Log($"[Explainer] Captured {selectedText.Length} chars");
-
-                // Store for toggle callback
                 _lastSelectedText = selectedText;
 
-                // Show loading popup
-                ShowPopup("Thinking...", cursorPos, isLoading: true);
+                // Show loading popup immediately
+                ShowLoadingPopup(cursorPos);
 
-                // Call API (always uses WTF tone)
-                var result = await _apiService.ExplainTextAsync(selectedText, "wtf");
+                // Fetch WTF and Plain in parallel
+                var wtfTask = _apiService.ExplainTextAsync(selectedText, "wtf");
+                var plainTask = _apiService.ExplainTextAsync(selectedText, "plain");
 
-                if (result.Success && !string.IsNullOrWhiteSpace(result.Explanation))
-                {
-                    _logger?.Log($"[Explainer] Got explanation: \"{result.Explanation}\"");
-                    var dismissSeconds = _configuration.GetSetting(SettingAutoDismissSeconds, DefaultAutoDismissSeconds);
+                _logger?.Log("[Explainer] Fetching WTF and Plain in parallel...");
+                await Task.WhenAll(wtfTask, plainTask);
 
-                    // Show with toggle support
-                    ShowPopupWithToggle(result.Explanation, cursorPos, dismissSeconds);
-                }
-                else
-                {
-                    var error = result.Error ?? "Could not explain";
-                    _logger?.Log($"[Explainer] API error: {error}");
-                    ShowPopup(error, cursorPos, isError: true);
-                }
+                var wtfResult = await wtfTask;
+                var plainResult = await plainTask;
+
+                _logger?.Log($"[Explainer] Results - WTF: {wtfResult.Success}, Plain: {plainResult.Success}");
+
+                // Get text or fallback
+                var wtfText = wtfResult.Success && !string.IsNullOrWhiteSpace(wtfResult.Explanation)
+                    ? wtfResult.Explanation
+                    : "(Could not analyze)";
+
+                var plainText = plainResult.Success && !string.IsNullOrWhiteSpace(plainResult.Explanation)
+                    ? plainResult.Explanation
+                    : "(Could not analyze)";
+
+                var dismissSeconds = _configuration.GetSetting(SettingAutoDismissSeconds, DefaultAutoDismissSeconds);
+
+                // Show unified popup with all content
+                ShowUnifiedPopup(wtfText, plainText, cursorPos, dismissSeconds);
             }
             catch (Exception ex)
             {
                 _logger?.Log($"[Explainer] Error: {ex.Message}");
                 var cursorPos = GetCursorPosition();
-                ShowPopup("Something went wrong", cursorPos, isError: true);
+                ShowErrorPopup("Something went wrong", cursorPos);
             }
         }
 
@@ -578,101 +584,89 @@ namespace TalkKeys.Plugins.Explainer
             return new Point(pt.X, pt.Y);
         }
 
-        private void ShowPopup(string message, Point cursorPos, bool isLoading = false, bool isError = false, int autoDismissSeconds = 8)
+        private void ShowLoadingPopup(Point cursorPos)
         {
-            _logger?.Log($"[Explainer] ShowPopup called: msg={message.Length} chars, pos=({cursorPos.X},{cursorPos.Y}), loading={isLoading}, error={isError}");
+            _logger?.Log($"[Explainer] ShowLoadingPopup at ({cursorPos.X},{cursorPos.Y})");
 
             Application.Current.Dispatcher.Invoke(() =>
             {
                 try
                 {
                     CloseCurrentPopup();
-                    _logger?.Log("[Explainer] Creating new popup...");
                     _currentPopup = new ExplainerPopup(msg => _logger?.Log(msg));
-
-                    // Set content first
-                    _currentPopup.SetContent(message, isLoading, isError, autoDismissSeconds);
-
-                    // Position using the service (before showing)
-                    if (_positionService != null)
-                    {
-                        _logger?.Log("[Explainer] Using WindowPositionService for positioning...");
-                        _positionService.PositionNearCursor(_currentPopup, cursorPos.X, cursorPos.Y);
-                    }
-                    else
-                    {
-                        _logger?.Log("[Explainer] No position service, using popup's built-in positioning...");
-                        _currentPopup.PositionNearCursor(cursorPos);
-                    }
-
-                    // Show and activate
-                    _currentPopup.ShowWithAnimation();
-                    _logger?.Log($"[Explainer] Popup shown at ({_currentPopup.Left},{_currentPopup.Top}), size=({_currentPopup.ActualWidth}x{_currentPopup.ActualHeight})");
+                    _currentPopup.ShowLoading();
+                    PositionAndShowPopup(cursorPos);
                 }
                 catch (Exception ex)
                 {
-                    _logger?.Log($"[Explainer] ERROR showing popup: {ex.Message}");
-                    _logger?.Log($"[Explainer] Stack: {ex.StackTrace}");
+                    _logger?.Log($"[Explainer] ERROR showing loading popup: {ex.Message}");
                 }
             });
         }
 
-        private void ShowPopupWithToggle(string wtfText, Point cursorPos, int autoDismissSeconds)
+        private void ShowErrorPopup(string message, Point cursorPos)
         {
-            _logger?.Log($"[Explainer] ShowPopupWithToggle called: wtfLen={wtfText.Length} chars");
+            _logger?.Log($"[Explainer] ShowErrorPopup: {message}");
 
             Application.Current.Dispatcher.Invoke(() =>
             {
                 try
                 {
                     CloseCurrentPopup();
-                    _logger?.Log("[Explainer] Creating new popup with toggle...");
                     _currentPopup = new ExplainerPopup(msg => _logger?.Log(msg));
-
-                    // Create callback to fetch plain translation
-                    async Task<string?> FetchPlainCallback()
-                    {
-                        if (string.IsNullOrEmpty(_lastSelectedText))
-                            return null;
-
-                        _logger?.Log("[Explainer] Fetching plain translation...");
-                        var result = await _apiService.ExplainTextAsync(_lastSelectedText, "plain");
-
-                        if (result.Success && !string.IsNullOrWhiteSpace(result.Explanation))
-                        {
-                            _logger?.Log($"[Explainer] Got plain: \"{result.Explanation}\"");
-                            return result.Explanation;
-                        }
-
-                        _logger?.Log($"[Explainer] Plain fetch failed: {result.Error}");
-                        return null;
-                    }
-
-                    // Set content with toggle support
-                    _currentPopup.SetContentWithToggle(wtfText, FetchPlainCallback, autoDismissSeconds);
-
-                    // Position using the service (before showing)
-                    if (_positionService != null)
-                    {
-                        _logger?.Log("[Explainer] Using WindowPositionService for positioning...");
-                        _positionService.PositionNearCursor(_currentPopup, cursorPos.X, cursorPos.Y);
-                    }
-                    else
-                    {
-                        _logger?.Log("[Explainer] No position service, using popup's built-in positioning...");
-                        _currentPopup.PositionNearCursor(cursorPos);
-                    }
-
-                    // Show and activate
-                    _currentPopup.ShowWithAnimation();
-                    _logger?.Log($"[Explainer] Popup with toggle shown at ({_currentPopup.Left},{_currentPopup.Top})");
+                    _currentPopup.ShowError(message);
+                    PositionAndShowPopup(cursorPos);
                 }
                 catch (Exception ex)
                 {
-                    _logger?.Log($"[Explainer] ERROR showing popup: {ex.Message}");
-                    _logger?.Log($"[Explainer] Stack: {ex.StackTrace}");
+                    _logger?.Log($"[Explainer] ERROR showing error popup: {ex.Message}");
                 }
             });
+        }
+
+        private void ShowUnifiedPopup(string wtfText, string plainText, Point cursorPos, int autoDismissSeconds)
+        {
+            _logger?.Log($"[Explainer] ShowUnifiedPopup: wtf={wtfText.Length}, plain={plainText.Length}");
+
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                try
+                {
+                    // Update existing popup or create new one
+                    if (_currentPopup == null)
+                    {
+                        _currentPopup = new ExplainerPopup(msg => _logger?.Log(msg));
+                        _currentPopup.SetAllContent(wtfText, plainText, autoDismissSeconds);
+                        PositionAndShowPopup(cursorPos);
+                    }
+                    else
+                    {
+                        // Update content on existing popup (was showing loading)
+                        _currentPopup.SetAllContent(wtfText, plainText, autoDismissSeconds);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger?.Log($"[Explainer] ERROR showing unified popup: {ex.Message}");
+                }
+            });
+        }
+
+        private void PositionAndShowPopup(Point cursorPos)
+        {
+            if (_currentPopup == null) return;
+
+            if (_positionService != null)
+            {
+                _positionService.PositionNearCursor(_currentPopup, cursorPos.X, cursorPos.Y);
+            }
+            else
+            {
+                _currentPopup.PositionNearCursor(cursorPos);
+            }
+
+            _currentPopup.ShowWithAnimation();
+            _logger?.Log($"[Explainer] Popup shown at ({_currentPopup.Left},{_currentPopup.Top})");
         }
 
         private void CloseCurrentPopup()

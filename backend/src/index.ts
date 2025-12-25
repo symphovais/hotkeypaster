@@ -7,6 +7,9 @@ import {
   handleWhisperProxy,
   handleCleanProxy,
   handleExplainProxy,
+  handleClassifyProxy,
+  handleRewriteProxy,
+  handleExtractRemindersProxy,
   handleAnalyzeWordsProxy,
   handleGetProfile
 } from './api';
@@ -144,6 +147,21 @@ export default {
       // Plain English explainer proxy
       if (path === '/api/explain' && method === 'POST') {
         return handleExplainProxy(request, env, user);
+      }
+
+      // Classification proxy
+      if (path === '/api/classify' && method === 'POST') {
+        return handleClassifyProxy(request, env, user);
+      }
+
+      // Rewrite proxy
+      if (path === '/api/rewrite' && method === 'POST') {
+        return handleRewriteProxy(request, env, user);
+      }
+
+      // Extract reminders/calendar events proxy
+      if (path === '/api/extract-reminders' && method === 'POST') {
+        return handleExtractRemindersProxy(request, env, user);
       }
 
       // Words analysis proxy

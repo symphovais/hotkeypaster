@@ -7,15 +7,13 @@ export function generateReleasesPage(): string {
       .filter(slide => !slide.isGetStarted)
       .map(slide => {
         const items: string[] = [];
-        if (slide.badge) {
-          items.push(`<li><strong>${slide.title}</strong> - ${slide.description}</li>`);
-        }
+        // Note: badge is only on heroFeatures, not slides
         if (slide.highlights) {
           slide.highlights.forEach(h => {
             items.push(`<li>${h.text}</li>`);
           });
         }
-        if (!slide.badge && !slide.highlights) {
+        if (!slide.highlights) {
           items.push(`<li><strong>${slide.title}</strong> - ${slide.description}</li>`);
         }
         return items;
