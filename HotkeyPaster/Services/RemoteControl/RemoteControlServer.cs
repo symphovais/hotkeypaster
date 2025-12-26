@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using TalkKeys.Logging;
 using TalkKeys.Services.Controller;
+using TalkKeys.Services.Windowing;
 
 namespace TalkKeys.Services.RemoteControl
 {
@@ -301,6 +302,74 @@ namespace TalkKeys.Services.RemoteControl
                         }
                         break;
 
+                    case "/suggestactions":
+                        if (method == "POST")
+                        {
+                            var body = await ReadRequestBodyAsync(request);
+                            var actionsRequest = TryDeserialize<SuggestActionsRequest>(body);
+
+                            if (actionsRequest != null && !string.IsNullOrWhiteSpace(actionsRequest.Text))
+                            {
+                                var windowContext = actionsRequest.ProcessName != null || actionsRequest.WindowTitle != null
+                                    ? new WindowContext
+                                    {
+                                        ProcessName = actionsRequest.ProcessName ?? "",
+                                        WindowTitle = actionsRequest.WindowTitle ?? ""
+                                    }
+                                    : null;
+
+                                result = await _controller.GetSuggestedActionsAsync(actionsRequest.Text, windowContext);
+                            }
+                            else
+                            {
+                                statusCode = 400;
+                                result = new { success = false, message = "Invalid request body. Expected: { \"text\": \"...\", \"processName\": \"outlook\", \"windowTitle\": \"RE: Meeting\" }" };
+                            }
+                        }
+                        else
+                        {
+                            statusCode = 405;
+                            result = new { success = false, message = "Method not allowed. Use POST." };
+                        }
+                        break;
+
+                    case "/generatereply":
+                        if (method == "POST")
+                        {
+                            var body = await ReadRequestBodyAsync(request);
+                            var replyRequest = TryDeserialize<GenerateReplyRequest>(body);
+
+                            if (replyRequest != null &&
+                                !string.IsNullOrWhiteSpace(replyRequest.OriginalText) &&
+                                !string.IsNullOrWhiteSpace(replyRequest.Instruction))
+                            {
+                                var windowContext = replyRequest.ProcessName != null || replyRequest.WindowTitle != null
+                                    ? new WindowContext
+                                    {
+                                        ProcessName = replyRequest.ProcessName ?? "",
+                                        WindowTitle = replyRequest.WindowTitle ?? ""
+                                    }
+                                    : null;
+
+                                result = await _controller.GenerateReplyAsync(
+                                    replyRequest.OriginalText,
+                                    replyRequest.Instruction,
+                                    replyRequest.ContextType ?? "other",
+                                    windowContext);
+                            }
+                            else
+                            {
+                                statusCode = 400;
+                                result = new { success = false, message = "Invalid request body. Expected: { \"originalText\": \"...\", \"instruction\": \"...\", \"contextType\": \"email\" }" };
+                            }
+                        }
+                        else
+                        {
+                            statusCode = 405;
+                            result = new { success = false, message = "Method not allowed. Use POST." };
+                        }
+                        break;
+
                     default:
                         statusCode = 404;
                         result = new { success = false, message = $"Endpoint not found: {path}" };
@@ -388,5 +457,21 @@ namespace TalkKeys.Services.RemoteControl
     internal class ShortcutsRequest
     {
         public System.Collections.Generic.Dictionary<string, string>? Shortcuts { get; set; }
+    }
+
+    internal class SuggestActionsRequest
+    {
+        public string? Text { get; set; }
+        public string? ProcessName { get; set; }
+        public string? WindowTitle { get; set; }
+    }
+
+    internal class GenerateReplyRequest
+    {
+        public string? OriginalText { get; set; }
+        public string? Instruction { get; set; }
+        public string? ContextType { get; set; }
+        public string? ProcessName { get; set; }
+        public string? WindowTitle { get; set; }
     }
 }

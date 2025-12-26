@@ -960,3 +960,242 @@ export async function handleGetProfile(
     }
   });
 }
+
+// Action definitions per context for Smart Actions feature
+const CONTEXT_ACTIONS: Record<string, Array<{
+  id: string;
+  label: string;
+  icon: string;
+  primary?: boolean;
+}>> = {
+  email: [
+    { id: 'reply', label: 'Reply', icon: 'message', primary: true },
+    { id: 'forward', label: 'Forward', icon: 'forward' },
+    { id: 'summarize', label: 'Summarize', icon: 'compress' }
+  ],
+  chat: [
+    { id: 'reply', label: 'Quick Reply', icon: 'message', primary: true },
+    { id: 'thread', label: 'Thread Reply', icon: 'thread' }
+  ],
+  document: [
+    { id: 'summarize', label: 'Summarize', icon: 'compress', primary: true },
+    { id: 'simplify', label: 'Simplify', icon: 'edit' }
+  ],
+  code: [
+    { id: 'explain', label: 'Explain Code', icon: 'code', primary: true },
+    { id: 'comment', label: 'Add Comments', icon: 'comment' }
+  ],
+  other: []
+};
+
+// Detect context type from window info
+function detectContextType(processName: string, windowTitle: string): { contextType: string; confidence: number } {
+  const proc = processName.toLowerCase();
+  const title = windowTitle.toLowerCase();
+
+  // Email apps
+  if (/outlook|thunderbird/.test(proc) || /inbox|email|message|mail/.test(title)) {
+    return { contextType: 'email', confidence: 0.9 };
+  }
+  // Gmail in browser
+  if (/chrome|firefox|edge|brave/.test(proc) && /gmail|mail\.google/.test(title)) {
+    return { contextType: 'email', confidence: 0.85 };
+  }
+
+  // Chat apps
+  if (/slack|teams|discord|whatsapp|telegram|signal/.test(proc)) {
+    return { contextType: 'chat', confidence: 0.9 };
+  }
+  // Web chat in browser
+  if (/chrome|firefox|edge|brave/.test(proc) && /slack|teams|discord/.test(title)) {
+    return { contextType: 'chat', confidence: 0.85 };
+  }
+
+  // Code editors
+  if (/code|devenv|rider|idea|sublime|atom|vim|nvim|emacs/.test(proc)) {
+    return { contextType: 'code', confidence: 0.9 };
+  }
+
+  // Document apps
+  if (/winword|word|docs|notion|obsidian|onenote/.test(proc)) {
+    return { contextType: 'document', confidence: 0.85 };
+  }
+  // Google Docs in browser
+  if (/chrome|firefox|edge|brave/.test(proc) && /docs\.google|notion\.so/.test(title)) {
+    return { contextType: 'document', confidence: 0.8 };
+  }
+
+  return { contextType: 'other', confidence: 0.5 };
+}
+
+// Suggest actions based on context
+export async function handleSuggestActionsProxy(
+  request: Request,
+  env: Env,
+  user: JWTPayload
+): Promise<Response> {
+  try {
+    const body = await request.json() as {
+      text: string;
+      window?: {
+        processName?: string;
+        windowTitle?: string;
+      };
+    };
+
+    if (!body.text) {
+      return errorResponse('No text provided');
+    }
+
+    const processName = body.window?.processName || '';
+    const windowTitle = body.window?.windowTitle || '';
+
+    const { contextType, confidence } = detectContextType(processName, windowTitle);
+    const actions = CONTEXT_ACTIONS[contextType] || [];
+
+    return jsonResponse({
+      success: true,
+      data: {
+        contextType,
+        confidence,
+        actions
+      }
+    });
+
+  } catch (err) {
+    console.error('Suggest actions error:', err);
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return errorResponse(`Suggest actions error: ${message}`, 500);
+  }
+}
+
+// Generate a reply based on instruction
+export async function handleGenerateReplyProxy(
+  request: Request,
+  env: Env,
+  user: JWTPayload
+): Promise<Response> {
+  try {
+    const body = await request.json() as {
+      originalText: string;
+      instruction: string;
+      contextType: string;
+      window?: {
+        processName?: string;
+        windowTitle?: string;
+      };
+      tone?: string;
+    };
+
+    if (!body.originalText) {
+      return errorResponse('No originalText provided');
+    }
+    if (!body.instruction) {
+      return errorResponse('No instruction provided');
+    }
+
+    // Limit text lengths
+    if (body.originalText.length > 2000) {
+      return errorResponse('Original text too long (max 2000 characters)');
+    }
+    if (body.instruction.length > 500) {
+      return errorResponse('Instruction too long (max 500 characters)');
+    }
+
+    const contextType = body.contextType || 'other';
+    const defaultTone = contextType === 'email' ? 'professional' : 'friendly';
+    const tone = body.tone || defaultTone;
+
+    const systemPrompt = `You are a reply assistant. Generate a ready-to-send reply to a message.
+
+Your job:
+1. READ the original message carefully - understand what they're asking or saying
+2. Use the user's voice instruction as guidance for what to include in your reply
+3. Generate a complete, contextual reply that responds TO the original message
+
+Context: ${contextType}
+Tone: ${tone}
+
+Rules:
+- The reply must ADDRESS what was said in the original message
+- Incorporate the user's instruction naturally into a proper response
+- Match the formality level of the original (formal email = formal reply, casual chat = casual reply)
+- Be appropriately concise: ${contextType === 'chat' ? 'keep it short, 1-2 sentences' : 'a few sentences'}
+- Output ONLY the reply text, nothing else
+
+Example:
+Original: "Can you send me the Q4 report by Friday?"
+User instruction: "yes I'll have it done"
+Reply: "Yes, I'll have the Q4 report ready for you by Friday."
+
+Example:
+Original: "Are you coming to the team dinner tonight?"
+User instruction: "tell them yes sounds great"
+Reply: "Yes, sounds great! I'll be there."`;
+
+    const userPrompt = `ORIGINAL MESSAGE (what you're replying to):
+"${body.originalText}"
+
+USER'S INSTRUCTION (what they want to say):
+${body.instruction}
+
+Generate a reply that responds to the original message using the user's instruction:`;
+
+    const groqBody = {
+      model: 'llama-3.1-8b-instant',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.5,
+      max_tokens: 500,
+      stream: false
+    };
+
+    console.log('Generate reply request:', {
+      originalLength: body.originalText.length,
+      instructionLength: body.instruction.length,
+      contextType,
+      tone
+    });
+
+    const groqResponse = await fetch(GROQ_CHAT_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.GROQ_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(groqBody)
+    });
+
+    if (!groqResponse.ok) {
+      const error = await groqResponse.text();
+      console.error('Groq Chat error (generate-reply):', groqResponse.status, error);
+      return errorResponse(`Reply generation failed: ${groqResponse.status}`, 502);
+    }
+
+    const result = await groqResponse.json() as {
+      choices: Array<{ message: { content: string } }>;
+    };
+
+    const reply = result.choices?.[0]?.message?.content?.trim();
+    if (!reply) {
+      return errorResponse('No reply generated', 500);
+    }
+
+    console.log('Generate reply response:', { replyLength: reply.length });
+
+    return jsonResponse({
+      success: true,
+      data: {
+        reply,
+        tone
+      }
+    });
+
+  } catch (err) {
+    console.error('Generate reply error:', err);
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return errorResponse(`Reply generation error: ${message}`, 500);
+  }
+}

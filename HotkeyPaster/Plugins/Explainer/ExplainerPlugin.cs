@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,8 +15,11 @@ using HKeyboardEventArgs = H.Hooks.KeyboardEventArgs;
 using System.Linq;
 using TalkKeys.Logging;
 using TalkKeys.PluginSdk;
+using TalkKeys.Services.Audio;
 using TalkKeys.Services.Auth;
+using TalkKeys.Services.Pipeline;
 using TalkKeys.Services.Settings;
+using TalkKeys.Services.Win32;
 using TalkKeys.Services.Windowing;
 
 namespace TalkKeys.Plugins.Explainer
@@ -43,6 +47,8 @@ namespace TalkKeys.Plugins.Explainer
         private readonly TalkKeysApiService _apiService;
         private readonly SettingsService _settingsService;
         private readonly IWindowPositionService? _positionService;
+        private readonly IActiveWindowContextService? _contextService;
+        private readonly IAudioRecordingService? _audioService;
         private readonly InputSimulator _inputSimulator = new();
 
         private PluginConfiguration _configuration;
@@ -55,15 +61,12 @@ namespace TalkKeys.Plugins.Explainer
         private Key _targetKey;
         private ModifierKeys _targetModifiers;
 
-        [DllImport("user32.dll")]
-        private static extern bool GetCursorPos(out POINT lpPoint);
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct POINT
-        {
-            public int X;
-            public int Y;
-        }
+        // Reply recording state
+        private IPipelineService? _pipelineService;
+        private string? _replyRecordingPath;
+        private string? _replyOriginalText;
+        private string? _replyContextType;
+        private WindowContext? _replyWindowContext;
 
         #region IPlugin Implementation
 
@@ -73,13 +76,38 @@ namespace TalkKeys.Plugins.Explainer
         public string Icon => "🤔";
         public Version Version => new(1, 0, 0);
 
-        public ExplainerPlugin(TalkKeysApiService apiService, SettingsService settingsService, IWindowPositionService? positionService = null, ILogger? logger = null)
+        public ExplainerPlugin(
+            TalkKeysApiService apiService,
+            SettingsService settingsService,
+            IWindowPositionService? positionService = null,
+            IActiveWindowContextService? contextService = null,
+            IAudioRecordingService? audioService = null,
+            ILogger? logger = null)
         {
             _apiService = apiService;
             _settingsService = settingsService;
             _positionService = positionService;
+            _contextService = contextService;
+            _audioService = audioService;
             _logger = logger;
             _configuration = GetDefaultConfiguration();
+
+            // Subscribe to audio recording events if service is available
+            if (_audioService != null)
+            {
+                _audioService.RecordingStopped += OnReplyRecordingStopped;
+                _audioService.AudioLevelChanged += OnAudioLevelChanged;
+            }
+        }
+
+        /// <summary>
+        /// Sets the pipeline service (called after pipeline creation).
+        /// Required for Reply transcription functionality.
+        /// </summary>
+        public void SetPipelineService(IPipelineService? pipelineService)
+        {
+            _pipelineService = pipelineService;
+            _logger?.Log($"[Explainer] Pipeline service {(pipelineService != null ? "set" : "cleared")}");
         }
 
         public void Initialize(PluginConfiguration configuration)
@@ -295,6 +323,13 @@ namespace TalkKeys.Plugins.Explainer
 
         public void Dispose()
         {
+            // Unsubscribe from audio events
+            if (_audioService != null)
+            {
+                _audioService.RecordingStopped -= OnReplyRecordingStopped;
+                _audioService.AudioLevelChanged -= OnAudioLevelChanged;
+            }
+
             Deactivate();
         }
 
@@ -415,6 +450,15 @@ namespace TalkKeys.Plugins.Explainer
                 var cursorPos = GetCursorPosition();
                 _logger?.Log($"[Explainer] Cursor at: {cursorPos.X}, {cursorPos.Y}");
 
+                // Capture window context before we do anything else
+                WindowContext? windowContext = null;
+                var foregroundWindow = Win32Helper.GetForegroundWindow();
+                if (_contextService != null && foregroundWindow != IntPtr.Zero)
+                {
+                    windowContext = _contextService.GetWindowContext(foregroundWindow);
+                    _logger?.Log($"[Explainer] Window context: {windowContext?.ProcessName} - {windowContext?.WindowTitle}");
+                }
+
                 // Capture selected text
                 var selectedText = await CaptureSelectedTextAsync();
 
@@ -438,17 +482,19 @@ namespace TalkKeys.Plugins.Explainer
                 // Show loading popup immediately
                 ShowLoadingPopup(cursorPos);
 
-                // Fetch WTF and Plain in parallel
+                // Fetch WTF, Plain, and Smart Actions in parallel
                 var wtfTask = _apiService.ExplainTextAsync(selectedText, "wtf");
                 var plainTask = _apiService.ExplainTextAsync(selectedText, "plain");
+                var actionsTask = _apiService.SuggestActionsAsync(selectedText, windowContext);
 
-                _logger?.Log("[Explainer] Fetching WTF and Plain in parallel...");
-                await Task.WhenAll(wtfTask, plainTask);
+                _logger?.Log("[Explainer] Fetching WTF, Plain, and Actions in parallel...");
+                await Task.WhenAll(wtfTask, plainTask, actionsTask);
 
                 var wtfResult = await wtfTask;
                 var plainResult = await plainTask;
+                var actionsResult = await actionsTask;
 
-                _logger?.Log($"[Explainer] Results - WTF: {wtfResult.Success}, Plain: {plainResult.Success}");
+                _logger?.Log($"[Explainer] Results - WTF: {wtfResult.Success}, Plain: {plainResult.Success}, Actions: {actionsResult.Success}");
 
                 // Get text or fallback
                 var wtfText = wtfResult.Success && !string.IsNullOrWhiteSpace(wtfResult.Explanation)
@@ -463,6 +509,19 @@ namespace TalkKeys.Plugins.Explainer
 
                 // Show unified popup with all content
                 ShowUnifiedPopup(wtfText, plainText, cursorPos, dismissSeconds);
+
+                // Set suggested actions if available
+                if (actionsResult.Success && actionsResult.Actions?.Count > 0)
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        _currentPopup?.SetActions(
+                            actionsResult.Actions,
+                            actionsResult.ContextType ?? "other",
+                            selectedText,
+                            windowContext);
+                    });
+                }
             }
             catch (Exception ex)
             {
@@ -580,8 +639,7 @@ namespace TalkKeys.Plugins.Explainer
 
         private Point GetCursorPosition()
         {
-            GetCursorPos(out POINT pt);
-            return new Point(pt.X, pt.Y);
+            return Win32Helper.GetCursorPosition();
         }
 
         private void ShowLoadingPopup(Point cursorPos)
@@ -594,6 +652,12 @@ namespace TalkKeys.Plugins.Explainer
                 {
                     CloseCurrentPopup();
                     _currentPopup = new ExplainerPopup(msg => _logger?.Log(msg));
+
+                    // Wire up events for Smart Actions
+                    _currentPopup.ActionClicked += OnActionClicked;
+                    _currentPopup.RecordingStartRequested += OnRecordingStartRequested;
+                    _currentPopup.RecordingStopRequested += OnRecordingStopRequested;
+
                     _currentPopup.ShowLoading();
                     PositionAndShowPopup(cursorPos);
                 }
@@ -614,6 +678,12 @@ namespace TalkKeys.Plugins.Explainer
                 {
                     CloseCurrentPopup();
                     _currentPopup = new ExplainerPopup(msg => _logger?.Log(msg));
+
+                    // Wire up events for Smart Actions
+                    _currentPopup.ActionClicked += OnActionClicked;
+                    _currentPopup.RecordingStartRequested += OnRecordingStartRequested;
+                    _currentPopup.RecordingStopRequested += OnRecordingStopRequested;
+
                     _currentPopup.ShowError(message);
                     PositionAndShowPopup(cursorPos);
                 }
@@ -692,6 +762,230 @@ namespace TalkKeys.Plugins.Explainer
                 }
             }
             return operation();
+        }
+
+        #endregion
+
+        #region Smart Actions / Reply Handling
+
+        private void OnActionClicked(object? sender, ActionClickedEventArgs e)
+        {
+            _logger?.Log($"[Explainer] Action clicked: {e.Action.Id} ({e.Action.Label})");
+
+            switch (e.Action.Id.ToLowerInvariant())
+            {
+                case "reply":
+                    HandleReplyAction(e.OriginalText, e.ContextType, e.WindowContext);
+                    break;
+                default:
+                    _logger?.Log($"[Explainer] Action '{e.Action.Id}' not implemented yet");
+                    break;
+            }
+        }
+
+        private void HandleReplyAction(string originalText, string contextType, WindowContext? windowContext)
+        {
+            _logger?.Log($"[Explainer] HandleReplyAction: context={contextType}");
+
+            // Store context for reply generation
+            _replyOriginalText = originalText;
+            _replyContextType = contextType;
+            _replyWindowContext = windowContext;
+
+            // Show the reply section in the popup
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                _currentPopup?.ShowReplySection();
+            });
+        }
+
+        private void OnAudioLevelChanged(object? sender, AudioLevelEventArgs e)
+        {
+            // Only forward audio levels when we're recording for reply
+            if (!string.IsNullOrEmpty(_replyRecordingPath))
+            {
+                Application.Current?.Dispatcher.InvokeAsync(() =>
+                {
+                    _currentPopup?.UpdateAudioLevel(e.Level);
+                });
+            }
+        }
+
+        private void OnRecordingStartRequested(object? sender, EventArgs e)
+        {
+            _logger?.Log("[Explainer] Recording start requested for reply");
+
+            if (_audioService == null)
+            {
+                _logger?.Log("[Explainer] Audio service not available");
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    _currentPopup?.ShowReplyError("Audio recording not available");
+                });
+                return;
+            }
+
+            if (_audioService.IsRecording)
+            {
+                _logger?.Log("[Explainer] Already recording");
+                return;
+            }
+
+            try
+            {
+                // Create temp file for recording
+                var tempDir = Path.Combine(Path.GetTempPath(), "TalkKeys");
+                Directory.CreateDirectory(tempDir);
+                _replyRecordingPath = Path.Combine(tempDir, $"reply_{DateTime.Now:yyyyMMdd_HHmmss}.wav");
+
+                _logger?.Log($"[Explainer] Starting recording to: {_replyRecordingPath}");
+                _audioService.StartRecording(_replyRecordingPath);
+
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    _currentPopup?.ShowRecordingInProgress();
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger?.Log($"[Explainer] Failed to start recording: {ex.Message}");
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    _currentPopup?.ShowReplyError($"Failed to start recording: {ex.Message}");
+                });
+            }
+        }
+
+        private void OnRecordingStopRequested(object? sender, EventArgs e)
+        {
+            _logger?.Log("[Explainer] Recording stop requested for reply");
+
+            if (_audioService == null || !_audioService.IsRecording)
+            {
+                _logger?.Log("[Explainer] Not recording, ignoring stop request");
+                return;
+            }
+
+            try
+            {
+                _audioService.StopRecording();
+                // OnReplyRecordingStopped will be called by the event handler
+            }
+            catch (Exception ex)
+            {
+                _logger?.Log($"[Explainer] Failed to stop recording: {ex.Message}");
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    _currentPopup?.ShowReplyError($"Failed to stop recording: {ex.Message}");
+                });
+            }
+        }
+
+        private async void OnReplyRecordingStopped(object? sender, EventArgs e)
+        {
+            // Only handle if we have a reply recording path set (this is our recording, not main widget's)
+            if (string.IsNullOrEmpty(_replyRecordingPath))
+            {
+                return;
+            }
+
+            _logger?.Log("[Explainer] Reply recording stopped, transcribing...");
+
+            var recordingPath = _replyRecordingPath;
+            _replyRecordingPath = null; // Clear to prevent re-entry
+
+            try
+            {
+                // Show transcribing state
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    _currentPopup?.ShowReplyLoading("Transcribing your instructions...");
+                });
+
+                // Read the audio file
+                if (!File.Exists(recordingPath))
+                {
+                    throw new FileNotFoundException("Recording file not found", recordingPath);
+                }
+
+                var audioData = await File.ReadAllBytesAsync(recordingPath);
+                _logger?.Log($"[Explainer] Read {audioData.Length} bytes from recording");
+
+                // Transcribe using pipeline if available, otherwise use API directly
+                string? instruction = null;
+
+                if (_pipelineService != null)
+                {
+                    var result = await _pipelineService.ExecuteAsync(audioData);
+                    if (result.IsSuccess)
+                    {
+                        instruction = result.Text;
+                    }
+                    else
+                    {
+                        throw new Exception(result.ErrorMessage ?? "Transcription failed");
+                    }
+                }
+                else
+                {
+                    // Fallback: Use API service directly for transcription
+                    using var audioStream = new MemoryStream(audioData);
+                    var result = await _apiService.TranscribeAsync(audioStream, "reply.wav");
+                    if (result.Success)
+                    {
+                        instruction = result.Text;
+                    }
+                    else
+                    {
+                        throw new Exception(result.Error ?? "Transcription failed");
+                    }
+                }
+
+                if (string.IsNullOrWhiteSpace(instruction))
+                {
+                    throw new Exception("No speech detected");
+                }
+
+                _logger?.Log($"[Explainer] Transcribed instruction: {instruction}");
+
+                // Show the transcribed instruction
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    _currentPopup?.ShowRecordingInstruction(instruction);
+                    _currentPopup?.ShowReplyLoading("Generating reply...");
+                });
+
+                // Generate reply
+                var replyResult = await _apiService.GenerateReplyAsync(
+                    _replyOriginalText ?? "",
+                    instruction,
+                    _replyContextType ?? "other",
+                    _replyWindowContext);
+
+                if (replyResult.Success && !string.IsNullOrWhiteSpace(replyResult.Reply))
+                {
+                    _logger?.Log($"[Explainer] Generated reply: {replyResult.Reply.Length} chars");
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        _currentPopup?.ShowGeneratedReply(replyResult.Reply);
+                    });
+                }
+                else
+                {
+                    throw new Exception(replyResult.Error ?? "Failed to generate reply");
+                }
+
+                // Clean up recording file
+                try { File.Delete(recordingPath); } catch { }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Log($"[Explainer] Reply processing failed: {ex.Message}");
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    _currentPopup?.ShowReplyError(ex.Message);
+                });
+            }
         }
 
         #endregion

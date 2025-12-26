@@ -1,6 +1,7 @@
 <Window x:Class="TalkKeys.Plugins.Explainer.ExplainerPopup"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:TalkKeys.Controls"
         Title="Insights"
         WindowStyle="None"
         ResizeMode="NoResize"
@@ -11,7 +12,7 @@
         WindowStartupLocation="Manual"
         Width="320"
         SizeToContent="Height"
-        MaxHeight="450"
+        MaxHeight="500"
         MouseDown="Window_MouseDown"
         KeyDown="Window_KeyDown"
         Focusable="True">
@@ -146,7 +147,7 @@
                              MaxHeight="380">
                     <StackPanel>
                         <!-- What They Really Mean (WTF) -->
-                        <Border Style="{StaticResource SectionCard}">
+                        <Border x:Name="WtfSection" Style="{StaticResource SectionCard}">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource SectionHeader}">
                                     <Run Text="🔥"/>
@@ -159,7 +160,7 @@
                         </Border>
 
                         <!-- What's Being Said (Plain) -->
-                        <Border Style="{StaticResource SectionCard}" Margin="0">
+                        <Border x:Name="PlainSection" Style="{StaticResource SectionCard}" Margin="0">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource SectionHeader}">
                                     <Run Text="📋"/>
@@ -167,6 +168,189 @@
                                 </TextBlock>
                                 <TextBlock x:Name="PlainText"
                                           Style="{StaticResource ContentText}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Quick Actions (Smart Actions feature) -->
+                        <Border x:Name="ActionsSection"
+                                Style="{StaticResource SectionCard}"
+                                Margin="0,8,0,0"
+                                Visibility="Collapsed">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource SectionHeader}">
+                                    <Run Text="⚡"/>
+                                    <Run Text=" Quick Actions"/>
+                                </TextBlock>
+                                <WrapPanel x:Name="ActionButtonsPanel"
+                                          Orientation="Horizontal"
+                                          Margin="0,4,0,0">
+                                    <!-- Action buttons added dynamically in code-behind -->
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Reply Recording Section (appears when Reply action is clicked) -->
+                        <Border x:Name="ReplySection"
+                                Style="{StaticResource SectionCard}"
+                                Margin="0,8,0,0"
+                                Visibility="Collapsed"
+                                BorderBrush="#8B5CF6"
+                                BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource SectionHeader}">
+                                    <Run Text="💬"/>
+                                    <Run Text=" Reply"/>
+                                </TextBlock>
+
+                                <!-- Recording controls with RecordingIndicator -->
+                                <Grid x:Name="RecordingPanel" Margin="0,4,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <Button x:Name="RecordButton"
+                                            Grid.Column="0"
+                                            Width="36"
+                                            Height="36"
+                                            Background="#374151"
+                                            BorderBrush="#4B5563"
+                                            BorderThickness="1"
+                                            Cursor="Hand"
+                                            Click="RecordButton_Click"
+                                            ToolTip="Click to record your reply instructions">
+                                        <Button.Style>
+                                            <Style TargetType="Button">
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="Button">
+                                                            <Border x:Name="border"
+                                                                    Background="{TemplateBinding Background}"
+                                                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                                                    CornerRadius="18">
+                                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                            </Border>
+                                                            <ControlTemplate.Triggers>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter TargetName="border" Property="BorderBrush" Value="#8B5CF6"/>
+                                                                </Trigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </Button.Style>
+                                        <TextBlock x:Name="RecordButtonIcon" Text="🎤" FontSize="16"/>
+                                    </Button>
+
+                                    <!-- Recording Indicator (visible when recording) -->
+                                    <controls:RecordingIndicator x:Name="ReplyRecordingIndicator"
+                                                                  Grid.Column="1"
+                                                                  Margin="12,0,0,0"
+                                                                  Visibility="Collapsed"
+                                                                  ShowTimer="True"/>
+
+                                    <!-- Status text (visible when not recording) -->
+                                    <StackPanel x:Name="RecordingStatusPanel"
+                                                Grid.Column="2"
+                                                Margin="12,0,0,0"
+                                                VerticalAlignment="Center">
+                                        <TextBlock x:Name="RecordingStatusText"
+                                                   Text="Tap to record your reply instructions"
+                                                   Foreground="#9CA3AF"
+                                                   FontSize="12"/>
+                                        <TextBlock x:Name="RecordingHintText"
+                                                   Text="e.g. 'tell them I'll be there at 3'"
+                                                   Foreground="#6B7280"
+                                                   FontSize="11"
+                                                   FontStyle="Italic"
+                                                   Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- Transcribed instruction (shown after recording) -->
+                                <Border x:Name="InstructionPanel"
+                                        Background="#2D3748"
+                                        CornerRadius="6"
+                                        Padding="10,8"
+                                        Margin="0,10,0,0"
+                                        Visibility="Collapsed">
+                                    <StackPanel>
+                                        <TextBlock Text="Your instruction:"
+                                                   Foreground="#6B7280"
+                                                   FontSize="10"
+                                                   Margin="0,0,0,4"/>
+                                        <TextBlock x:Name="InstructionText"
+                                                   Foreground="#E5E7EB"
+                                                   FontSize="13"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Generated reply (shown after AI generates) -->
+                                <Border x:Name="GeneratedReplyPanel"
+                                        Background="#1F2937"
+                                        CornerRadius="6"
+                                        Padding="10,8"
+                                        Margin="0,10,0,0"
+                                        Visibility="Collapsed">
+                                    <StackPanel>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Generated reply:"
+                                                       Foreground="#8B5CF6"
+                                                       FontSize="10"
+                                                       FontWeight="SemiBold"/>
+                                            <Button x:Name="CopyReplyButton"
+                                                    Grid.Column="1"
+                                                    Content="📋 Copy"
+                                                    Background="Transparent"
+                                                    Foreground="#9CA3AF"
+                                                    BorderThickness="0"
+                                                    FontSize="11"
+                                                    Cursor="Hand"
+                                                    Padding="6,2"
+                                                    Click="CopyReplyButton_Click">
+                                                <Button.Style>
+                                                    <Style TargetType="Button">
+                                                        <Style.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter Property="Foreground" Value="#8B5CF6"/>
+                                                            </Trigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+                                        </Grid>
+                                        <TextBlock x:Name="GeneratedReplyText"
+                                                   Foreground="White"
+                                                   FontSize="13"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,6,0,0"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Loading state for reply generation -->
+                                <StackPanel x:Name="ReplyLoadingPanel"
+                                           Visibility="Collapsed"
+                                           Margin="0,10,0,0">
+                                    <TextBlock x:Name="ReplyLoadingText"
+                                               Text="Generating reply..."
+                                               Foreground="#9CA3AF"
+                                               FontSize="12"
+                                               HorizontalAlignment="Center"/>
+                                    <ProgressBar IsIndeterminate="True"
+                                                Width="80"
+                                                Height="2"
+                                                Margin="0,6,0,0"
+                                                Background="#374151"
+                                                Foreground="#8B5CF6"/>
+                                </StackPanel>
                             </StackPanel>
                         </Border>
                     </StackPanel>

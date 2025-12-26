@@ -26,6 +26,10 @@
     <PackageReference Include="H.InputSimulator" Version="1.5.0" />
     <PackageReference Include="HidSharp" Version="2.6.4" />
     <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" Version="7.1.2" />
+    <PackageReference Include="Microsoft.Windows.CsWin32" Version="0.3.106">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="Polly" Version="8.5.0" />
   </ItemGroup>

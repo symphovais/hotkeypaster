@@ -119,6 +119,40 @@ namespace TalkKeys.Services.Auth
     }
 
     /// <summary>
+    /// Suggested action from the Smart Actions API
+    /// </summary>
+    public class SuggestedAction
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Label { get; set; } = string.Empty;
+        public string Icon { get; set; } = string.Empty;
+        public bool Primary { get; set; }
+    }
+
+    /// <summary>
+    /// Action suggestion result from the API
+    /// </summary>
+    public class ActionSuggestionResult
+    {
+        public bool Success { get; set; }
+        public string? ContextType { get; set; }
+        public double Confidence { get; set; }
+        public List<SuggestedAction> Actions { get; set; } = new();
+        public string? Error { get; set; }
+    }
+
+    /// <summary>
+    /// Generated reply result from the API
+    /// </summary>
+    public class GeneratedReplyResult
+    {
+        public bool Success { get; set; }
+        public string? Reply { get; set; }
+        public string? Tone { get; set; }
+        public string? Error { get; set; }
+    }
+
+    /// <summary>
     /// Service for making authenticated API calls to the TalkKeys backend
     /// </summary>
     public class TalkKeysApiService : IDisposable
@@ -344,9 +378,20 @@ namespace TalkKeys.Services.Auth
         }
 
         /// <summary>
-        /// Get current usage statistics
+        /// Result of token validation - distinguishes between auth failure and other errors
         /// </summary>
-        public async Task<UsageInfo?> GetUsageAsync(CancellationToken cancellationToken = default)
+        public class TokenValidationResult
+        {
+            public bool IsValid { get; set; }
+            public bool IsAuthError { get; set; } // True only for 401/403 (token expired/invalid)
+            public UsageInfo? Usage { get; set; }
+        }
+
+        /// <summary>
+        /// Validates the token by calling the usage endpoint.
+        /// Returns detailed result to distinguish auth errors from network errors.
+        /// </summary>
+        public async Task<TokenValidationResult> ValidateTokenAsync(CancellationToken cancellationToken = default)
         {
             try
             {
@@ -355,10 +400,19 @@ namespace TalkKeys.Services.Auth
 
                 var response = await _httpClient.SendAsync(request, cancellationToken);
 
+                // 401/403 = token is expired or invalid
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized ||
+                    response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+                {
+                    _logger?.Log($"[API] Token validation failed: {response.StatusCode} - token expired/invalid");
+                    return new TokenValidationResult { IsValid = false, IsAuthError = true };
+                }
+
+                // Other HTTP errors (5xx, etc.) - don't treat as auth failure, token might still be valid
                 if (!response.IsSuccessStatusCode)
                 {
-                    _logger?.Log($"[API] Usage request failed: {response.StatusCode}");
-                    return null;
+                    _logger?.Log($"[API] Usage request failed (non-auth): {response.StatusCode}");
+                    return new TokenValidationResult { IsValid = true, IsAuthError = false };
                 }
 
                 var json = await response.Content.ReadAsStringAsync();
@@ -367,22 +421,33 @@ namespace TalkKeys.Services.Auth
 
                 if (root.TryGetProperty("data", out var data))
                 {
-                    return new UsageInfo
+                    var usage = new UsageInfo
                     {
                         UsedSeconds = data.TryGetProperty("used_seconds", out var used) ? used.GetInt32() : 0,
                         LimitSeconds = data.TryGetProperty("limit_seconds", out var limit) ? limit.GetInt32() : 600,
                         RemainingSeconds = data.TryGetProperty("remaining_seconds", out var remaining) ? remaining.GetInt32() : 0,
                         ResetAt = data.TryGetProperty("reset_at", out var reset) ? reset.GetString() : null
                     };
+                    return new TokenValidationResult { IsValid = true, IsAuthError = false, Usage = usage };
                 }
 
-                return null;
+                return new TokenValidationResult { IsValid = true, IsAuthError = false };
             }
             catch (Exception ex)
             {
-                _logger?.Log($"[API] Usage request error: {ex.Message}");
-                return null;
+                // Network error - don't treat as auth failure, assume token is still valid
+                _logger?.Log($"[API] Token validation error (network): {ex.Message}");
+                return new TokenValidationResult { IsValid = true, IsAuthError = false };
             }
+        }
+
+        /// <summary>
+        /// Get current usage statistics
+        /// </summary>
+        public async Task<UsageInfo?> GetUsageAsync(CancellationToken cancellationToken = default)
+        {
+            var result = await ValidateTokenAsync(cancellationToken);
+            return result.Usage;
         }
 
         /// <summary>
@@ -757,6 +822,203 @@ namespace TalkKeys.Services.Auth
             {
                 _logger?.Log($"[API] Extract reminders error: {ex.Message}");
                 return new RemindersResult { Success = false, Error = ex.Message };
+            }
+        }
+
+        /// <summary>
+        /// Get suggested actions based on context.
+        /// Analyzes window context to suggest relevant actions (Reply, Forward, etc.).
+        /// </summary>
+        public async Task<ActionSuggestionResult> SuggestActionsAsync(
+            string text,
+            WindowContext? windowContext = null,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                _logger?.Log("[API] Sending suggest actions request...");
+
+                var response = await HttpResilience.ExecuteWithRetryAsync(
+                    async ct =>
+                    {
+                        object requestBody;
+                        if (windowContext != null && windowContext.IsValid)
+                        {
+                            requestBody = new
+                            {
+                                text,
+                                window = new
+                                {
+                                    processName = windowContext.ProcessName,
+                                    windowTitle = windowContext.WindowTitle
+                                }
+                            };
+                        }
+                        else
+                        {
+                            requestBody = new { text };
+                        }
+
+                        var json = JsonSerializer.Serialize(requestBody);
+                        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                        var request = new HttpRequestMessage(HttpMethod.Post, "/api/suggest-actions")
+                        {
+                            Content = content
+                        };
+                        SetAuthHeader(request);
+
+                        return await _httpClient.SendAsync(request, ct);
+                    },
+                    _logger,
+                    cancellationToken);
+
+                var responseJson = await response.Content.ReadAsStringAsync();
+                _logger?.Log($"[API] Suggest actions response: {response.StatusCode}");
+
+                using var doc = JsonDocument.Parse(responseJson);
+                var root = doc.RootElement;
+
+                var success = root.TryGetProperty("success", out var successProp) && successProp.GetBoolean();
+                if (!success)
+                {
+                    var error = root.TryGetProperty("error", out var errorProp) ? errorProp.GetString() : "Unknown error";
+                    return new ActionSuggestionResult { Success = false, Error = error };
+                }
+
+                if (!root.TryGetProperty("data", out var data))
+                {
+                    return new ActionSuggestionResult { Success = false, Error = "No data returned" };
+                }
+
+                var contextType = data.TryGetProperty("contextType", out var typeProp) ? typeProp.GetString() : null;
+                var confidence = data.TryGetProperty("confidence", out var confProp) && confProp.ValueKind == JsonValueKind.Number
+                    ? confProp.GetDouble()
+                    : 0.0;
+
+                var actions = new List<SuggestedAction>();
+                if (data.TryGetProperty("actions", out var actionsProp) && actionsProp.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var item in actionsProp.EnumerateArray())
+                    {
+                        var action = new SuggestedAction
+                        {
+                            Id = item.TryGetProperty("id", out var idProp) ? idProp.GetString() ?? "" : "",
+                            Label = item.TryGetProperty("label", out var labelProp) ? labelProp.GetString() ?? "" : "",
+                            Icon = item.TryGetProperty("icon", out var iconProp) ? iconProp.GetString() ?? "" : "",
+                            Primary = item.TryGetProperty("primary", out var primaryProp) && primaryProp.GetBoolean()
+                        };
+                        actions.Add(action);
+                    }
+                }
+
+                return new ActionSuggestionResult
+                {
+                    Success = true,
+                    ContextType = contextType,
+                    Confidence = confidence,
+                    Actions = actions
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger?.Log($"[API] Suggest actions error: {ex.Message}");
+                return new ActionSuggestionResult { Success = false, Error = ex.Message };
+            }
+        }
+
+        /// <summary>
+        /// Generate a reply based on instruction.
+        /// Takes original text and voice instruction, generates a full professional reply.
+        /// </summary>
+        public async Task<GeneratedReplyResult> GenerateReplyAsync(
+            string originalText,
+            string instruction,
+            string contextType,
+            WindowContext? windowContext = null,
+            string? tone = null,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                _logger?.Log("[API] Sending generate reply request...");
+
+                var response = await HttpResilience.ExecuteWithRetryAsync(
+                    async ct =>
+                    {
+                        object requestBody;
+                        if (windowContext != null && windowContext.IsValid)
+                        {
+                            requestBody = new
+                            {
+                                originalText,
+                                instruction,
+                                contextType,
+                                tone,
+                                window = new
+                                {
+                                    processName = windowContext.ProcessName,
+                                    windowTitle = windowContext.WindowTitle
+                                }
+                            };
+                        }
+                        else
+                        {
+                            requestBody = new
+                            {
+                                originalText,
+                                instruction,
+                                contextType,
+                                tone
+                            };
+                        }
+
+                        var json = JsonSerializer.Serialize(requestBody);
+                        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                        var request = new HttpRequestMessage(HttpMethod.Post, "/api/generate-reply")
+                        {
+                            Content = content
+                        };
+                        SetAuthHeader(request);
+
+                        return await _httpClient.SendAsync(request, ct);
+                    },
+                    _logger,
+                    cancellationToken);
+
+                var responseJson = await response.Content.ReadAsStringAsync();
+                _logger?.Log($"[API] Generate reply response: {response.StatusCode}");
+
+                using var doc = JsonDocument.Parse(responseJson);
+                var root = doc.RootElement;
+
+                var success = root.TryGetProperty("success", out var successProp) && successProp.GetBoolean();
+                if (!success)
+                {
+                    var error = root.TryGetProperty("error", out var errorProp) ? errorProp.GetString() : "Unknown error";
+                    return new GeneratedReplyResult { Success = false, Error = error };
+                }
+
+                if (!root.TryGetProperty("data", out var data))
+                {
+                    return new GeneratedReplyResult { Success = false, Error = "No data returned" };
+                }
+
+                var reply = data.TryGetProperty("reply", out var replyProp) ? replyProp.GetString() : null;
+                var responseTone = data.TryGetProperty("tone", out var toneProp) ? toneProp.GetString() : null;
+
+                return new GeneratedReplyResult
+                {
+                    Success = true,
+                    Reply = reply,
+                    Tone = responseTone
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger?.Log($"[API] Generate reply error: {ex.Message}");
+                return new GeneratedReplyResult { Success = false, Error = ex.Message };
             }
         }
 

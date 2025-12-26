@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using TalkKeys.Logging;
 using TalkKeys.Services.Audio;
+using TalkKeys.Services.Auth;
 using TalkKeys.Services.Clipboard;
 using TalkKeys.Services.Notifications;
 using TalkKeys.Services.Pipeline;
@@ -12,6 +13,7 @@ using TalkKeys.Services.Plugins;
 using TalkKeys.Services.RecordingMode;
 using TalkKeys.Services.Settings;
 using TalkKeys.Services.Triggers;
+using TalkKeys.Services.Windowing;
 
 namespace TalkKeys.Services.Controller
 {
@@ -30,6 +32,7 @@ namespace TalkKeys.Services.Controller
         private readonly PluginManager? _pluginManager;
 
         private IPipelineService? _pipelineService;
+        private TalkKeysApiService? _apiService;
         private FloatingWidget? _floatingWidget;
         private bool _isProcessing;
 
@@ -72,6 +75,14 @@ namespace TalkKeys.Services.Controller
         {
             _pipelineService = pipelineService;
             _floatingWidget?.UpdatePipelineService(pipelineService!);
+        }
+
+        /// <summary>
+        /// Sets the API service (called after service creation)
+        /// </summary>
+        public void SetApiService(TalkKeysApiService? apiService)
+        {
+            _apiService = apiService;
         }
 
         /// <summary>
@@ -537,6 +548,73 @@ namespace TalkKeys.Services.Controller
             explainerConfig.Settings["Hotkey"] = newHotkey;
             _logger.Log($"[Controller] Explain shortcut updated to: {newHotkey}");
             return true;
+        }
+
+        /// <summary>
+        /// Gets suggested actions for the given text and context
+        /// </summary>
+        public async Task<ActionSuggestionResult> GetSuggestedActionsAsync(string text, WindowContext? windowContext = null)
+        {
+            _logger.Log($"[Controller] GetSuggestedActionsAsync called, text length: {text?.Length ?? 0}");
+
+            if (_apiService == null)
+            {
+                _logger.Log("[Controller] API service not available");
+                return new ActionSuggestionResult
+                {
+                    Success = false,
+                    Error = "API service not available"
+                };
+            }
+
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return new ActionSuggestionResult
+                {
+                    Success = false,
+                    Error = "No text provided"
+                };
+            }
+
+            return await _apiService.SuggestActionsAsync(text, windowContext);
+        }
+
+        /// <summary>
+        /// Generates a reply based on instruction and original text
+        /// </summary>
+        public async Task<GeneratedReplyResult> GenerateReplyAsync(string originalText, string instruction, string contextType, WindowContext? windowContext = null)
+        {
+            _logger.Log($"[Controller] GenerateReplyAsync called, contextType: {contextType}");
+
+            if (_apiService == null)
+            {
+                _logger.Log("[Controller] API service not available");
+                return new GeneratedReplyResult
+                {
+                    Success = false,
+                    Error = "API service not available"
+                };
+            }
+
+            if (string.IsNullOrWhiteSpace(originalText))
+            {
+                return new GeneratedReplyResult
+                {
+                    Success = false,
+                    Error = "No original text provided"
+                };
+            }
+
+            if (string.IsNullOrWhiteSpace(instruction))
+            {
+                return new GeneratedReplyResult
+                {
+                    Success = false,
+                    Error = "No instruction provided"
+                };
+            }
+
+            return await _apiService.GenerateReplyAsync(originalText, instruction, contextType, windowContext);
         }
     }
 }

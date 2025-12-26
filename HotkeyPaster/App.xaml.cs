@@ -106,13 +106,15 @@ namespace TalkKeys
             // Validate the TalkKeys token is still valid
             if (!needsAuth)
             {
-                if (!ValidateTalkKeysToken(settings))
+                var (isValid, isAuthError) = ValidateTalkKeysToken(settings);
+                if (!isValid && isAuthError)
                 {
-                    // Token is expired/invalid - clear it and require re-auth
+                    // Token is definitely expired/invalid (401/403) - clear it and require re-auth
                     ClearTalkKeysAuth(settings);
                     needsAuth = true;
                     _notifications?.ShowInfo("Session Expired", "Your TalkKeys session has expired. Please sign in again.");
                 }
+                // If !isValid but !isAuthError, it's a network issue - don't logout, let them continue
             }
 
             if (needsAuth)
@@ -160,6 +162,13 @@ namespace TalkKeys
 
             // Set pipeline service if available
             _controller.SetPipelineService(_pipelineService);
+
+            // Set API service (create if not already created)
+            if (_talkKeysApiService == null)
+            {
+                _talkKeysApiService = new TalkKeysApiService(_settingsService!, _logger);
+            }
+            _controller.SetApiService(_talkKeysApiService);
 
             // Always create FloatingWidget (it will show "API Key Required" message if not configured)
             CreateFloatingWidget();
@@ -294,7 +303,9 @@ namespace TalkKeys
             {
                 _talkKeysApiService = new TalkKeysApiService(_settingsService!, _logger);
             }
-            _pluginManager.RegisterPlugin(new ExplainerPlugin(_talkKeysApiService, _settingsService!, _positioner, _logger));
+            var explainerPlugin = new ExplainerPlugin(_talkKeysApiService, _settingsService!, _positioner, _contextService, _audioService, _logger);
+            explainerPlugin.SetPipelineService(_pipelineService);
+            _pluginManager.RegisterPlugin(explainerPlugin);
 
             // Subscribe to plugin events
             _pluginManager.PluginWidgetPositionChanged += OnPluginWidgetPositionChanged;
@@ -635,13 +646,13 @@ namespace TalkKeys
 
         /// <summary>
         /// Validates the TalkKeys token by making an API call.
-        /// Returns true if token is valid, false if expired/invalid.
+        /// Returns (isValid, isAuthError) - only clear token if isAuthError is true.
         /// </summary>
-        private bool ValidateTalkKeysToken(AppSettings settings)
+        private (bool isValid, bool isAuthError) ValidateTalkKeysToken(AppSettings settings)
         {
             if (string.IsNullOrEmpty(settings.TalkKeysAccessToken))
             {
-                return false; // No token, not authenticated
+                return (false, true); // No token = auth error
             }
 
             _logger?.Log("[Auth] Validating TalkKeys token...");
@@ -649,24 +660,31 @@ namespace TalkKeys
             try
             {
                 using var apiService = new TalkKeysApiService(_settingsService!, _logger);
-                var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-                var usage = Task.Run(() => apiService.GetUsageAsync(cts.Token)).GetAwaiter().GetResult();
+                var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15)); // Increased timeout
+                var result = Task.Run(() => apiService.ValidateTokenAsync(cts.Token)).GetAwaiter().GetResult();
 
-                if (usage != null)
+                if (result.IsAuthError)
                 {
-                    _logger?.Log($"[Auth] Token valid - {usage.RemainingSeconds}s remaining today");
-                    return true;
+                    _logger?.Log("[Auth] Token expired or invalid (401/403)");
+                    return (false, true); // Token is definitely expired
+                }
+
+                if (result.Usage != null)
+                {
+                    _logger?.Log($"[Auth] Token valid - {result.Usage.RemainingSeconds}s remaining today");
                 }
                 else
                 {
-                    _logger?.Log("[Auth] Token validation failed - token may be expired");
-                    return false;
+                    _logger?.Log("[Auth] Token assumed valid (network issue or server error)");
                 }
+
+                return (true, false); // Token is valid (or we can't confirm it's expired)
             }
             catch (Exception ex)
             {
-                _logger?.Log($"[Auth] Token validation error: {ex.Message}");
-                return false;
+                // Network error - don't treat as auth failure
+                _logger?.Log($"[Auth] Token validation error (network): {ex.Message} - assuming valid");
+                return (true, false); // Assume valid on network error
             }
         }
 
@@ -802,6 +820,12 @@ namespace TalkKeys
 
                 // Update the controller (which will also update the widget)
                 _controller?.SetPipelineService(newService);
+
+                // Update the explainer plugin's pipeline service
+                if (_pluginManager?.GetPlugin("explainer") is ExplainerPlugin explainerPlugin)
+                {
+                    explainerPlugin.SetPipelineService(newService);
+                }
             }
             else
             {

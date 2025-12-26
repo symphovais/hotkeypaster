@@ -1,0 +1,26 @@
+// Window management
+GetForegroundWindow
+SetForegroundWindow
+IsWindow
+BringWindowToTop
+ShowWindow
+SetWindowPos
+
+// Window text
+GetWindowText
+GetWindowTextLength
+
+// Process information
+GetWindowThreadProcessId
+
+// Cursor
+GetCursorPos
+
+// Monitor and DPI
+MonitorFromPoint
+GetDpiForMonitor
+
+// Keyboard
+keybd_event
+
+// Constants and structs are auto-included when functions are requested

@@ -31,6 +31,41 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
+            <!-- Close Button -->
+            <Button x:Name="CloseButton"
+                    Click="Close_Click"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Margin="0,12,12,0"
+                    Width="32"
+                    Height="32"
+                    Cursor="Hand"
+                    ToolTip="Close">
+                <Button.Style>
+                    <Style TargetType="Button">
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="bg" Background="Transparent" CornerRadius="16">
+                                        <TextBlock Text="&#xE711;"
+                                                   FontFamily="Segoe MDL2 Assets"
+                                                   FontSize="12"
+                                                   Foreground="#9CA3AF"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="bg" Property="Background" Value="#F3F4F6"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Button.Style>
+            </Button>
+
             <!-- Step Indicators -->
             <StackPanel x:Name="StepIndicators" Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,24,0,0">
                 <StackPanel Orientation="Horizontal">
@@ -128,7 +163,7 @@
                 </Button>
 
                 <!-- Free tier info -->
-                <Border Background="#F3E8FF" CornerRadius="8" Padding="12" Margin="0,0,0,24">
+                <Border Background="#F3E8FF" CornerRadius="8" Padding="12">
                     <StackPanel>
                         <TextBlock Text="Free Account Includes:"
                                    FontSize="13"
@@ -146,48 +181,6 @@
                                    Foreground="#6B7280"/>
                     </StackPanel>
                 </Border>
-
-                <!-- Divider -->
-                <Grid Margin="0,0,0,16">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <Border Grid.Column="0" Height="1" Background="#E5E7EB" VerticalAlignment="Center"/>
-                    <TextBlock Grid.Column="1" Text="or" FontSize="12" Foreground="#9CA3AF" Margin="12,0"/>
-                    <Border Grid.Column="2" Height="1" Background="#E5E7EB" VerticalAlignment="Center"/>
-                </Grid>
-
-                <!-- Use own API key link -->
-                <Button x:Name="OwnApiKeyButton"
-                        Click="OwnApiKey_Click"
-                        Height="40"
-                        Cursor="Hand">
-                    <Button.Style>
-                        <Style TargetType="Button">
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border x:Name="bg" Background="Transparent" CornerRadius="8">
-                                            <TextBlock Text="Use my own Groq API key"
-                                                       FontSize="13"
-                                                       Foreground="#6B7280"
-                                                       HorizontalAlignment="Center"
-                                                       VerticalAlignment="Center"
-                                                       TextDecorations="Underline"/>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="bg" Property="Background" Value="#F9FAFB"/>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </Style>
-                    </Button.Style>
-                </Button>
             </StackPanel>
 
             <!-- Status panel (shown during login) -->

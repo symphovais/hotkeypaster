@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using TalkKeys.Services.Auth;
+using TalkKeys.Services.Windowing;
 
 namespace TalkKeys.Services.Controller
 {
@@ -57,5 +59,15 @@ namespace TalkKeys.Services.Controller
         /// Updates shortcut configurations
         /// </summary>
         ControllerActionResult SetShortcuts(Dictionary<string, string> shortcuts);
+
+        /// <summary>
+        /// Gets suggested actions for the given text and context
+        /// </summary>
+        Task<ActionSuggestionResult> GetSuggestedActionsAsync(string text, WindowContext? windowContext = null);
+
+        /// <summary>
+        /// Generates a reply based on instruction and original text
+        /// </summary>
+        Task<GeneratedReplyResult> GenerateReplyAsync(string originalText, string instruction, string contextType, WindowContext? windowContext = null);
     }
 }

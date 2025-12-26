@@ -15,6 +15,7 @@ using TalkKeys.Services.Notifications;
 using TalkKeys.Services.Pipeline;
 using TalkKeys.Services.RecordingMode;
 using TalkKeys.Services.Settings;
+using TalkKeys.Services.Win32;
 using TalkKeys.Services.Windowing;
 
 namespace TalkKeys
@@ -38,7 +39,6 @@ namespace TalkKeys
         private string? _currentRecordingPath;
         private IRecordingModeHandler? _currentModeHandler;
         private bool _lastRecordingHadNoAudio;
-        private System.Windows.Threading.DispatcherTimer? _recordingTimer;
         private DateTime _recordingStartTime;
         private IntPtr _previousWindow;
         private System.Windows.Threading.DispatcherTimer? _autoCollapseTimer;
@@ -49,7 +49,6 @@ namespace TalkKeys
         private System.Windows.Threading.DispatcherTimer? _visualizerTimer;
         private Random _random = new Random();
         private Border[]? _visualizerBars;
-        private Border[]? _levelBars;
 
         public event EventHandler? WidgetClosed;
 
@@ -80,10 +79,7 @@ namespace TalkKeys
             _audio.AudioLevelChanged += OnAudioLevelChanged;
             _audio.RecordingFailed += OnRecordingFailed;
 
-            // Initialize recording timer
-            _recordingTimer = new System.Windows.Threading.DispatcherTimer();
-            _recordingTimer.Interval = TimeSpan.FromMilliseconds(100);
-            _recordingTimer.Tick += OnRecordingTimerTick;
+            // Note: Recording timer is now managed by WidgetRecordingIndicator control
 
             // Initialize auto-collapse timer
             _autoCollapseTimer = new System.Windows.Threading.DispatcherTimer();
@@ -103,7 +99,6 @@ namespace TalkKeys
 
             // Cache visualizer bars (no ambient animation - static when idle)
             _visualizerBars = new Border[] { Bar1, Bar2, Bar3, Bar4, Bar5 };
-            _levelBars = new Border[] { LevelBar1, LevelBar2, LevelBar3, LevelBar4, LevelBar5 };
 
             // Update hotkey hints from settings
             UpdateHotkeyHints();
@@ -339,11 +334,8 @@ namespace TalkKeys
             CompactPanel.Visibility = Visibility.Collapsed;
             ExpandedPanel.Visibility = Visibility.Visible;
 
-            // Reset recording dot to red gradient
-            RecordingPulse.Fill = new System.Windows.Media.RadialGradientBrush(
-                System.Windows.Media.Color.FromRgb(239, 68, 68),
-                System.Windows.Media.Color.FromRgb(220, 38, 38)
-            );
+            // Reset recording indicator to initial state
+            WidgetRecordingIndicator.Reset();
 
             // Calculate position for expanded widget with screen bounds awareness
             var expandedPosition = CalculateExpandedPosition(expandedWidth, expandedHeight);
@@ -497,12 +489,10 @@ namespace TalkKeys
             TranscribedText.Text = text;
 
             // Stop any recording-related timers
-            _recordingTimer?.Stop();
             _autoCollapseTimer?.Stop();
 
-            // Stop pulse animation
-            var pulseAnimation = (Storyboard)this.Resources["PulseAnimation"];
-            pulseAnimation.Stop(RecordingPulse);
+            // Reset recording indicator
+            WidgetRecordingIndicator.Reset();
 
             // Hide other panels
             ExpandedPanel.Visibility = Visibility.Collapsed;
@@ -778,23 +768,9 @@ namespace TalkKeys
                     return;
                 }
 
-                // Start recording timer
+                // Start recording indicator (handles timer, pulse animation, and level bars)
                 _recordingStartTime = DateTime.Now;
-                RecordingTimer.Text = "0:00";
-                _recordingTimer?.Start();
-
-                // Reset level bars to gray
-                if (_levelBars != null)
-                {
-                    var grayBrush = new System.Windows.Media.SolidColorBrush(
-                        System.Windows.Media.Color.FromRgb(75, 85, 99));
-                    foreach (var bar in _levelBars)
-                        bar.Background = grayBrush;
-                }
-
-                // Start pulse animation on recording dot
-                var pulseAnimation = (Storyboard)this.Resources["PulseAnimation"];
-                pulseAnimation.Begin(RecordingPulse);
+                WidgetRecordingIndicator.StartRecording();
             });
         }
 
@@ -834,28 +810,8 @@ namespace TalkKeys
                     return;
                 }
 
-                // Stop pulse animation
-                var pulseAnimation = (Storyboard)this.Resources["PulseAnimation"];
-                pulseAnimation.Stop(RecordingPulse);
-                RecordingPulse.Opacity = 1;
-
-                // Stop recording timer
-                _recordingTimer?.Stop();
-
-                // Change dot to purple for transcription state
-                RecordingPulse.Fill = new System.Windows.Media.RadialGradientBrush(
-                    System.Windows.Media.Color.FromRgb(139, 92, 246),
-                    System.Windows.Media.Color.FromRgb(124, 58, 237)
-                );
-
-                // Set level bars to purple during transcription
-                if (_levelBars != null)
-                {
-                    var purpleBrush = new System.Windows.Media.SolidColorBrush(
-                        System.Windows.Media.Color.FromRgb(139, 92, 246));
-                    foreach (var bar in _levelBars)
-                        bar.Background = purpleBrush;
-                }
+                // Show processing state (purple dot)
+                WidgetRecordingIndicator.ShowProcessing();
 
                 // Automatically start transcription
                 await TranscribeAndPaste();
@@ -874,9 +830,8 @@ namespace TalkKeys
                 _lastRecordingHadNoAudio = true;
                 _logger.Log("No audio detected - silently collapsing widget");
 
-                var pulseAnimation = (Storyboard)this.Resources["PulseAnimation"];
-                pulseAnimation.Stop(RecordingPulse);
-                RecordingPulse.Opacity = 1;
+                // Reset recording indicator
+                WidgetRecordingIndicator.Reset();
 
                 // Clean up temp file
                 if (!string.IsNullOrEmpty(_currentRecordingPath) && File.Exists(_currentRecordingPath))
@@ -897,35 +852,14 @@ namespace TalkKeys
             });
         }
 
-        private void OnRecordingTimerTick(object? sender, EventArgs e)
-        {
-            var elapsed = DateTime.Now - _recordingStartTime;
-            RecordingTimer.Text = $"{(int)elapsed.TotalMinutes}:{elapsed.Seconds:D2}";
-        }
-
         private void OnAudioLevelChanged(object? sender, AudioLevelEventArgs e)
         {
             Dispatcher.Invoke(() =>
             {
-                // Update level bars in recording mode
-                if (_levelBars != null && _isExpanded)
+                // Update recording indicator level bars
+                if (_isExpanded)
                 {
-                    double[] baseHeights = { 8, 12, 6, 14, 10 };
-                    var greenBrush = new System.Windows.Media.SolidColorBrush(
-                        System.Windows.Media.Color.FromRgb(16, 185, 129)); // #10B981
-                    var grayBrush = new System.Windows.Media.SolidColorBrush(
-                        System.Windows.Media.Color.FromRgb(75, 85, 99)); // #4B5563
-
-                    for (int i = 0; i < _levelBars.Length; i++)
-                    {
-                        // Scale bar height based on audio level with some randomness
-                        double variation = _random.NextDouble() * 4 - 2;
-                        double scaledHeight = baseHeights[i] * (0.3 + e.Level * 0.7) + variation;
-                        _levelBars[i].Height = Math.Max(4, Math.Min(18, scaledHeight));
-
-                        // Color bars based on level threshold
-                        _levelBars[i].Background = e.Level > 0.1 ? greenBrush : grayBrush;
-                    }
+                    WidgetRecordingIndicator.UpdateAudioLevel(e.Level);
                 }
             });
         }
@@ -1061,9 +995,7 @@ namespace TalkKeys
             if (string.IsNullOrEmpty(_currentRecordingPath) || !File.Exists(_currentRecordingPath))
             {
                 _notifications.ShowError("No Recording", "No audio file found to transcribe.");
-                // Show error state
-                RecordingPulse.Fill = new System.Windows.Media.SolidColorBrush(
-                    System.Windows.Media.Color.FromRgb(239, 68, 68));
+                WidgetRecordingIndicator.ShowError();
                 return;
             }
 
@@ -1095,29 +1027,12 @@ namespace TalkKeys
                 {
                     var errorMsg = result.ErrorMessage ?? "Could not transcribe audio.";
                     _notifications.ShowError("Pipeline Failed", errorMsg);
-                    // Show error state
-                    RecordingPulse.Fill = new System.Windows.Media.SolidColorBrush(
-                        System.Windows.Media.Color.FromRgb(239, 68, 68));
-                    if (_levelBars != null)
-                    {
-                        var redBrush = new System.Windows.Media.SolidColorBrush(
-                            System.Windows.Media.Color.FromRgb(239, 68, 68));
-                        foreach (var bar in _levelBars)
-                            bar.Background = redBrush;
-                    }
+                    WidgetRecordingIndicator.ShowError();
                     return;
                 }
 
                 // Show success state - green dot
-                RecordingPulse.Fill = new System.Windows.Media.SolidColorBrush(
-                    System.Windows.Media.Color.FromRgb(34, 197, 94));
-                if (_levelBars != null)
-                {
-                    var greenBrush = new System.Windows.Media.SolidColorBrush(
-                        System.Windows.Media.Color.FromRgb(34, 197, 94));
-                    foreach (var bar in _levelBars)
-                        bar.Background = greenBrush;
-                }
+                WidgetRecordingIndicator.ShowSuccess();
 
                 // CRITICAL: Return focus to the previous window BEFORE pasting
                 // The paste command (Ctrl+V) needs to go to the target window, not this widget
@@ -1148,16 +1063,7 @@ namespace TalkKeys
             {
                 _logger.Log($"Transcription error: {ex}");
                 _notifications.ShowError("Transcription Error", ex.Message);
-                // Show error state
-                RecordingPulse.Fill = new System.Windows.Media.SolidColorBrush(
-                    System.Windows.Media.Color.FromRgb(239, 68, 68));
-                if (_levelBars != null)
-                {
-                    var redBrush = new System.Windows.Media.SolidColorBrush(
-                        System.Windows.Media.Color.FromRgb(239, 68, 68));
-                    foreach (var bar in _levelBars)
-                        bar.Background = redBrush;
-                }
+                WidgetRecordingIndicator.ShowError();
             }
             finally
             {
@@ -1269,18 +1175,5 @@ namespace TalkKeys
             _talkKeysApiService.Dispose();
             base.OnClosing(e);
         }
-    }
-
-    // Helper class for Win32 API calls
-    internal static class Win32Helper
-    {
-        [System.Runtime.InteropServices.DllImport("user32.dll")]
-        internal static extern IntPtr GetForegroundWindow();
-
-        [System.Runtime.InteropServices.DllImport("user32.dll")]
-        internal static extern bool SetForegroundWindow(IntPtr hWnd);
-
-        [System.Runtime.InteropServices.DllImport("user32.dll")]
-        internal static extern bool IsWindow(IntPtr hWnd);
     }
 }

@@ -1,6 +1,5 @@
 using System;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Interop;
@@ -10,6 +9,7 @@ using System.Windows.Media.Animation;
 using Microsoft.Win32;
 using TalkKeys.Services;
 using TalkKeys.Services.Notifications;
+using TalkKeys.Services.Win32;
 using TalkKeys.Services.Windowing;
 using TalkKeys.Services.Clipboard;
 using TalkKeys.Logging;
@@ -41,28 +41,6 @@ namespace TalkKeys
 
     public partial class MainWindow : Window
     {
-        // Windows API imports for focus management
-        [DllImport("user32.dll")]
-        private static extern IntPtr GetForegroundWindow();
-
-        [DllImport("user32.dll")]
-        private static extern bool SetForegroundWindow(IntPtr hWnd);
-
-        [DllImport("user32.dll")]
-        private static extern bool BringWindowToTop(IntPtr hWnd);
-
-        [DllImport("user32.dll")]
-        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-
-        [DllImport("user32.dll")]
-        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
-
-        private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
-        private const uint SWP_NOSIZE = 0x0001;
-        private const uint SWP_NOMOVE = 0x0002;
-        private const uint SWP_SHOWWINDOW = 0x0040;
-        private const int SW_SHOW = 5;
-
         private IntPtr _previousWindow;
         private readonly INotificationService _notifications;
         private readonly IWindowPositionService _positioner;
@@ -351,7 +329,7 @@ namespace TalkKeys
                 _currentModeHandler = modeHandler;
 
                 // Capture the currently focused window so we can return focus later
-                _previousWindow = GetForegroundWindow();
+                _previousWindow = Win32Helper.GetForegroundWindow();
 
                 // IMPORTANT: Start recording FIRST to minimize audio loss at the beginning
                 // The audio device needs time to initialize, so we start it before UI work
@@ -375,10 +353,10 @@ namespace TalkKeys
                 var hwnd = new WindowInteropHelper(this).Handle;
 
                 // Force window to foreground using Win32 APIs
-                ShowWindow(hwnd, SW_SHOW);
-                SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
-                BringWindowToTop(hwnd);
-                SetForegroundWindow(hwnd);
+                Win32Helper.ShowWindow(hwnd, Win32Helper.SW_SHOW);
+                Win32Helper.SetWindowPos(hwnd, Win32Helper.HWND_TOPMOST, 0, 0, 0, 0, Win32Helper.SWP_NOMOVE | Win32Helper.SWP_NOSIZE | Win32Helper.SWP_SHOWWINDOW);
+                Win32Helper.BringWindowToTop(hwnd);
+                Win32Helper.SetForegroundWindow(hwnd);
 
                 // Also try WPF methods
                 this.Activate();
@@ -397,11 +375,11 @@ namespace TalkKeys
         {
             this.Visibility = Visibility.Hidden;
             Logger.Log("HideWindow: set Visibility.Hidden.");
-            
+
             // Return focus to previous window if available
             if (_previousWindow != IntPtr.Zero)
             {
-                SetForegroundWindow(_previousWindow);
+                Win32Helper.SetForegroundWindow(_previousWindow);
                 Logger.Log($"HideWindow: SetForegroundWindow({_previousWindow}).");
             }
         }

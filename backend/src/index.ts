@@ -11,7 +11,9 @@ import {
   handleRewriteProxy,
   handleExtractRemindersProxy,
   handleAnalyzeWordsProxy,
-  handleGetProfile
+  handleGetProfile,
+  handleSuggestActionsProxy,
+  handleGenerateReplyProxy
 } from './api';
 
 // Import pages
@@ -167,6 +169,16 @@ export default {
       // Words analysis proxy
       if (path === '/api/analyze-words' && method === 'POST') {
         return handleAnalyzeWordsProxy(request, env, user);
+      }
+
+      // Smart Actions: suggest actions based on context
+      if (path === '/api/suggest-actions' && method === 'POST') {
+        return handleSuggestActionsProxy(request, env, user);
+      }
+
+      // Smart Actions: generate reply from instruction
+      if (path === '/api/generate-reply' && method === 'POST') {
+        return handleGenerateReplyProxy(request, env, user);
       }
 
       // 404 for unknown routes
