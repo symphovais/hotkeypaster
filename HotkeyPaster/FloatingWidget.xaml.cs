@@ -48,7 +48,6 @@ namespace TalkKeys
         private bool _hasValidCompactPosition = false;
         private System.Windows.Threading.DispatcherTimer? _visualizerTimer;
         private Random _random = new Random();
-        private Border[]? _visualizerBars;
 
         public event EventHandler? WidgetClosed;
 
@@ -97,11 +96,26 @@ namespace TalkKeys
             // Update compact status based on pipeline availability
             UpdateCompactStatus();
 
-            // Cache visualizer bars (no ambient animation - static when idle)
-            _visualizerBars = new Border[] { Bar1, Bar2, Bar3, Bar4, Bar5 };
+            // Note: Visualizer bars are now static dots (Ellipse), no caching needed for animation
+            // _visualizerBars is kept for compatibility but won't be used for animation
 
             // Update hotkey hints from settings
             UpdateHotkeyHints();
+
+            // Start subtle breathing animation on mic glow ring
+            this.Loaded += (s, e) =>
+            {
+                try
+                {
+                    var breathingAnimation = (Storyboard)this.Resources["BreathingAnimation"];
+                    breathingAnimation.Begin(MicGlowRing, true);
+                    _logger.Log("Started breathing animation on mic glow ring");
+                }
+                catch (Exception ex)
+                {
+                    _logger.Log($"Could not start breathing animation: {ex.Message}");
+                }
+            };
 
             _logger.Log("FloatingWidget initialized");
         }
@@ -327,8 +341,9 @@ namespace TalkKeys
             _logger.Log($"Compact position for restoration: {_compactPositionX}, {_compactPositionY}");
 
             // Calculate expanded dimensions (minimal pill style)
+            // Height needs room for panel (40) + border (1.5) + shadow blur
             const double expandedWidth = 230;
-            const double expandedHeight = 36;
+            const double expandedHeight = 48;
 
             // Hide compact panel, show expanded panel
             CompactPanel.Visibility = Visibility.Collapsed;
@@ -453,8 +468,8 @@ namespace TalkKeys
             ExpandedPanel.Visibility = Visibility.Collapsed;
 
             // Resize window back to compact (minimal pill dimensions)
-            this.Width = 90;
-            this.Height = 32;
+            this.Width = 110;
+            this.Height = 44;
 
             // Restore original compact position
             this.Left = _compactPositionX;
@@ -602,8 +617,8 @@ namespace TalkKeys
             CompactPanel.Visibility = Visibility.Visible;
 
             // Reset window to compact size (minimal pill dimensions)
-            this.Width = 90;
-            this.Height = 32;
+            this.Width = 110;
+            this.Height = 44;
 
             // Restore compact position
             this.Left = _compactPositionX;
@@ -659,32 +674,26 @@ namespace TalkKeys
         {
             if (_pipelineService == null)
             {
-                CompactStatus.Text = "Setup";
+                CompactStatus.Text = "!";
                 CompactStatus.Visibility = Visibility.Visible;
                 CompactStatus.Foreground = new System.Windows.Media.SolidColorBrush(
                     System.Windows.Media.Color.FromRgb(239, 68, 68)); // Red
-                // Change visualizer bars to red to indicate not configured
-                if (_visualizerBars != null)
-                {
-                    foreach (var bar in _visualizerBars)
-                    {
-                        bar.Background = new System.Windows.Media.SolidColorBrush(
-                            System.Windows.Media.Color.FromRgb(239, 68, 68));
-                    }
-                }
+                // Change indicator dots to red to indicate not configured
+                var redBrush = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(239, 68, 68));
+                Bar1.Fill = redBrush;
+                Bar2.Fill = redBrush;
+                Bar3.Fill = redBrush;
             }
             else
             {
                 CompactStatus.Visibility = Visibility.Collapsed;
-                // Restore visualizer bars to indigo
-                if (_visualizerBars != null)
-                {
-                    foreach (var bar in _visualizerBars)
-                    {
-                        bar.Background = new System.Windows.Media.SolidColorBrush(
-                            System.Windows.Media.Color.FromRgb(99, 102, 241));
-                    }
-                }
+                // Restore indicator dots to muted gray (ready state)
+                var readyBrush = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(61, 66, 80)); // #3d4250
+                Bar1.Fill = readyBrush;
+                Bar2.Fill = readyBrush;
+                Bar3.Fill = readyBrush;
             }
         }
 
