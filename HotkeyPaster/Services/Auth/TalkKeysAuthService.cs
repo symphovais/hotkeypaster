@@ -53,21 +53,19 @@ namespace TalkKeys.Services.Auth
             get
             {
                 var settings = _settingsService.LoadSettings();
-                return settings.AuthMode == AuthMode.TalkKeysAccount &&
-                       !string.IsNullOrEmpty(settings.TalkKeysAccessToken);
+                return !string.IsNullOrEmpty(settings.TalkKeysAccessToken);
             }
         }
 
         /// <summary>
-        /// Check if user has configured any authentication method
+        /// Check if user has configured authentication
         /// </summary>
         public bool IsConfigured
         {
             get
             {
                 var settings = _settingsService.LoadSettings();
-                return (settings.AuthMode == AuthMode.TalkKeysAccount && !string.IsNullOrEmpty(settings.TalkKeysAccessToken)) ||
-                       (settings.AuthMode == AuthMode.OwnApiKey && !string.IsNullOrEmpty(settings.GroqApiKey));
+                return !string.IsNullOrEmpty(settings.TalkKeysAccessToken);
             }
         }
 
@@ -110,7 +108,6 @@ namespace TalkKeys.Services.Auth
                 {
                     // Save tokens to settings
                     var settings = _settingsService.LoadSettings();
-                    settings.AuthMode = AuthMode.TalkKeysAccount;
                     settings.TalkKeysAccessToken = result.AccessToken;
                     settings.TalkKeysRefreshToken = result.RefreshToken;
                     settings.TalkKeysUserEmail = result.Email;

@@ -121,11 +121,7 @@ namespace TalkKeys
                     return false;
                 }
 
-                // Classification/rewrite uses the TalkKeys backend which requires TalkKeysAccount auth.
-                if (settings.AuthMode != AuthMode.TalkKeysAccount)
-                {
-                    return false;
-                }
+                // Classification/rewrite uses the TalkKeys backend which requires a valid TalkKeys access token.
 
                 return !string.IsNullOrWhiteSpace(settings.TalkKeysAccessToken);
             }

@@ -103,8 +103,8 @@ namespace TalkKeys
             // Check if user is authenticated (either with TalkKeys account or own API key)
             bool needsAuth = !IsAuthenticated(settings);
 
-            // If using TalkKeys account, validate the token is still valid
-            if (!needsAuth && settings.AuthMode == AuthMode.TalkKeysAccount)
+            // Validate the TalkKeys token is still valid
+            if (!needsAuth)
             {
                 if (!ValidateTalkKeysToken(settings))
                 {
@@ -626,12 +626,11 @@ namespace TalkKeys
         }
 
         /// <summary>
-        /// Check if user is authenticated (either TalkKeys account or own API key)
+        /// Check if user is authenticated with TalkKeys account
         /// </summary>
         private bool IsAuthenticated(AppSettings settings)
         {
-            return (settings.AuthMode == AuthMode.TalkKeysAccount && !string.IsNullOrEmpty(settings.TalkKeysAccessToken)) ||
-                   (settings.AuthMode == AuthMode.OwnApiKey && !string.IsNullOrEmpty(settings.GroqApiKey));
+            return !string.IsNullOrEmpty(settings.TalkKeysAccessToken);
         }
 
         /// <summary>
@@ -640,9 +639,9 @@ namespace TalkKeys
         /// </summary>
         private bool ValidateTalkKeysToken(AppSettings settings)
         {
-            if (settings.AuthMode != AuthMode.TalkKeysAccount || string.IsNullOrEmpty(settings.TalkKeysAccessToken))
+            if (string.IsNullOrEmpty(settings.TalkKeysAccessToken))
             {
-                return true; // Not using TalkKeys, skip validation
+                return false; // No token, not authenticated
             }
 
             _logger?.Log("[Auth] Validating TalkKeys token...");
@@ -704,40 +703,21 @@ namespace TalkKeys
                 // Create pipeline factory
                 var factory = new PipelineFactory(_logger);
 
-                // Register stage factories based on auth mode
+                // Register stage factories - TalkKeys account only
                 factory.RegisterStageFactory(new AudioValidationStageFactory());
                 factory.RegisterStageFactory(new HistorySavingStageFactory());
-
-                if (settings.AuthMode == AuthMode.TalkKeysAccount)
-                {
-                    // Use TalkKeys proxy stages
-                    factory.RegisterStageFactory(new TalkKeysTranscriptionStageFactory());
-                    factory.RegisterStageFactory(new TalkKeysTextCleaningStageFactory());
-                    _logger?.Log("Using TalkKeys account for transcription");
-                }
-                else
-                {
-                    // Use direct Groq API stages
-                    factory.RegisterStageFactory(new GroqWhisperTranscriptionStageFactory());
-                    factory.RegisterStageFactory(new GroqTextCleaningStageFactory());
-                    _logger?.Log("Using own Groq API key for transcription");
-                }
+                factory.RegisterStageFactory(new TalkKeysTranscriptionStageFactory());
+                factory.RegisterStageFactory(new TalkKeysTextCleaningStageFactory());
+                _logger?.Log("Using TalkKeys account for transcription");
 
                 // Create configuration loader
                 var configLoader = new PipelineConfigurationLoader(pipelineConfigDir, _logger);
 
-                // Ensure default configuration exists based on auth mode
-                if (settings.AuthMode == AuthMode.TalkKeysAccount)
-                {
-                    EnsureTalkKeysPipelineConfig(configLoader);
-                }
-                else
-                {
-                    configLoader.EnsureDefaultConfigurations(settings.GroqApiKey!);
-                }
+                // Ensure default TalkKeys configuration exists
+                EnsureTalkKeysPipelineConfig(configLoader);
 
-                // Ensure API service exists for TalkKeys mode (don't recreate - ExplainerPlugin holds reference)
-                if (settings.AuthMode == AuthMode.TalkKeysAccount && _talkKeysApiService == null)
+                // Ensure API service exists (don't recreate - ExplainerPlugin holds reference)
+                if (_talkKeysApiService == null)
                 {
                     _talkKeysApiService = new TalkKeysApiService(_settingsService!, _logger);
                 }
@@ -751,7 +731,6 @@ namespace TalkKeys
                 // Create build context
                 var buildContext = new PipelineBuildContext
                 {
-                    GroqApiKey = settings.GroqApiKey,
                     TalkKeysApiService = _talkKeysApiService,
                     HistoryService = _historyService,
                     Logger = _logger

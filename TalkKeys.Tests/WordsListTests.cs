@@ -84,8 +84,7 @@ namespace TalkKeys.Tests
         {
             var original = new AppSettings
             {
-                AuthMode = AuthMode.OwnApiKey,
-                GroqApiKey = "test-key",
+                TalkKeysUserEmail = "test@example.com",
                 WordsList = new List<string> { "TestWord", "AnotherWord" }
             };
 
@@ -93,8 +92,7 @@ namespace TalkKeys.Tests
             var loaded = JsonSerializer.Deserialize<AppSettings>(json);
 
             Assert.NotNull(loaded);
-            Assert.Equal(AuthMode.OwnApiKey, loaded.AuthMode);
-            Assert.Equal("test-key", loaded.GroqApiKey);
+            Assert.Equal("test@example.com", loaded.TalkKeysUserEmail);
             Assert.Equal(2, loaded.WordsList.Count);
         }
 

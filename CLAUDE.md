@@ -87,6 +87,44 @@ Run these manually when testing audio recording changes.
 
 ---
 
+## Code Review Workflow
+
+Use Claude Code's native slash commands for code reviews. These are located in `.claude/commands/`.
+
+### Available Review Commands
+
+| Command | Purpose | When to Use |
+|---------|---------|-------------|
+| `/review` | General code review | Before committing changes |
+| `/security-review` | Security-focused audit | For auth, API, or sensitive code |
+| `/perf-review` | Performance analysis | For hot paths, async code, UI updates |
+| `/arch-review` | Architecture & SOLID | For new features, refactoring |
+| `/pre-commit` | Quick blocking-issues check | Right before `git commit` |
+| `/review-pr` | Full PR review | Before creating/merging PRs |
+| `/self-review` | Claude reviews own work | After Claude writes code |
+| `/fix-review` | Address review feedback | After receiving review comments |
+
+### Recommended Workflow
+
+1. **During development**: Let Claude write code, then run `/self-review`
+2. **Before committing**: Run `/pre-commit` for quick sanity check
+3. **For significant changes**: Run `/review` for comprehensive analysis
+4. **For PRs**: Run `/review-pr` before creating the pull request
+
+### Review Focus Areas
+
+All reviews check for:
+- **Security**: Hardcoded secrets, input validation, auth issues
+- **Performance**: Async patterns, memory leaks, UI thread blocking
+- **Quality**: SOLID principles, naming, error handling
+- **Architecture**: Separation of concerns, patterns, dependencies
+
+### Legacy Scripts (Removed)
+
+Previous PowerShell review scripts have been removed in favor of slash commands.
+
+---
+
 ## AI Models (DO NOT CHANGE)
 
 **IMPORTANT**: The following AI model configuration has been tested and approved. Do not change these without explicit user approval.

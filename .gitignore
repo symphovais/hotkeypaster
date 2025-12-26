@@ -260,3 +260,4 @@ msix-output/
 # Backend local development environment variables (contains secrets)
 backend/.dev.vars
 **/.dev.vars
+nul

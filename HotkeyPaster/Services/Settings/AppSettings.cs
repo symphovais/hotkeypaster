@@ -26,38 +26,17 @@ namespace TalkKeys.Services.Settings
         PushToTalk = 1
     }
 
-    /// <summary>
-    /// Authentication mode - how the app connects to transcription services
-    /// </summary>
-    public enum AuthMode
-    {
-        /// <summary>
-        /// Use TalkKeys account (free tier with limits)
-        /// </summary>
-        TalkKeysAccount = 0,
-
-        /// <summary>
-        /// Use user's own Groq API key (unlimited)
-        /// </summary>
-        OwnApiKey = 1
-    }
 
     /// <summary>
     /// Application settings that can be persisted.
     /// </summary>
     public class AppSettings
     {
-        // Authentication Mode
-        public AuthMode AuthMode { get; set; } = AuthMode.TalkKeysAccount;
-
-        // TalkKeys Account (when AuthMode = TalkKeysAccount)
+        // TalkKeys Account Authentication
         public string? TalkKeysAccessToken { get; set; }
         public string? TalkKeysRefreshToken { get; set; }
         public string? TalkKeysUserEmail { get; set; }
         public string? TalkKeysUserName { get; set; }
-
-        // Own API Key (when AuthMode = OwnApiKey)
-        public string? GroqApiKey { get; set; }
 
         // Text Processing
         public bool EnableTextCleaning { get; set; } = true;
@@ -159,9 +138,24 @@ namespace TalkKeys.Services.Settings
                         }
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // If loading fails, return defaults
+                    // Log the specific error and provide fallback strategy
+                    System.Diagnostics.Debug.WriteLine($"Settings loading failed: {ex.Message}");
+                    
+                    // Try to backup corrupted settings file
+                    if (File.Exists(SettingsPath))
+                    {
+                        try
+                        {
+                            var backupPath = SettingsPath + $".backup.{DateTime.Now:yyyyMMdd_HHmmss}";
+                            File.Copy(SettingsPath, backupPath);
+                        }
+                        catch
+                        {
+                            // Backup failed, but continue with defaults
+                        }
+                    }
                 }
 
                 _cachedSettings = new AppSettings();

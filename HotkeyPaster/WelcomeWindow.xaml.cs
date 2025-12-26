@@ -25,10 +25,6 @@ namespace TalkKeys
         /// </summary>
         public event EventHandler? AuthenticationCompleted;
 
-        /// <summary>
-        /// The authentication mode that was selected/completed
-        /// </summary>
-        public AuthMode SelectedAuthMode { get; private set; }
 
         public WelcomeWindow(SettingsService settingsService, ILogger? logger = null)
         {
@@ -56,7 +52,6 @@ namespace TalkKeys
                 {
                     _logger?.Log("[Welcome] Sign-in successful");
                     _userName = result.Name ?? result.Email?.Split('@')[0];
-                    SelectedAuthMode = AuthMode.TalkKeysAccount;
                     ShowStep2();
                 }
                 else
@@ -84,24 +79,12 @@ namespace TalkKeys
 
         private void OwnApiKey_Click(object sender, RoutedEventArgs e)
         {
-            _logger?.Log("[Welcome] User chose to use own API key");
-
-            // Show API key dialog
-            var apiKey = ShowApiKeyDialog();
-
-            if (!string.IsNullOrWhiteSpace(apiKey))
-            {
-                // Save the API key and set mode
-                var settings = _settingsService.LoadSettings();
-                settings.AuthMode = AuthMode.OwnApiKey;
-                settings.GroqApiKey = apiKey;
-                _settingsService.SaveSettings(settings);
-
-                _logger?.Log("[Welcome] API key saved");
-                _userName = null; // No user name for API key mode
-                SelectedAuthMode = AuthMode.OwnApiKey;
-                ShowStep2();
-            }
+            _logger?.Log("[Welcome] Own API key option selected but only TalkKeys authentication is supported");
+            MessageBox.Show(
+                "Only TalkKeys authentication is supported. Please use the Google Sign-In option.",
+                "Not Supported",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
         }
 
         private string? ShowApiKeyDialog()

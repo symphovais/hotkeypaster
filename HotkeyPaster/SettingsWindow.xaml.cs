@@ -91,12 +91,6 @@ namespace TalkKeys
 
         private void LoadSettings()
         {
-            // Load API key hint
-            UpdateApiKeyHint();
-
-            // Load account card display
-            UpdateAccountCard();
-
             // Load Audio Devices
             _audioDevices = _audioService.GetAvailableDevices();
             _selectedAudioDeviceIndex = _currentSettings.AudioDeviceIndex;
@@ -158,30 +152,6 @@ namespace TalkKeys
             ExplainerHotkeyTextBox.Text = _explainerHotkey;
         }
 
-        private void UpdateApiKeyHint()
-        {
-            if (_currentSettings.AuthMode == AuthMode.TalkKeysAccount)
-            {
-                // Show TalkKeys account info
-                ApiKeyLabel.Text = "TalkKeys Account";
-                if (!string.IsNullOrEmpty(_currentSettings.TalkKeysUserEmail))
-                {
-                    ApiKeyHint.Text = $"Signed in as {_currentSettings.TalkKeysUserEmail}";
-                }
-                else
-                {
-                    ApiKeyHint.Text = "Free account (10 min/day)";
-                }
-            }
-            else
-            {
-                // Show API key status
-                ApiKeyLabel.Text = "Groq API Key";
-                ApiKeyHint.Text = string.IsNullOrEmpty(_currentSettings.GroqApiKey)
-                    ? "Required for transcription"
-                    : "Configured (unlimited)";
-            }
-        }
 
         private void LoadTriggerPlugins()
         {
@@ -363,252 +333,9 @@ namespace TalkKeys
 
         #endregion
 
-        private void ChangeApiKey_Click(object sender, RoutedEventArgs e)
-        {
-            ShowApiKeyDialog();
-        }
 
-        private void ShowApiKeyDialog()
-        {
-            if (_currentSettings.AuthMode == AuthMode.TalkKeysAccount)
-            {
-                // Show account options dialog
-                ShowAccountOptionsDialog();
-            }
-            else
-            {
-                // Show API key entry dialog
-                ShowGroqApiKeyDialog();
-            }
-        }
 
-        private void ShowAccountOptionsDialog()
-        {
-            var isSignedIn = !string.IsNullOrEmpty(_currentSettings.TalkKeysAccessToken);
-            var dialog = CreateModalDialog("Account");
 
-            var content = new StackPanel { Margin = new Thickness(0, 16, 0, 0) };
-
-            if (isSignedIn)
-            {
-                // Current account info
-                var accountInfo = new Border
-                {
-                    Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F3E8FF")),
-                    CornerRadius = new CornerRadius(8),
-                    Padding = new Thickness(12),
-                    Margin = new Thickness(0, 0, 0, 16)
-                };
-
-                var accountStack = new StackPanel();
-                accountStack.Children.Add(new TextBlock
-                {
-                    Text = _currentSettings.TalkKeysUserName ?? "TalkKeys Account",
-                    FontSize = 14,
-                    FontWeight = FontWeights.SemiBold,
-                    Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#7C3AED"))
-                });
-                accountStack.Children.Add(new TextBlock
-                {
-                    Text = _currentSettings.TalkKeysUserEmail ?? "Signed in",
-                    FontSize = 12,
-                    Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#6B7280")),
-                    Margin = new Thickness(0, 4, 0, 0)
-                });
-                accountStack.Children.Add(new TextBlock
-                {
-                    Text = "Free tier: 10 minutes/day",
-                    FontSize = 11,
-                    Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#9CA3AF")),
-                    Margin = new Thickness(0, 4, 0, 0)
-                });
-                accountInfo.Child = accountStack;
-                content.Children.Add(accountInfo);
-
-                // Sign out button
-                var signOutButton = new Button
-                {
-                    Content = "Sign Out",
-                    Height = 38,
-                    Margin = new Thickness(0, 0, 0, 12),
-                    Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F3F4F6")),
-                    Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#374151")),
-                    FontSize = 14,
-                    FontWeight = FontWeights.Medium,
-                    BorderThickness = new Thickness(0),
-                    Cursor = System.Windows.Input.Cursors.Hand
-                };
-                signOutButton.Click += (s, e) =>
-                {
-                    if (MessageBox.Show("Are you sure you want to sign out?", "Sign Out",
-                        MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
-                    {
-                        // Clear TalkKeys credentials
-                        _currentSettings.TalkKeysAccessToken = null;
-                        _currentSettings.TalkKeysRefreshToken = null;
-                        _currentSettings.TalkKeysUserEmail = null;
-                        _currentSettings.TalkKeysUserName = null;
-                        dialog.Close();
-                        UpdateApiKeyHint();
-                        UpdateAccountCard();
-
-                        // Show account dialog again with sign-in option
-                        ShowAccountOptionsDialog();
-                    }
-                };
-                content.Children.Add(signOutButton);
-            }
-            else
-            {
-                // Not signed in - show sign-in option
-                var infoText = new TextBlock
-                {
-                    Text = "Sign in with Google to get 10 minutes of free transcription daily.",
-                    FontSize = 13,
-                    Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#6B7280")),
-                    TextWrapping = TextWrapping.Wrap,
-                    Margin = new Thickness(0, 0, 0, 16)
-                };
-                content.Children.Add(infoText);
-
-                // Sign in button
-                var signInButton = new Button
-                {
-                    Content = "Sign in with Google",
-                    Height = 44,
-                    Margin = new Thickness(0, 0, 0, 12),
-                    Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#7C3AED")),
-                    Foreground = Brushes.White,
-                    FontSize = 14,
-                    FontWeight = FontWeights.SemiBold,
-                    BorderThickness = new Thickness(0),
-                    Cursor = System.Windows.Input.Cursors.Hand
-                };
-                signInButton.Click += async (s, e) =>
-                {
-                    signInButton.IsEnabled = false;
-                    signInButton.Content = "Opening browser...";
-
-                    try
-                    {
-                        var authService = new TalkKeysAuthService(_settingsService, _logger);
-                        var result = await authService.LoginAsync();
-
-                        if (result != null)
-                        {
-                            _currentSettings = _settingsService.LoadSettings();
-                            dialog.Close();
-                            UpdateApiKeyHint();
-                            UpdateAccountCard();
-                            SettingsChanged?.Invoke(this, EventArgs.Empty);
-                            MessageBox.Show($"Welcome, {result.Name ?? result.Email}!", "Signed In",
-                                MessageBoxButton.OK, MessageBoxImage.Information);
-                        }
-                        else
-                        {
-                            signInButton.IsEnabled = true;
-                            signInButton.Content = "Sign in with Google";
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Log($"Sign-in error: {ex.Message}");
-                        signInButton.IsEnabled = true;
-                        signInButton.Content = "Sign in with Google";
-                        MessageBox.Show($"Sign-in failed: {ex.Message}", "Error",
-                            MessageBoxButton.OK, MessageBoxImage.Error);
-                    }
-                };
-                content.Children.Add(signInButton);
-            }
-
-            // Switch to own API key
-            var switchButton = new Button
-            {
-                Content = "Use my own Groq API key instead",
-                Height = 38,
-                Background = Brushes.Transparent,
-                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#6B7280")),
-                FontSize = 13,
-                BorderThickness = new Thickness(0),
-                Cursor = System.Windows.Input.Cursors.Hand
-            };
-            switchButton.Click += (s, e) =>
-            {
-                dialog.Close();
-                _currentSettings.AuthMode = AuthMode.OwnApiKey;
-                ShowGroqApiKeyDialog();
-            };
-            content.Children.Add(switchButton);
-
-            var outerGrid = (Grid)dialog.Content;
-            var border = (Border)outerGrid.Children[0];
-            var dialogContent = (StackPanel)border.Child;
-            dialogContent.Children.Add(content);
-
-            dialog.ShowDialog();
-        }
-
-        private void ShowGroqApiKeyDialog()
-        {
-            var dialog = CreateModalDialog("Groq API Key");
-
-            var content = new StackPanel { Margin = new Thickness(0, 16, 0, 0) };
-
-            var passwordBox = new PasswordBox
-            {
-                Password = _currentSettings.GroqApiKey ?? "",
-                Height = 44,
-                Padding = new Thickness(12, 12, 12, 12),
-                FontSize = 14,
-                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FAFAFA")),
-                BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E5E7EB")),
-                BorderThickness = new Thickness(1)
-            };
-
-            var helpLabel = new TextBlock
-            {
-                Text = "Get your key from console.groq.com",
-                FontSize = 12,
-                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#6B7280")),
-                Margin = new Thickness(0, 8, 0, 0)
-            };
-
-            content.Children.Add(passwordBox);
-            content.Children.Add(helpLabel);
-
-            // Add save button
-            var saveButton = new Button
-            {
-                Content = "Save",
-                Height = 38,
-                Margin = new Thickness(0, 20, 0, 0),
-                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#7C3AED")),
-                Foreground = Brushes.White,
-                FontSize = 14,
-                FontWeight = FontWeights.Medium,
-                BorderThickness = new Thickness(0),
-                Cursor = System.Windows.Input.Cursors.Hand
-            };
-            saveButton.Click += (s, e) => dialog.Close();
-
-            content.Children.Add(saveButton);
-
-            var outerGrid = (Grid)dialog.Content;
-            var border = (Border)outerGrid.Children[0];
-            var dialogContent = (StackPanel)border.Child;
-            dialogContent.Children.Add(content);
-
-            dialog.ShowDialog();
-
-            // Save the key if entered
-            if (!string.IsNullOrWhiteSpace(passwordBox.Password))
-            {
-                _currentSettings.AuthMode = AuthMode.OwnApiKey;
-                _currentSettings.GroqApiKey = passwordBox.Password;
-            }
-            UpdateApiKeyHint();
-        }
 
         private void ChangeMicrophone_Click(object sender, RoutedEventArgs e)
         {
@@ -849,18 +576,8 @@ namespace TalkKeys
 
         private void SaveClose_Click(object sender, RoutedEventArgs e)
         {
-            // Validate authentication based on mode
-            if (_currentSettings.AuthMode == AuthMode.OwnApiKey && string.IsNullOrWhiteSpace(_currentSettings.GroqApiKey))
-            {
-                MessageBox.Show(
-                    "Please enter your Groq API key before saving.",
-                    "Groq API Key Required",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
-                return;
-            }
-
-            if (_currentSettings.AuthMode == AuthMode.TalkKeysAccount && string.IsNullOrWhiteSpace(_currentSettings.TalkKeysAccessToken))
+            // Validate TalkKeys authentication
+            if (string.IsNullOrWhiteSpace(_currentSettings.TalkKeysAccessToken))
             {
                 MessageBox.Show(
                     "Please sign in with your TalkKeys account before saving.",
@@ -918,32 +635,7 @@ namespace TalkKeys
             }
         }
 
-        private void AccountCard_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
-        {
-            ShowAccountOptionsDialog();
-        }
 
-        private void UpdateAccountCard()
-        {
-            if (_currentSettings.AuthMode == AuthMode.TalkKeysAccount &&
-                !string.IsNullOrEmpty(_currentSettings.TalkKeysAccessToken))
-            {
-                // User is signed in
-                var name = _currentSettings.TalkKeysUserName ?? "TalkKeys User";
-                var email = _currentSettings.TalkKeysUserEmail ?? "Free tier";
-
-                AccountName.Text = name;
-                AccountEmail.Text = email;
-                AccountInitial.Text = name.Length > 0 ? name[0].ToString().ToUpper() : "T";
-            }
-            else
-            {
-                // Not signed in
-                AccountName.Text = "TalkKeys Account";
-                AccountEmail.Text = "Click to sign in";
-                AccountInitial.Text = "T";
-            }
-        }
 
         #region Words List Management
 
@@ -1002,25 +694,18 @@ namespace TalkKeys
 
             try
             {
-                // Create analysis service based on auth mode
-                WordsAnalysisService analysisService;
-                if (_currentSettings.AuthMode == AuthMode.OwnApiKey && !string.IsNullOrEmpty(_currentSettings.GroqApiKey))
-                {
-                    analysisService = new WordsAnalysisService(_currentSettings.GroqApiKey, _logger);
-                }
-                else if (_currentSettings.AuthMode == AuthMode.TalkKeysAccount && !string.IsNullOrEmpty(_currentSettings.TalkKeysAccessToken))
-                {
-                    // Use TalkKeys API for free tier users
-                    var apiService = new TalkKeysApiService(_settingsService, _logger);
-                    analysisService = new WordsAnalysisService(apiService, _logger);
-                }
-                else
+                // Create analysis service using TalkKeys API
+                if (string.IsNullOrEmpty(_currentSettings.TalkKeysAccessToken))
                 {
                     // Not authenticated
-                    MessageBox.Show("Please sign in to use word analysis, or configure your own Groq API key.",
+                    MessageBox.Show("Please sign in to use word analysis.",
                         "Sign In Required", MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }
+
+                // Use TalkKeys API
+                var apiService = new TalkKeysApiService(_settingsService, _logger);
+                var analysisService = new WordsAnalysisService(apiService, _logger);
 
                 var result = await analysisService.AnalyzeAsync(history, _wordsList.ToList());
 

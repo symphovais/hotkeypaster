@@ -360,9 +360,7 @@
                                 CornerRadius="10"
                                 Padding="10"
                                 BorderBrush="#E5E7EB"
-                                BorderThickness="1"
-                                Cursor="Hand"
-                                MouseLeftButtonDown="AccountCard_Click">
+                                BorderThickness="1">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
@@ -765,32 +763,6 @@
 
                     <!-- General Tab Content -->
                     <StackPanel x:Name="GeneralTabContent" Visibility="Collapsed">
-                        <!-- API Key / Account Section -->
-                        <Border x:Name="ApiKeyCard" Style="{StaticResource SettingsCardStyle}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock x:Name="ApiKeyLabel"
-                                               Text="Groq API Key"
-                                               FontSize="14"
-                                               FontWeight="SemiBold"
-                                               Foreground="#111827"/>
-                                    <TextBlock x:Name="ApiKeyHint"
-                                               Text="Required for transcription"
-                                               FontSize="12"
-                                               Foreground="#6B7280"
-                                               Margin="0,2,0,0"/>
-                                </StackPanel>
-                                <Button Grid.Column="1"
-                                        Content="Change"
-                                        Style="{StaticResource SettingsRowButtonStyle}"
-                                        Click="ChangeApiKey_Click"
-                                        VerticalAlignment="Center"/>
-                            </Grid>
-                        </Border>
 
                         <!-- Startup Section -->
                         <Border Style="{StaticResource SettingsCardStyle}">

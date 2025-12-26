@@ -148,8 +148,7 @@ namespace TalkKeys.Tests
         {
             var original = new AppSettings
             {
-                AuthMode = AuthMode.OwnApiKey,
-                GroqApiKey = "test-key",
+                TalkKeysUserEmail = "test@example.com",
                 AudioDeviceIndex = 1,
                 FloatingWidgetX = 100.5,
                 FloatingWidgetY = 200.5
@@ -180,8 +179,7 @@ namespace TalkKeys.Tests
             var loaded = JsonSerializer.Deserialize<AppSettings>(json);
 
             Assert.NotNull(loaded);
-            Assert.Equal(original.AuthMode, loaded.AuthMode);
-            Assert.Equal(original.GroqApiKey, loaded.GroqApiKey);
+            Assert.Equal("test@example.com", loaded.TalkKeysUserEmail);
             Assert.Equal(original.AudioDeviceIndex, loaded.AudioDeviceIndex);
             Assert.Equal(original.FloatingWidgetX, loaded.FloatingWidgetX);
             Assert.Equal(original.FloatingWidgetY, loaded.FloatingWidgetY);

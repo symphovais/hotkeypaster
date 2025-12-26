@@ -12,6 +12,9 @@ namespace TalkKeys.Services.Pipeline
     /// </summary>
     public class Pipeline
     {
+        private const double ProgressMultiplier = 100.0;
+        private const int BaseRetryCount = 1;
+        
         private readonly List<IPipelineStage> _stages;
         private readonly ILogger? _logger;
 
@@ -54,7 +57,7 @@ namespace TalkKeys.Services.Pipeline
                     // Report progress
                     context.Progress?.Report(new ProgressEventArgs(
                         $"Stage {i + 1}/{_stages.Count}: {stage.Name}...",
-                        (int)((i / (double)_stages.Count) * 100)
+                        (int)((i / (double)_stages.Count) * ProgressMultiplier)
                     ));
 
                     _logger?.Log($"Pipeline '{Name}' executing stage {i + 1}/{_stages.Count}: {stage.Name}");
@@ -62,7 +65,7 @@ namespace TalkKeys.Services.Pipeline
                     // Execute the stage with retries
                     StageResult? result = null;
                     int attempts = 0;
-                    int maxAttempts = 1 + stage.RetryCount;
+                    int maxAttempts = BaseRetryCount + stage.RetryCount;
 
                     while (attempts < maxAttempts)
                     {
@@ -135,14 +138,12 @@ namespace TalkKeys.Services.Pipeline
 
                 // All stages succeeded
                 context.Metrics.EndTime = DateTime.UtcNow;
-                context.Progress?.Report(new ProgressEventArgs("Complete", 100));
+                context.Progress?.Report(new ProgressEventArgs("Complete", (int)ProgressMultiplier));
 
                 _logger?.Log($"Pipeline '{Name}' completed successfully in {context.Metrics.TotalDurationMs:F2}ms");
 
                 // Extract final result from context
-                var finalText = context.GetData<string>("CleanedText")
-                              ?? context.GetData<string>("RawTranscription")
-                              ?? string.Empty;
+                var finalText = ExtractFinalTextFromContext(context);
 
                 var wordCount = 0;
                 if (!string.IsNullOrWhiteSpace(finalText))
@@ -191,6 +192,29 @@ namespace TalkKeys.Services.Pipeline
                 Metrics = context.Metrics,
                 Context = context
             };
+        }
+
+        /// <summary>
+        /// Extracts the final text result from pipeline context with clear precedence rules.
+        /// </summary>
+        private static string ExtractFinalTextFromContext(PipelineContext context)
+        {
+            // Try cleaned text first (highest priority)
+            var cleanedText = context.GetData<string>("CleanedText");
+            if (!string.IsNullOrEmpty(cleanedText))
+            {
+                return cleanedText;
+            }
+
+            // Fall back to raw transcription
+            var rawTranscription = context.GetData<string>("RawTranscription");
+            if (!string.IsNullOrEmpty(rawTranscription))
+            {
+                return rawTranscription;
+            }
+
+            // Default to empty string
+            return string.Empty;
         }
     }
 }

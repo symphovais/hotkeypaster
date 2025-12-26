@@ -32,8 +32,10 @@ namespace TalkKeys.Tests
         {
             var settings = new AppSettings();
 
-            Assert.Equal(AuthMode.TalkKeysAccount, settings.AuthMode);
-            Assert.Null(settings.GroqApiKey);
+            Assert.Null(settings.TalkKeysAccessToken);
+            Assert.Null(settings.TalkKeysRefreshToken);
+            Assert.Null(settings.TalkKeysUserEmail);
+            Assert.Null(settings.TalkKeysUserName);
             Assert.Equal(0, settings.AudioDeviceIndex);
             Assert.True(settings.EnableTextCleaning);
             Assert.True(settings.FloatingWidgetVisible);
@@ -45,8 +47,10 @@ namespace TalkKeys.Tests
         {
             var original = new AppSettings
             {
-                AuthMode = AuthMode.OwnApiKey,
-                GroqApiKey = "test-api-key",
+                TalkKeysAccessToken = "test-access-token",
+                TalkKeysRefreshToken = "test-refresh-token",
+                TalkKeysUserEmail = "test@example.com",
+                TalkKeysUserName = "Test User",
                 AudioDeviceIndex = 2,
                 FloatingWidgetX = 100.5,
                 FloatingWidgetY = 200.5,
@@ -58,8 +62,10 @@ namespace TalkKeys.Tests
             var deserialized = JsonSerializer.Deserialize<AppSettings>(json);
 
             Assert.NotNull(deserialized);
-            Assert.Equal(original.AuthMode, deserialized.AuthMode);
-            Assert.Equal(original.GroqApiKey, deserialized.GroqApiKey);
+            Assert.Equal(original.TalkKeysAccessToken, deserialized.TalkKeysAccessToken);
+            Assert.Equal(original.TalkKeysRefreshToken, deserialized.TalkKeysRefreshToken);
+            Assert.Equal(original.TalkKeysUserEmail, deserialized.TalkKeysUserEmail);
+            Assert.Equal(original.TalkKeysUserName, deserialized.TalkKeysUserName);
             Assert.Equal(original.AudioDeviceIndex, deserialized.AudioDeviceIndex);
             Assert.Equal(original.FloatingWidgetX, deserialized.FloatingWidgetX);
             Assert.Equal(original.FloatingWidgetY, deserialized.FloatingWidgetY);
@@ -72,8 +78,9 @@ namespace TalkKeys.Tests
         {
             var original = new AppSettings
             {
-                AuthMode = AuthMode.OwnApiKey,
-                GroqApiKey = "test-key-123",
+                TalkKeysAccessToken = "test-access-token",
+                TalkKeysRefreshToken = "test-refresh-token",
+                TalkKeysUserEmail = "test@example.com",
                 AudioDeviceIndex = 1,
                 RecordingMode = RecordingMode.PushToTalk
             };
@@ -87,8 +94,9 @@ namespace TalkKeys.Tests
             var loaded = JsonSerializer.Deserialize<AppSettings>(loadedJson);
 
             Assert.NotNull(loaded);
-            Assert.Equal(original.AuthMode, loaded.AuthMode);
-            Assert.Equal(original.GroqApiKey, loaded.GroqApiKey);
+            Assert.Equal(original.TalkKeysAccessToken, loaded.TalkKeysAccessToken);
+            Assert.Equal(original.TalkKeysRefreshToken, loaded.TalkKeysRefreshToken);
+            Assert.Equal(original.TalkKeysUserEmail, loaded.TalkKeysUserEmail);
             Assert.Equal(original.AudioDeviceIndex, loaded.AudioDeviceIndex);
             Assert.Equal(original.RecordingMode, loaded.RecordingMode);
         }
@@ -109,27 +117,34 @@ namespace TalkKeys.Tests
         public void AppSettings_LoadingPartialJson_UsesDefaultsForMissing()
         {
             // JSON with only some properties
-            var partialJson = @"{ ""GroqApiKey"": ""partial-key"" }";
+            var partialJson = @"{ ""TalkKeysUserEmail"": ""partial@test.com"" }";
             File.WriteAllText(_testSettingsPath, partialJson);
 
             var json = File.ReadAllText(_testSettingsPath);
             var loaded = JsonSerializer.Deserialize<AppSettings>(json);
 
             Assert.NotNull(loaded);
-            Assert.Equal("partial-key", loaded.GroqApiKey);
+            Assert.Equal("partial@test.com", loaded.TalkKeysUserEmail);
             // Other properties should have defaults
             Assert.Equal(0, loaded.AudioDeviceIndex);
-            Assert.Equal(AuthMode.TalkKeysAccount, loaded.AuthMode);
+            Assert.True(loaded.EnableTextCleaning);
         }
 
         [Fact]
-        public void SettingsService_LoadSettings_ReturnsDefaultsWhenNoFile()
+        public void SettingsService_LoadSettings_ReturnsValidSettings()
         {
             var service = new SettingsService();
             var settings = service.LoadSettings();
 
             Assert.NotNull(settings);
-            Assert.Equal(AuthMode.TalkKeysAccount, settings.AuthMode);
+            // Settings should have initialized collections
+            Assert.NotNull(settings.Plugins);
+            Assert.NotNull(settings.WordsList);
+            Assert.NotNull(settings.TriggerPlugins);
+            // Should have valid audio device index (>= 0)
+            Assert.True(settings.AudioDeviceIndex >= 0);
+            // Should have valid remote control port
+            Assert.True(settings.RemoteControlPort > 0);
         }
 
         [Fact]
@@ -143,12 +158,6 @@ namespace TalkKeys.Tests
             Assert.EndsWith("settings.json", path);
         }
 
-        [Fact]
-        public void AuthMode_EnumValues_AreCorrect()
-        {
-            Assert.Equal(0, (int)AuthMode.TalkKeysAccount);
-            Assert.Equal(1, (int)AuthMode.OwnApiKey);
-        }
 
         [Fact]
         public void RecordingMode_EnumValues_AreCorrect()
@@ -185,7 +194,7 @@ namespace TalkKeys.Tests
             var original = new AppSettings
             {
                 LastSeenVersion = "1.0.8",
-                GroqApiKey = "test-key"
+                TalkKeysUserEmail = "test@example.com"
             };
 
             // Save
@@ -198,14 +207,14 @@ namespace TalkKeys.Tests
 
             Assert.NotNull(loaded);
             Assert.Equal("1.0.8", loaded.LastSeenVersion);
-            Assert.Equal("test-key", loaded.GroqApiKey);
+            Assert.Equal("test@example.com", loaded.TalkKeysUserEmail);
         }
 
         [Fact]
         public void AppSettings_LegacySettingsWithoutLastSeenVersion_LoadsAsNull()
         {
             // Simulate loading settings from before LastSeenVersion was added
-            var legacyJson = @"{ ""GroqApiKey"": ""legacy-key"", ""AudioDeviceIndex"": 1 }";
+            var legacyJson = @"{ ""TalkKeysUserEmail"": ""legacy@test.com"", ""AudioDeviceIndex"": 1 }";
             File.WriteAllText(_testSettingsPath, legacyJson);
 
             var json = File.ReadAllText(_testSettingsPath);
@@ -213,7 +222,7 @@ namespace TalkKeys.Tests
 
             Assert.NotNull(loaded);
             Assert.Null(loaded.LastSeenVersion); // Should be null for legacy settings
-            Assert.Equal("legacy-key", loaded.GroqApiKey);
+            Assert.Equal("legacy@test.com", loaded.TalkKeysUserEmail);
         }
 
         #region Plugin Configuration Tests
@@ -403,14 +412,12 @@ namespace TalkKeys.Tests
         {
             var settings = new AppSettings
             {
-                AuthMode = AuthMode.TalkKeysAccount,
                 TalkKeysAccessToken = "test-access-token",
                 TalkKeysRefreshToken = "test-refresh-token",
                 TalkKeysUserEmail = "test@example.com",
                 TalkKeysUserName = "Test User"
             };
 
-            Assert.Equal(AuthMode.TalkKeysAccount, settings.AuthMode);
             Assert.Equal("test-access-token", settings.TalkKeysAccessToken);
             Assert.Equal("test-refresh-token", settings.TalkKeysRefreshToken);
             Assert.Equal("test@example.com", settings.TalkKeysUserEmail);
@@ -422,7 +429,6 @@ namespace TalkKeys.Tests
         {
             var original = new AppSettings
             {
-                AuthMode = AuthMode.TalkKeysAccount,
                 TalkKeysAccessToken = "access-token-123",
                 TalkKeysRefreshToken = "refresh-token-456",
                 TalkKeysUserEmail = "user@talkkeys.com",
@@ -436,7 +442,6 @@ namespace TalkKeys.Tests
             var loaded = JsonSerializer.Deserialize<AppSettings>(loadedJson);
 
             Assert.NotNull(loaded);
-            Assert.Equal(AuthMode.TalkKeysAccount, loaded.AuthMode);
             Assert.Equal("access-token-123", loaded.TalkKeysAccessToken);
             Assert.Equal("refresh-token-456", loaded.TalkKeysRefreshToken);
             Assert.Equal("user@talkkeys.com", loaded.TalkKeysUserEmail);
@@ -465,27 +470,6 @@ namespace TalkKeys.Tests
             Assert.Null(settings.TalkKeysUserName);
         }
 
-        [Fact]
-        public void AppSettings_AuthMode_SwitchingModes_PreservesOtherSettings()
-        {
-            var settings = new AppSettings
-            {
-                AuthMode = AuthMode.TalkKeysAccount,
-                TalkKeysAccessToken = "token",
-                TalkKeysUserEmail = "email@test.com",
-                GroqApiKey = "groq-key",
-                AudioDeviceIndex = 2
-            };
-
-            // Switch to OwnApiKey mode
-            settings.AuthMode = AuthMode.OwnApiKey;
-
-            // TalkKeys credentials should still be there (not cleared automatically)
-            Assert.Equal(AuthMode.OwnApiKey, settings.AuthMode);
-            Assert.Equal("token", settings.TalkKeysAccessToken);
-            Assert.Equal("groq-key", settings.GroqApiKey);
-            Assert.Equal(2, settings.AudioDeviceIndex);
-        }
 
         #endregion
 
@@ -497,8 +481,6 @@ namespace TalkKeys.Tests
             var original = new AppSettings
             {
                 // Auth
-                AuthMode = AuthMode.TalkKeysAccount,
-                GroqApiKey = "groq-api-key",
                 TalkKeysAccessToken = "access-token",
                 TalkKeysRefreshToken = "refresh-token",
                 TalkKeysUserEmail = "user@example.com",
@@ -517,7 +499,11 @@ namespace TalkKeys.Tests
                 FloatingWidgetY = 250.5,
 
                 // Version
-                LastSeenVersion = "1.0.8"
+                LastSeenVersion = "1.0.8",
+
+                // Remote Control
+                RemoteControlEnabled = false,
+                RemoteControlPort = 38451
             };
 
             // Add plugin configuration
@@ -541,8 +527,6 @@ namespace TalkKeys.Tests
             Assert.NotNull(loaded);
 
             // Verify all properties
-            Assert.Equal(AuthMode.TalkKeysAccount, loaded.AuthMode);
-            Assert.Equal("groq-api-key", loaded.GroqApiKey);
             Assert.Equal("access-token", loaded.TalkKeysAccessToken);
             Assert.Equal("refresh-token", loaded.TalkKeysRefreshToken);
             Assert.Equal("user@example.com", loaded.TalkKeysUserEmail);
@@ -554,6 +538,8 @@ namespace TalkKeys.Tests
             Assert.Equal(150.5, loaded.FloatingWidgetX);
             Assert.Equal(250.5, loaded.FloatingWidgetY);
             Assert.Equal("1.0.8", loaded.LastSeenVersion);
+            Assert.False(loaded.RemoteControlEnabled);
+            Assert.Equal(38451, loaded.RemoteControlPort);
 
             // Verify plugin config
             Assert.True(loaded.Plugins.ContainsKey("explainer"));
