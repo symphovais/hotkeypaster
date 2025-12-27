@@ -50,10 +50,10 @@ export const apiDocsPage = `<!DOCTYPE html>
   </div>
   <div class="content">
     <h2>Overview</h2>
-    <p>TalkKeys v1.2.0 exposes a local HTTP API that allows external applications to control transcription. Perfect for hardware buttons (like Jabra headsets), AI assistants, or custom integrations.</p>
+    <p>TalkKeys exposes a local HTTP API that allows external applications to control transcription. Perfect for hardware buttons (like Jabra headsets), AI assistants, or custom integrations.</p>
 
     <div class="note">
-      <strong>Local Only:</strong> The API is only accessible from localhost for security. It runs automatically when TalkKeys starts.
+      <strong>Security:</strong> The API is only accessible from localhost. Cross-origin requests are restricted to localhost origins only. Rate limited to 30 requests per 10 seconds.
     </div>
 
     <h2>Endpoints</h2>
@@ -67,7 +67,7 @@ export const apiDocsPage = `<!DOCTYPE html>
       <h4>Response</h4>
       <pre><code>{
   "<span class="json-key">name</span>": <span class="json-string">"TalkKeys"</span>,
-  "<span class="json-key">version</span>": <span class="json-string">"1.2.0"</span>,
+  "<span class="json-key">version</span>": <span class="json-string">"x.x.x"</span>,
   "<span class="json-key">capabilities</span>": [...],
   "<span class="json-key">endpoints</span>": [...]
 }</code></pre>
@@ -206,6 +206,57 @@ export const apiDocsPage = `<!DOCTYPE html>
 }</code></pre>
     </div>
 
+    <h3 style="margin-top: 48px; color: #93C5FD;">Smart Actions</h3>
+
+    <div class="endpoint">
+      <div class="endpoint-header">
+        <span class="method method-post">POST</span>
+        <span class="path">/suggestactions</span>
+      </div>
+      <p class="endpoint-desc">Get context-aware action suggestions based on text and active window.</p>
+      <h4>Request Body</h4>
+      <pre><code>{
+  "<span class="json-key">text</span>": <span class="json-string">"Meeting tomorrow at 3pm"</span>,
+  "<span class="json-key">processName</span>": <span class="json-string">"OUTLOOK"</span>,
+  "<span class="json-key">windowTitle</span>": <span class="json-string">"RE: Project Update"</span>
+}</code></pre>
+      <h4>Response</h4>
+      <pre><code>{
+  "<span class="json-key">success</span>": <span class="json-bool">true</span>,
+  "<span class="json-key">data</span>": {
+    "<span class="json-key">contextType</span>": <span class="json-string">"email"</span>,
+    "<span class="json-key">confidence</span>": 0.9,
+    "<span class="json-key">actions</span>": [
+      { "<span class="json-key">id</span>": <span class="json-string">"reply"</span>, "<span class="json-key">label</span>": <span class="json-string">"Reply"</span>, "<span class="json-key">icon</span>": <span class="json-string">"message"</span> }
+    ]
+  }
+}</code></pre>
+    </div>
+
+    <div class="endpoint">
+      <div class="endpoint-header">
+        <span class="method method-post">POST</span>
+        <span class="path">/generatereply</span>
+      </div>
+      <p class="endpoint-desc">Generate an AI-powered reply to a message using voice instruction.</p>
+      <h4>Request Body</h4>
+      <pre><code>{
+  "<span class="json-key">originalText</span>": <span class="json-string">"Can you send me the report by Friday?"</span>,
+  "<span class="json-key">instruction</span>": <span class="json-string">"yes I'll have it done"</span>,
+  "<span class="json-key">contextType</span>": <span class="json-string">"email"</span>,
+  "<span class="json-key">processName</span>": <span class="json-string">"OUTLOOK"</span>,
+  "<span class="json-key">windowTitle</span>": <span class="json-string">"RE: Report"</span>
+}</code></pre>
+      <h4>Response</h4>
+      <pre><code>{
+  "<span class="json-key">success</span>": <span class="json-bool">true</span>,
+  "<span class="json-key">data</span>": {
+    "<span class="json-key">reply</span>": <span class="json-string">"Yes, I'll have the report ready for you by Friday."</span>,
+    "<span class="json-key">tone</span>": <span class="json-string">"professional"</span>
+  }
+}</code></pre>
+    </div>
+
     <h2>Quick Start Examples</h2>
 
     <h3>PowerShell</h3>
@@ -241,6 +292,7 @@ await fetch('http://localhost:38450/stoptranscription', { method: 'POST' });</co
       <tr><td>Already recording</td><td><code>{ "success": false, "message": "Already recording" }</code></td></tr>
       <tr><td>Not recording</td><td><code>{ "success": false, "message": "Not recording" }</code></td></tr>
       <tr><td>Not authenticated</td><td><code>{ "success": false, "message": "Not authenticated" }</code></td></tr>
+      <tr><td>Rate limit exceeded</td><td>429 Too Many Requests + <code>Retry-After: 10</code> header</td></tr>
       <tr><td>Invalid endpoint</td><td>404 Not Found</td></tr>
       <tr><td>Wrong HTTP method</td><td>405 Method Not Allowed</td></tr>
     </table>
