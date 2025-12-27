@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Text;
@@ -24,6 +25,12 @@ namespace TalkKeys.Services.RemoteControl
         private Task? _listenerTask;
         private bool _isRunning;
         private bool _disposed;
+
+        // Rate limiting: max requests per time window
+        private const int MaxRequestsPerWindow = 30;
+        private static readonly TimeSpan RateLimitWindow = TimeSpan.FromSeconds(10);
+        private readonly Queue<DateTime> _requestTimestamps = new();
+        private readonly object _rateLimitLock = new();
 
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
@@ -148,8 +155,20 @@ namespace TalkKeys.Services.RemoteControl
 
                 _logger.Log($"[RemoteControl] {method} {path}");
 
-                // Add CORS headers for local development
-                response.Headers.Add("Access-Control-Allow-Origin", "*");
+                // Security: Only allow CORS from localhost origins (not from arbitrary websites)
+                var origin = request.Headers["Origin"];
+                if (!string.IsNullOrEmpty(origin))
+                {
+                    // Only allow localhost origins (http://localhost:*, http://127.0.0.1:*)
+                    if (origin.StartsWith("http://localhost:", StringComparison.OrdinalIgnoreCase) ||
+                        origin.StartsWith("http://127.0.0.1:", StringComparison.OrdinalIgnoreCase) ||
+                        origin == "http://localhost" ||
+                        origin == "http://127.0.0.1")
+                    {
+                        response.Headers.Add("Access-Control-Allow-Origin", origin);
+                    }
+                    // For non-localhost origins, don't add CORS header (browser will block)
+                }
                 response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
                 response.Headers.Add("Access-Control-Allow-Headers", "Content-Type");
 
@@ -158,6 +177,15 @@ namespace TalkKeys.Services.RemoteControl
                 {
                     response.StatusCode = 204;
                     response.Close();
+                    return;
+                }
+
+                // Rate limiting check
+                if (!CheckRateLimit())
+                {
+                    _logger.Log("[RemoteControl] Rate limit exceeded");
+                    response.Headers.Add("Retry-After", "10");
+                    await SendJsonResponseAsync(response, new { success = false, message = "Rate limit exceeded. Try again later." }, 429);
                     return;
                 }
 
@@ -418,6 +446,34 @@ namespace TalkKeys.Services.RemoteControl
             catch
             {
                 return null;
+            }
+        }
+
+        /// <summary>
+        /// Checks if the request is within rate limits (sliding window algorithm)
+        /// </summary>
+        private bool CheckRateLimit()
+        {
+            lock (_rateLimitLock)
+            {
+                var now = DateTime.UtcNow;
+                var windowStart = now - RateLimitWindow;
+
+                // Remove timestamps outside the window
+                while (_requestTimestamps.Count > 0 && _requestTimestamps.Peek() < windowStart)
+                {
+                    _requestTimestamps.Dequeue();
+                }
+
+                // Check if we're over the limit
+                if (_requestTimestamps.Count >= MaxRequestsPerWindow)
+                {
+                    return false;
+                }
+
+                // Record this request
+                _requestTimestamps.Enqueue(now);
+                return true;
             }
         }
 

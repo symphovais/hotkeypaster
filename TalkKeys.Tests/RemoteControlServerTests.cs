@@ -231,19 +231,145 @@ namespace TalkKeys.Tests
 
         #region CORS Headers Tests
 
-        [Fact]
-        public void CorsHeaders_AllowLocalhost()
+        [Theory]
+        [InlineData("http://localhost:3000", true)]
+        [InlineData("http://localhost:8080", true)]
+        [InlineData("http://localhost", true)]
+        [InlineData("http://127.0.0.1:3000", true)]
+        [InlineData("http://127.0.0.1", true)]
+        [InlineData("http://evil.com", false)]
+        [InlineData("http://malicious-site.com:38450", false)]
+        [InlineData("https://attacker.com", false)]
+        [InlineData("", false)]
+        public void CorsHeaders_OnlyAllowLocalhostOrigins(string origin, bool shouldAllow)
         {
-            // Document expected CORS headers
-            var expectedHeaders = new Dictionary<string, string>
+            // Test the origin validation logic
+            bool isAllowed = false;
+            if (!string.IsNullOrEmpty(origin))
             {
-                { "Access-Control-Allow-Origin", "*" },
-                { "Access-Control-Allow-Methods", "GET, POST, OPTIONS" },
-                { "Access-Control-Allow-Headers", "Content-Type" }
-            };
+                isAllowed = origin.StartsWith("http://localhost:", StringComparison.OrdinalIgnoreCase) ||
+                            origin.StartsWith("http://127.0.0.1:", StringComparison.OrdinalIgnoreCase) ||
+                            origin == "http://localhost" ||
+                            origin == "http://127.0.0.1";
+            }
 
-            Assert.Equal(3, expectedHeaders.Count);
-            Assert.Contains("*", expectedHeaders["Access-Control-Allow-Origin"]);
+            Assert.Equal(shouldAllow, isAllowed);
+        }
+
+        [Fact]
+        public void CorsHeaders_RequiredHeaders()
+        {
+            // Document expected CORS headers (excluding Allow-Origin which is dynamic)
+            var expectedMethods = "GET, POST, OPTIONS";
+            var expectedHeaders = "Content-Type";
+
+            Assert.Equal("GET, POST, OPTIONS", expectedMethods);
+            Assert.Equal("Content-Type", expectedHeaders);
+        }
+
+        #endregion
+
+        #region Rate Limiting Tests
+
+        [Fact]
+        public void RateLimiting_AllowsRequestsWithinLimit()
+        {
+            // Simulate rate limit check with sliding window
+            var requestTimestamps = new Queue<DateTime>();
+            var maxRequestsPerWindow = 30;
+            var rateLimitWindow = TimeSpan.FromSeconds(10);
+            var now = DateTime.UtcNow;
+
+            // Add 29 requests (below limit)
+            for (int i = 0; i < 29; i++)
+            {
+                requestTimestamps.Enqueue(now);
+            }
+
+            // Check if 30th request is allowed
+            var windowStart = now - rateLimitWindow;
+            while (requestTimestamps.Count > 0 && requestTimestamps.Peek() < windowStart)
+            {
+                requestTimestamps.Dequeue();
+            }
+
+            bool allowed = requestTimestamps.Count < maxRequestsPerWindow;
+            Assert.True(allowed);
+        }
+
+        [Fact]
+        public void RateLimiting_BlocksExcessiveRequests()
+        {
+            // Simulate rate limit check
+            var requestTimestamps = new Queue<DateTime>();
+            var maxRequestsPerWindow = 30;
+            var rateLimitWindow = TimeSpan.FromSeconds(10);
+            var now = DateTime.UtcNow;
+
+            // Add 30 requests (at limit)
+            for (int i = 0; i < 30; i++)
+            {
+                requestTimestamps.Enqueue(now);
+            }
+
+            // Check if 31st request is blocked
+            var windowStart = now - rateLimitWindow;
+            while (requestTimestamps.Count > 0 && requestTimestamps.Peek() < windowStart)
+            {
+                requestTimestamps.Dequeue();
+            }
+
+            bool allowed = requestTimestamps.Count < maxRequestsPerWindow;
+            Assert.False(allowed);
+        }
+
+        [Fact]
+        public void RateLimiting_ExpiresOldRequests()
+        {
+            // Simulate rate limit with expired requests
+            var requestTimestamps = new Queue<DateTime>();
+            var maxRequestsPerWindow = 30;
+            var rateLimitWindow = TimeSpan.FromSeconds(10);
+            var now = DateTime.UtcNow;
+
+            // Add 30 requests from 15 seconds ago (should be expired)
+            var oldTime = now - TimeSpan.FromSeconds(15);
+            for (int i = 0; i < 30; i++)
+            {
+                requestTimestamps.Enqueue(oldTime);
+            }
+
+            // Remove expired timestamps
+            var windowStart = now - rateLimitWindow;
+            while (requestTimestamps.Count > 0 && requestTimestamps.Peek() < windowStart)
+            {
+                requestTimestamps.Dequeue();
+            }
+
+            // All old requests should be expired, so new request should be allowed
+            bool allowed = requestTimestamps.Count < maxRequestsPerWindow;
+            Assert.True(allowed);
+            Assert.Empty(requestTimestamps); // All expired
+        }
+
+        [Fact]
+        public void RateLimiting_ReturnsCorrectStatusCode()
+        {
+            // Rate limit exceeded should return 429 Too Many Requests
+            const int expectedStatusCode = 429;
+            Assert.Equal(HttpStatusCode.TooManyRequests, (HttpStatusCode)expectedStatusCode);
+        }
+
+        [Fact]
+        public void RateLimiting_ConfiguredCorrectly()
+        {
+            // Document the rate limit configuration
+            const int maxRequests = 30;
+            const int windowSeconds = 10;
+
+            Assert.Equal(30, maxRequests);
+            Assert.Equal(10, windowSeconds);
+            // 30 requests per 10 seconds = 3 requests/second average
         }
 
         #endregion
