@@ -32,7 +32,7 @@ export default {
 
     // Handle CORS preflight
     if (method === 'OPTIONS') {
-      return handleCors();
+      return handleCors(request);
     }
 
     try {

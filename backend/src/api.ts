@@ -5,12 +5,47 @@ import { getUsageStats, incrementUsage, getUserById } from './db';
 const GROQ_WHISPER_URL = 'https://api.groq.com/openai/v1/audio/transcriptions';
 const GROQ_CHAT_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
-// CORS headers for desktop app
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+// Allowed origins for CORS (desktop app and local development)
+const ALLOWED_ORIGINS = new Set([
+  'http://localhost',
+  'http://127.0.0.1',
+  'https://talkkeys.symphoneytek.dk',  // Landing page (if it makes API calls)
+]);
+
+// Check if origin is allowed (desktop apps have no origin)
+function isOriginAllowed(origin: string | null): boolean {
+  // No origin = desktop app or server-to-server (allowed)
+  if (!origin) return true;
+
+  // Exact match
+  if (ALLOWED_ORIGINS.has(origin)) return true;
+
+  // Localhost with any port
+  if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+    return true;
+  }
+
+  return false;
+}
+
+// Build CORS headers based on request origin
+function getCorsHeaders(origin: string | null): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+
+  // Only set Allow-Origin for allowed origins
+  if (origin && isOriginAllowed(origin)) {
+    headers['Access-Control-Allow-Origin'] = origin;
+  } else if (!origin) {
+    // Desktop app (no origin) - allow all since there's no browser security context
+    headers['Access-Control-Allow-Origin'] = '*';
+  }
+  // For disallowed origins, we don't set Allow-Origin (browser will block)
+
+  return headers;
+}
 
 // Sanitize user instructions to prevent prompt injection
 // Removes patterns that could manipulate the AI's behavior
@@ -45,8 +80,9 @@ function sanitizeInstruction(instruction: string): string {
   return sanitized.substring(0, 500);
 }
 
-export function handleCors(): Response {
-  return new Response(null, { headers: corsHeaders });
+export function handleCors(request: Request): Response {
+  const origin = request.headers.get('Origin');
+  return new Response(null, { headers: getCorsHeaders(origin) });
 }
 
 // Verify auth token and return user payload
@@ -60,20 +96,20 @@ export async function authenticate(request: Request, env: Env): Promise<JWTPaylo
   return verifyJWT(token, env.JWT_SECRET);
 }
 
-// JSON response helper
-function jsonResponse<T>(data: ApiResponse<T>, status = 200): Response {
+// JSON response helper (origin for CORS, defaults to * for backwards compat)
+function jsonResponse<T>(data: ApiResponse<T>, status = 200, origin: string | null = null): Response {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
       'Content-Type': 'application/json',
-      ...corsHeaders
+      ...getCorsHeaders(origin)
     }
   });
 }
 
 // Error response helper
-function errorResponse(message: string, status = 400): Response {
-  return jsonResponse({ success: false, error: message }, status);
+function errorResponse(message: string, status = 400, origin: string | null = null): Response {
+  return jsonResponse({ success: false, error: message }, status, origin);
 }
 
 // Get usage stats endpoint
@@ -146,12 +182,8 @@ export async function handleWhisperProxy(
     // TypeScript now knows file is a File
     const audioFile = file as File;
 
-    // Debug logging
-    console.log('Received file:', {
-      name: audioFile.name,
-      type: audioFile.type,
-      size: audioFile.size
-    });
+    // Log file size only (not name which could be sensitive)
+    console.log('Audio upload:', { size: audioFile.size, type: audioFile.type });
 
     // Estimate duration for usage tracking
     const estimatedDuration = estimateAudioDuration(audioFile.size);
@@ -224,7 +256,7 @@ export async function handleWhisperProxy(
     body.set(languagePartBytes, offset); offset += languagePartBytes.length;
     body.set(closingBytes, offset);
 
-    console.log('Sending to Groq with boundary:', boundary, 'body size:', body.length);
+    // Sending to Groq (log size only for debugging)
 
     // Proxy to Groq
     const groqResponse = await fetch(GROQ_WHISPER_URL, {
@@ -693,12 +725,12 @@ export async function handleExplainProxy(
       choices: Array<{ message: { content: string } }>;
     };
 
-    console.log('Groq explain response:', JSON.stringify(result).substring(0, 500));
+    // Response received (don't log content for privacy)
 
     const explanation = result.choices?.[0]?.message?.content?.trim();
 
     if (!explanation) {
-      console.error('No explanation in Groq response:', JSON.stringify(result));
+      console.error('No explanation in Groq response');
       // Try to extract any error message from the response
       const errorDetail = (result as any)?.error?.message || 'No explanation generated';
       return errorResponse(errorDetail, 500);
@@ -829,7 +861,7 @@ Output ONLY the JSON, nothing else.`;
       const parsed = JSON.parse(jsonContent);
       events = parsed.events || [];
     } catch (parseError) {
-      console.error('Failed to parse reminders:', content);
+      console.error('Failed to parse reminders response');
       events = [];
     }
 
@@ -959,7 +991,7 @@ IMPORTANT:
       // Limit to 10 suggestions
       suggestions = suggestions.slice(0, 10);
     } catch (parseError) {
-      console.error('Failed to parse suggestions:', content);
+      console.error('Failed to parse word suggestions response');
       suggestions = [];
     }
 
